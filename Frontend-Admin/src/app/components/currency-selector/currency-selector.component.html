@@ -1,0 +1,12 @@
+<div class="currency-selector">
+  <label for="currency">Pay in:</label>
+  <select 
+    id="currency" 
+    class="form-select"
+    [(ngModel)]="selectedCurrency"
+    (ngModelChange)="onCurrencyChange($event)">
+    <option *ngFor="let currency of currencies" [ngValue]="currency">
+      {{ currency.code }} - {{ currency.name }} ({{ currency.symbol }})
+    </option>
+  </select>
+</div>

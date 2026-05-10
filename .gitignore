@@ -1,0 +1,94 @@
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- IDE / editors ---
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.swp
+*.swo
+*~
+
+# --- .NET / C# ---
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+TestResults/
+*.ncrunch*
+_NCrunch_*
+*.DotSettings.user
+Generated\ Files/
+publish/
+
+# User secrets (keep `secrets.json` / local overrides out of git)
+**/appsettings.*.local.json
+**/appsettings.*.Local.json
+secrets.json
+
+# --- Node / npm / Angular ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+package-lock.json.bak
+yarn.lock.bak
+
+# Angular build & cache
+.angular/
+dist/
+tmp/
+out-tsc/
+*.ngsummary.json
+.eslintcache
+.sass-cache/
+connect.lock
+libpeerconnection.log
+testem.log
+/coverage
+typings/
+e2e/*.js
+e2e/*.map
+
+# Local-only Vite env (avoid ignoring legitimate *.local.ts filenames elsewhere if added)
+.env*.local
+
+# --- Environment (do not commit real secrets) ---
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.production.local
+
+# --- Media / uploads (if ever placed under the repo) ---
+# Backend often uses e.g. C:\events; uncomment if you store uploads in-repo:
+# uploads/
+# media/
+# wwwroot/media/
+
+# --- Misc ---
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+.cache/
+coverage/
+.nyc_output/
