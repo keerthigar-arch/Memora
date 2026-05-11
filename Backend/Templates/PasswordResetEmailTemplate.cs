@@ -4,11 +4,33 @@ namespace LifeEventsHub.Api.Templates;
 
 public static class PasswordResetEmailTemplate
 {
-    /// <summary>HTML email with inline styles for common clients; primary CTA is a Reset password button.</summary>
-    public static string Build(string recipientDisplayName, string resetUrl)
+    /// <summary>Admin portal reset email.</summary>
+    public static string Build(string recipientDisplayName, string resetUrl) =>
+        Build(recipientDisplayName, resetUrl, forCustomer: false);
+
+    /// <summary>HTML email with inline styles; set <paramref name="forCustomer"/> for customer site copy (no Admin header).</summary>
+    public static string Build(string recipientDisplayName, string resetUrl, bool forCustomer)
     {
         var name = string.IsNullOrWhiteSpace(recipientDisplayName) ? "there" : recipientDisplayName.Trim();
         var safeName = WebUtility.HtmlEncode(name);
+
+        var headerKicker = forCustomer
+            ? """<p style="margin:0 0 6px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.85);">Memora</p>"""
+            : """<p style="margin:0 0 6px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.85);">Admin</p>""";
+
+        var bodyIntro = forCustomer
+            ? """
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4b5563;">
+                We received a request to reset the password for your <strong style="color:#0d3d32;">Memora</strong> account.
+                Use the button below to choose a new password. This link is valid for <strong>30 minutes</strong>.
+              </p>
+              """
+            : """
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4b5563;">
+                We received a request to reset the password for your <strong style="color:#0d3d32;">Memora</strong> admin account.
+                Use the button below to choose a new password. This link is valid for <strong>30 minutes</strong>.
+              </p>
+              """;
 
         return $"""
 <!DOCTYPE html>
@@ -25,17 +47,14 @@ public static class PasswordResetEmailTemplate
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 28px rgba(13,61,50,0.12);border:1px solid #d8e3de;">
           <tr>
             <td style="background:linear-gradient(135deg,#0d3d32 0%,#1a5f4a 100%);padding:28px 32px;text-align:center;">
-              <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.85);">Admin</p>
+              {headerKicker}
               <h1 style="margin:0;font-size:26px;font-weight:600;color:#ffffff;font-family:Georgia,'Times New Roman',serif;">Memora</h1>
             </td>
           </tr>
           <tr>
             <td style="padding:32px 32px 8px;">
               <p style="margin:0 0 16px;font-size:16px;line-height:1.55;color:#1f2937;">Hi {safeName},</p>
-              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4b5563;">
-                We received a request to reset the password for your <strong style="color:#0d3d32;">Memora</strong> admin account.
-                Use the button below to choose a new password. This link is valid for <strong>30 minutes</strong>.
-              </p>
+              {bodyIntro}
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 28px;">
                 <tr>
                   <td align="center" bgcolor="#1a5f4a" style="border-radius:8px;">

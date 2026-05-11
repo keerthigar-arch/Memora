@@ -71,9 +71,12 @@ const REMEMBER_EMAIL_KEY = 'memora_customer_login_email';
             <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" />
             <span>Remember me</span>
           </label>
-          <a routerLink="/contact" class="forgot-link">Forgot password?</a>
+          <a routerLink="/forgot-password" class="forgot-link">Forgot password?</a>
         </div>
 
+        @if (passwordResetOk()) {
+          <div class="success-msg" role="status">Password updated. You can sign in with your new password.</div>
+        }
         @if (error()) {
           <div class="error-msg">{{ error() }}</div>
         }
@@ -199,6 +202,15 @@ const REMEMBER_EMAIL_KEY = 'memora_customer_login_email';
       text-decoration: underline;
       color: var(--primary-dark);
     }
+    .success-msg {
+      background: #ecfdf5;
+      color: #047857;
+      padding: 1rem;
+      border-radius: var(--radius);
+      margin-bottom: 1rem;
+      font-size: 0.92rem;
+      border: 1px solid #a7f3d0;
+    }
     .error-msg { background: #fef2f2; color: #c53030; padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; }
     .btn-test { width: 100%; margin-top: 0.75rem; }
     .auth-link { text-align: center; margin-top: 1.5rem; color: var(--text-muted); }
@@ -213,6 +225,7 @@ export class LoginComponent implements OnInit {
   showPassword = false;
   loading = signal(false);
   error = signal('');
+  passwordResetOk = signal(false);
   returnUrl = '/';
 
   constructor(
@@ -225,6 +238,10 @@ export class LoginComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const q = this.route.snapshot.queryParams;
+    if (q['passwordReset'] === '1') {
+      this.passwordResetOk.set(true);
+    }
     const saved = localStorage.getItem(REMEMBER_EMAIL_KEY);
     if (saved) {
       this.email = saved;

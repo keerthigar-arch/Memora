@@ -11,7 +11,8 @@ public record ChangePasswordDto(string CurrentPassword, string NewPassword);
 /// <summary>First-login only: user already proved password at login; JWT + MustChangePassword gate this call.</summary>
 public record FirstLoginNewPasswordDto(string NewPassword);
 
-public record ForgotPasswordRequestDto(string UserName);
+/// <param name="Portal">Optional: <c>customer</c> for customer site reset; omit or <c>admin</c> for admin.</param>
+public record ForgotPasswordRequestDto(string UserName, string? Portal = null);
 
 public record ResetPasswordValidateDto(bool Valid, bool Expired);
 

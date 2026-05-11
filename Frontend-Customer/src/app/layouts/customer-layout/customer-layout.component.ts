@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { FooterComponent } from '../../components/footer/footer.component';
 import { AuthModalComponent } from '../../components/auth-modal/auth-modal.component';
 import { EventStatsService } from '../../services/event-stats.service';
@@ -63,6 +64,7 @@ import { environment } from '../../../environments/environment';
           <a class="nav-link" routerLink="/pricing/obituary/srilanka" routerLinkActive="active">{{ 'nav.pricing' | t }}</a>
           <a class="nav-link" routerLink="/contact" routerLinkActive="active">{{ 'nav.contact' | t }}</a>
           @if (auth.isLoggedIn()) {
+            <a class="nav-link" routerLink="/profile" routerLinkActive="active">{{ 'nav.profile' | t }}</a>
             <button type="button" class="nav-btn nav-btn-ghost" (click)="auth.logout()">{{ 'nav.logout' | t }}</button>
           } @else {
             <button type="button" class="nav-link nav-link-muted nav-auth-btn" (click)="authUi.openLogin()">
@@ -74,7 +76,7 @@ import { environment } from '../../../environments/environment';
       </div>
     </header>
 
-    <section class="showcase">
+    <section class="showcase" [class.showcase--profile]="isProfileRoute()">
       <div class="container showcase-content">
         <div class="showcase-copy">
           <p class="showcase-kicker">{{ 'showcase.kicker' | t }}</p>
@@ -110,6 +112,7 @@ import { environment } from '../../../environments/environment';
       </div>
     </section>
 
+    @if (!isProfileRoute()) {
     <section class="country-summary-bar">
       <div class="container">
         @if (!stats.countryStatsLoaded()) {
@@ -139,6 +142,7 @@ import { environment } from '../../../environments/environment';
         }
       </div>
     </section>
+    }
 
     <main class="main">
       <router-outlet></router-outlet>
@@ -327,6 +331,25 @@ import { environment } from '../../../environments/environment';
       border-bottom: 1px solid rgba(13, 61, 50, 0.08);
       background: linear-gradient(135deg, #0d3d32 0%, #1b5f4b 60%, #2f7e66 100%);
       padding: 0.9rem 0;
+    }
+    /* Profile: keep slideshow grid but tighten copy so light hero below stays the focal band */
+    .showcase.showcase--profile {
+      padding: 0.65rem 0 0.75rem;
+    }
+    .showcase.showcase--profile .showcase-copy .showcase-kicker {
+      margin-bottom: 0.25rem;
+      font-size: 0.65rem;
+    }
+    .showcase.showcase--profile .showcase-copy h2 {
+      margin-bottom: 0.25rem;
+      font-size: clamp(1rem, 2vw, 1.28rem);
+    }
+    .showcase.showcase--profile .showcase-copy p {
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+    .showcase.showcase--profile .gallery-card {
+      width: 158px;
     }
     .showcase-content {
       display: grid;
@@ -574,10 +597,21 @@ import { environment } from '../../../environments/environment';
 export class CustomerLayoutComponent {
   readonly env = environment;
 
+  /** Country chips are feed-only; slideshow showcase stays visible on profile too. */
+  readonly isProfileRoute = signal(false);
+
   constructor(
     public stats: EventStatsService,
     public auth: AuthService,
     public authUi: AuthUiService,
-    public i18n: LanguageService
-  ) {}
+    public i18n: LanguageService,
+    private router: Router
+  ) {
+    const syncRoute = () => {
+      const path = this.router.url.split('?')[0].split('#')[0];
+      this.isProfileRoute.set(path === '/profile' || path.startsWith('/profile/'));
+    };
+    syncRoute();
+    this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe(syncRoute);
+  }
 }

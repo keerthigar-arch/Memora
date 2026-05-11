@@ -20,6 +20,7 @@ public class AuthController : ControllerBase
     private readonly IEmailService _email;
     private readonly IConfiguration _configuration;
     private readonly IHostEnvironment _env;
+    private readonly ILogger<AuthController> _log;
 
     public AuthController(
         AppDbContext db,
@@ -27,7 +28,8 @@ public class AuthController : ControllerBase
         FileStorageService fileStorage,
         IEmailService email,
         IConfiguration configuration,
-        IHostEnvironment env)
+        IHostEnvironment env,
+        ILogger<AuthController> log)
     {
         _db = db;
         _jwt = jwt;
@@ -35,6 +37,7 @@ public class AuthController : ControllerBase
         _email = email;
         _configuration = configuration;
         _env = env;
+        _log = log;
     }
 
     [HttpPost("register")]
@@ -109,7 +112,10 @@ public class AuthController : ControllerBase
         return Ok(ToProfile(user));
     }
 
-    /// <summary>Admin-only: request password reset email (30-minute token).</summary>
+    /// <summary>
+    /// Request password reset email (30-minute token).
+    /// Use <see cref="ForgotPasswordRequestDto.Portal"/> <c>customer</c> for customer accounts; omit or <c>admin</c> for admins.
+    /// </summary>
     [AllowAnonymous]
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto dto, CancellationToken cancellationToken)
@@ -122,7 +128,10 @@ public class AuthController : ControllerBase
             u.Email == key
             || (u.UserName != null && u.UserName.Trim().ToLower() == key), cancellationToken);
 
-        if (user == null || !IsAdminRole(user.Role))
+        var forCustomer = IsCustomerPortalForgot(dto.Portal);
+        if (user == null
+            || (forCustomer && !IsCustomerRole(user.Role))
+            || (!forCustomer && !IsAdminRole(user.Role)))
             return BadRequest(new { message = "Invalid User!" });
 
         var oldTokens = await _db.PasswordResetTokens
@@ -141,23 +150,41 @@ public class AuthController : ControllerBase
         _db.PasswordResetTokens.Add(entity);
         await _db.SaveChangesAsync(cancellationToken);
 
-        var baseUrl = (_configuration["AdminPortal:BaseUrl"] ?? "http://localhost:4201").TrimEnd('/');
+        var baseUrl = forCustomer
+            ? (_configuration["CustomerPortal:BaseUrl"] ?? "http://localhost:4200").TrimEnd('/')
+            : (_configuration["AdminPortal:BaseUrl"] ?? "http://localhost:4201").TrimEnd('/');
         var resetUrl = $"{baseUrl}/reset-password?token={Uri.EscapeDataString(rawToken)}";
-        var html = PasswordResetEmailTemplate.Build(user.DisplayName, resetUrl);
+        var html = PasswordResetEmailTemplate.Build(user.DisplayName, resetUrl, forCustomer);
+        var subject = forCustomer
+            ? "Reset your Memora password"
+            : "Reset your Memora admin password";
         try
         {
             await _email.SendHtmlEmailAsync(
                 user.Email,
-                "Reset your Memora admin password",
+                subject,
                 html,
                 cancellationToken);
         }
         catch (Exception ex)
         {
+            _log.LogError(ex, "Forgot-password email failed for user id {UserId} (customer={ForCustomer})", user.Id, forCustomer);
             return StatusCode(StatusCodes.Status500InternalServerError, new
             {
                 message = "Unable to send reset email right now. Please contact administrator.",
                 detail = ex.Message
+            });
+        }
+
+        var devSkip = _env.IsDevelopment() && _configuration.GetValue("Smtp:DevLogOnly", false);
+        if (devSkip)
+        {
+            return Ok(new
+            {
+                message =
+                    "Development mode: real email was not sent (Smtp:DevLogOnly). Use the reset link below.",
+                devEmailSkipped = true,
+                resetUrl
             });
         }
 
@@ -212,7 +239,7 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "This reset link has expired. Request a new one.", expired = true });
 
         var user = row.User;
-        if (!IsAdminRole(user.Role))
+        if (!CanUsePasswordResetToken(user.Role))
             return BadRequest(new { message = "Invalid or expired reset link.", expired = false });
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
@@ -242,6 +269,16 @@ public class AuthController : ControllerBase
 
     private static bool IsAdminRole(string? role) =>
         string.Equals(role?.Trim(), "Admin", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCustomerRole(string? role) =>
+        string.Equals(role?.Trim(), "Customer", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCustomerPortalForgot(string? portal) =>
+        string.Equals(portal?.Trim(), "customer", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Password reset tokens may complete for Admin or Customer accounts.</summary>
+    private static bool CanUsePasswordResetToken(string? role) =>
+        IsAdminRole(role) || IsCustomerRole(role);
 
     private static UserProfileDto ToProfile(User u) => new(
         u.Id, u.Email, u.DisplayName, u.Bio, u.ProfileImageUrl,

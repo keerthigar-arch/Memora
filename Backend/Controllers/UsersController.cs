@@ -11,7 +11,6 @@ namespace LifeEventsHub.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
 public class UsersController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -32,6 +31,7 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>Same data as <c>GET /api/admin/users/customers</c> (legacy path for admin tools).</summary>
+    [Authorize(Roles = "Admin")]
     [HttpGet("customers")]
     public async Task<ActionResult<PagedResult<CustomerAdminListDto>>> ListCustomers(
         [FromQuery] int page = 1,
@@ -43,6 +43,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpGet("me")]
     public async Task<ActionResult<UserProfileDto>> GetProfile()
     {
@@ -55,6 +56,7 @@ public class UsersController : ControllerBase
         return Ok(ToProfile(user));
     }
 
+    [Authorize]
     [HttpPut("me")]
     public async Task<ActionResult<UserProfileDto>> UpdateProfile([FromForm] string? displayName, [FromForm] string? bio, [FromForm] IFormFile? profileImage)
     {
@@ -81,6 +83,7 @@ public class UsersController : ControllerBase
         return Ok(ToProfile(user));
     }
 
+    [Authorize]
     [HttpPut("me/privacy")]
     public async Task<ActionResult<UserProfileDto>> UpdatePrivacy([FromBody] UpdatePrivacyDto dto)
     {
@@ -99,6 +102,7 @@ public class UsersController : ControllerBase
         return Ok(ToProfile(user));
     }
 
+    [Authorize]
     [HttpPut("me/change-password")]
     public async Task<ActionResult<UserProfileDto>> ChangePassword([FromBody] ChangePasswordDto dto)
     {

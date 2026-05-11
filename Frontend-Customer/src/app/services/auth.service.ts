@@ -1,5 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
 import { Observable } from 'rxjs';
@@ -26,6 +26,13 @@ export interface UserProfile {
 export interface AuthResponse {
   token: string;
   user: UserProfile;
+}
+
+/** Forgot-password API body when backend runs with Smtp:DevLogOnly (development only). */
+export interface ForgotPasswordResponse {
+  message: string;
+  devEmailSkipped?: boolean;
+  resetUrl?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -106,10 +113,33 @@ export class AuthService {
     );
   }
 
-  changePassword(currentPassword: string, newPassword: string): Observable<void> {
-    return this.http.put<void>(`${API}/users/me/change-password`, {
+  changePassword(currentPassword: string, newPassword: string): Observable<UserProfile> {
+    return this.http.put<UserProfile>(`${API}/users/me/change-password`, {
       currentPassword,
       newPassword
+    }).pipe(
+      tap((u) => {
+        this.user.set(u);
+        localStorage.setItem(USER_KEY, JSON.stringify(u));
+      })
+    );
+  }
+
+  forgotPassword(emailOrUsername: string): Observable<ForgotPasswordResponse> {
+    return this.http.post<ForgotPasswordResponse>(`${API}/auth/forgot-password`, {
+      userName: emailOrUsername,
+      portal: 'customer'
     });
+  }
+
+  validateResetPasswordToken(token: string): Observable<{ valid: boolean; expired: boolean }> {
+    const params = new HttpParams().set('token', token);
+    return this.http.get<{ valid: boolean; expired: boolean }>(`${API}/auth/reset-password/validate`, {
+      params
+    });
+  }
+
+  resetPasswordWithToken(token: string, newPassword: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${API}/auth/reset-password`, { token, newPassword });
   }
 }
