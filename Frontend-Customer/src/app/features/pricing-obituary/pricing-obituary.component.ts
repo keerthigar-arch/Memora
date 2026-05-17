@@ -90,6 +90,9 @@ import {
                     <option value="srilanka">Sri Lanka</option>
                     <option value="unitedkingdom">United Kingdom</option>
                     <option value="canada">Canada</option>
+                    <option value="unitedstates">United States</option>
+                    <option value ="australia">Australia</option>
+                    <option value="germany">Germany</option>
                   </select>
                 </div>
               </div>
