@@ -24,10 +24,30 @@ public class StripeService
 
     public bool IsConfigured => !string.IsNullOrEmpty(_secretKey);
 
-    public async Task<Session> CreateCheckoutSessionAsync(int draftId, decimal amountUsd, string label, string? customerEmail, CancellationToken ct = default)
+    public Task<Session> CreateCheckoutSessionAsync(int draftId, decimal amountUsd, string label, string? customerEmail, CancellationToken ct = default)
+        => CreateEventCheckoutSessionAsync(draftId, amountUsd, label, customerEmail, useCustomerPortal: false, ct);
+
+    public Task<Session> CreateCustomerEventCheckoutSessionAsync(int draftId, decimal amountUsd, string label, string? customerEmail, CancellationToken ct = default)
+        => CreateEventCheckoutSessionAsync(draftId, amountUsd, label, customerEmail, useCustomerPortal: true, ct);
+
+    private async Task<Session> CreateEventCheckoutSessionAsync(
+        int draftId,
+        decimal amountUsd,
+        string label,
+        string? customerEmail,
+        bool useCustomerPortal,
+        CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_secretKey))
             throw new InvalidOperationException("Stripe is not configured. Set Stripe:SecretKey in appsettings.");
+
+        var baseUrl = (useCustomerPortal ? _customerPortalBaseUrl : _frontendBaseUrl).TrimEnd('/');
+        var successPath = useCustomerPortal
+            ? "/my-events/payment-success?session_id={CHECKOUT_SESSION_ID}"
+            : "/create-event/success?session_id={CHECKOUT_SESSION_ID}";
+        var cancelPath = useCustomerPortal
+            ? $"/my-events/payment/{draftId}"
+            : $"/create-event/payment/{draftId}";
 
         var options = new SessionCreateOptions
         {
@@ -39,7 +59,7 @@ public class StripeService
                     PriceData = new SessionLineItemPriceDataOptions
                     {
                         Currency = "usd",
-                        UnitAmountDecimal = amountUsd * 100, // Stripe expects cents
+                        UnitAmountDecimal = amountUsd * 100,
                         ProductData = new SessionLineItemPriceDataProductDataOptions
                         {
                             Name = $"Event display - {label}",
@@ -50,8 +70,8 @@ public class StripeService
                 }
             },
             Mode = "payment",
-            SuccessUrl = $"{_frontendBaseUrl}/create-event/success?session_id={{CHECKOUT_SESSION_ID}}",
-            CancelUrl = $"{_frontendBaseUrl}/create-event/payment/{draftId}",
+            SuccessUrl = $"{baseUrl}{successPath}",
+            CancelUrl = $"{baseUrl}{cancelPath}",
             Metadata = new Dictionary<string, string> { { "draftId", draftId.ToString() } },
             ClientReferenceId = draftId.ToString()
         };

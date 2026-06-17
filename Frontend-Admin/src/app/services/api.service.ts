@@ -48,6 +48,51 @@ export interface AdminEventListDto extends EventListDto {
   isPublished: boolean;
   displayValidityEndDate?: string | null;
   paymentReceived?: boolean;
+  ownerRole?: 'Admin' | 'Customer';
+  ownerDisplayName?: string | null;
+}
+
+export interface EventManageStatsDto {
+  adminCount: number;
+  customerCount: number;
+}
+
+export interface CustomerDraftListDto {
+  id: number;
+  title: string;
+  eventType: string;
+  eventDate: string;
+  displayDays: number;
+  amountPaid: number;
+  awaitingOfflineApproval: boolean;
+  paymentMethod?: string | null;
+  createdAt: string;
+  mainImageUrl?: string | null;
+}
+
+export interface CustomerDraftDetailDto {
+  id: number;
+  title: string;
+  description: string;
+  eventType: string;
+  eventDate: string;
+  birthDate?: string | null;
+  deathDate?: string | null;
+  weddingDate?: string | null;
+  location?: string | null;
+  country?: string | null;
+  mainImageUrl?: string | null;
+  galleryUrlsJson?: string | null;
+  createdBy: string;
+  visibility: string;
+  displayDays: number;
+  amountPaid: number;
+  awaitingOfflineApproval: boolean;
+  paymentMethod?: string | null;
+  createdAt: string;
+  offlineSubmittedAt?: string | null;
+  ownerDisplayName?: string | null;
+  ownerEmail?: string | null;
 }
 
 export interface WishDto {
@@ -165,6 +210,27 @@ export class ApiService {
     return this.http.get<PagedResult<AdminEventListDto>>(`${API}/events/mine`, { params });
   }
 
+  /** Admin portal: all platform events with optional creator-role filter. */
+  getManageEvents(
+    page = 1,
+    pageSize = 12,
+    eventType?: string,
+    search?: string,
+    source?: 'admin' | 'customer'
+  ): Observable<PagedResult<AdminEventListDto>> {
+    let params = new HttpParams()
+      .set('page', String(clampPage(page)))
+      .set('pageSize', String(clampPublicPageSize(pageSize, 12)));
+    if (eventType) params = params.set('eventType', eventType);
+    if (search?.trim()) params = params.set('search', search.trim());
+    if (source) params = params.set('source', source);
+    return this.http.get<PagedResult<AdminEventListDto>>(`${API}/events/manage`, { params });
+  }
+
+  getManageEventStats(): Observable<EventManageStatsDto> {
+    return this.http.get<EventManageStatsDto>(`${API}/events/manage/stats`);
+  }
+
   /** Load event for edit (works when hidden from public feed). */
   getEventForAdmin(id: number): Observable<EventDetailDto> {
     return this.http.get<EventDetailDto>(`${API}/events/admin/${id}`);
@@ -188,6 +254,18 @@ export class ApiService {
 
   verifyStripeSession(sessionId: string): Observable<EventDetailDto> {
     return this.http.post<EventDetailDto>(`${API}/payments/verify-session`, { sessionId });
+  }
+
+  getPendingOfflineApprovals(): Observable<CustomerDraftListDto[]> {
+    return this.http.get<CustomerDraftListDto[]>(`${API}/payments/pending-offline`);
+  }
+
+  getOfflineDraftDetail(draftId: number): Observable<CustomerDraftDetailDto> {
+    return this.http.get<CustomerDraftDetailDto>(`${API}/payments/offline-draft/${draftId}`);
+  }
+
+  approveOfflineDraft(draftId: number): Observable<EventDetailDto> {
+    return this.http.post<EventDetailDto>(`${API}/payments/approve-offline/${draftId}`, {});
   }
 
   confirmPaymentMock(draftId: number): Observable<EventDetailDto> {

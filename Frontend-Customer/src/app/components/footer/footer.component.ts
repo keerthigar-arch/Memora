@@ -62,7 +62,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <h4 class="footer-heading">{{ 'footer.memora' | t }}</h4>
           <ul class="footer-links">
             <li><a routerLink="/" class="footer-link">{{ 'nav.feed' | t }}</a></li>
-            <li><a routerLink="/pricing/obituary/srilanka" class="footer-link">{{ 'nav.pricing' | t }}</a></li>
+            <li><a routerLink="/pricing" class="footer-link">{{ 'nav.pricing' | t }}</a></li>
             <li><a routerLink="/contact" class="footer-link">{{ 'nav.contact' | t }}</a></li>
             <li>
               <button type="button" class="footer-link footer-link-btn" (click)="authUi.openLogin()">{{ 'nav.login' | t }}</button>

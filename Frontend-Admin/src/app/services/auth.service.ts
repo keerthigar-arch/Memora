@@ -31,6 +31,13 @@ export interface AuthResponse {
   user: UserProfile;
 }
 
+/** Forgot-password API body when backend runs with Smtp:DevLogOnly (development only). */
+export interface ForgotPasswordResponse {
+  message: string;
+  devEmailSkipped?: boolean;
+  resetUrl?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private token = signal<string | null>(localStorage.getItem(TOKEN_KEY));
@@ -191,8 +198,11 @@ export class AuthService {
     });
   }
 
-  forgotPassword(userName: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${API}/auth/forgot-password`, { userName });
+  forgotPassword(userName: string): Observable<ForgotPasswordResponse> {
+    return this.http.post<ForgotPasswordResponse>(`${API}/auth/forgot-password`, {
+      userName,
+      portal: 'admin'
+    });
   }
 
   validateResetPasswordToken(token: string): Observable<{ valid: boolean; expired: boolean }> {

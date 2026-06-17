@@ -12,7 +12,7 @@ import { RouterLink } from '@angular/router';
           <h1>Checkout cancelled</h1>
           <p>You left Stripe Checkout before completing payment. No charge was made.</p>
           <div class="actions">
-            <a routerLink="/pricing/obituary/srilanka" class="btn-primary">Back to pricing</a>
+            <a routerLink="/pricing" class="btn-primary">Back to pricing</a>
             <a routerLink="/" class="btn-outline">Home</a>
           </div>
         </section>

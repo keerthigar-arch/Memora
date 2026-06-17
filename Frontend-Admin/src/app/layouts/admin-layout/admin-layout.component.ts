@@ -1,13 +1,15 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { FooterComponent } from '../../components/footer/footer.component';
+import { AdminNotificationsComponent } from '../../components/admin-notifications/admin-notifications.component';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-admin-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, FooterComponent],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, FooterComponent, AdminNotificationsComponent],
   template: `
     <div class="admin-app-shell">
       <div class="top-bar">
@@ -44,6 +46,7 @@ import { FooterComponent } from '../../components/footer/footer.component';
               >Create event</a
             >
             <a class="nav-link" routerLink="/profile" routerLinkActive="active">My account</a>
+            <app-admin-notifications />
             <button type="button" class="nav-btn nav-btn-ghost" (click)="auth.logout()">Logout</button>
           </nav>
         </div>
@@ -356,6 +359,13 @@ import { FooterComponent } from '../../components/footer/footer.component';
     `
   ]
 })
-export class AdminLayoutComponent {
-  constructor(public auth: AuthService) {}
+export class AdminLayoutComponent implements OnInit {
+  constructor(
+    public auth: AuthService,
+    private notifications: NotificationService
+  ) {}
+
+  ngOnInit() {
+    this.notifications.loadUnreadCount().subscribe({ error: () => {} });
+  }
 }

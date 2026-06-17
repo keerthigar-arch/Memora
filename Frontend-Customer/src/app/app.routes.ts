@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -20,9 +21,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/contact/contact.component').then((m) => m.ContactComponent)
       },
       {
-        path: 'pricing/obituary/srilanka',
+        path: 'pricing',
         loadComponent: () =>
           import('./features/pricing-obituary/pricing-obituary.component').then((m) => m.PricingObituaryComponent)
+      },
+      {
+        path: 'pricing/obituary/srilanka',
+        redirectTo: 'pricing',
+        pathMatch: 'full'
       },
       {
         path: 'pricing/order',
@@ -45,8 +51,8 @@ export const routes: Routes = [
       },
       {
         path: 'pricing/:category/:country',
-        loadComponent: () =>
-          import('./features/pricing-obituary/pricing-obituary.component').then((m) => m.PricingObituaryComponent)
+        redirectTo: 'pricing',
+        pathMatch: 'full'
       },
       {
         path: 'login',
@@ -55,6 +61,32 @@ export const routes: Routes = [
       {
         path: 'register',
         loadComponent: () => import('./features/register/register.component').then((m) => m.RegisterComponent)
+      },
+      {
+        path: 'my-events',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./features/my-events/my-events.component').then((m) => m.MyEventsComponent)
+      },
+      {
+        path: 'my-events/create',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./features/my-events/create-my-event.component').then((m) => m.CreateMyEventComponent)
+      },
+      {
+        path: 'my-events/payment/:draftId',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./features/my-events/my-event-payment.component').then((m) => m.MyEventPaymentComponent)
+      },
+      {
+        path: 'my-events/payment-success',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./features/my-events/my-event-payment-success.component').then(
+            (m) => m.MyEventPaymentSuccessComponent
+          )
       }
     ]
   },

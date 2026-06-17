@@ -70,6 +70,13 @@ export const routes: Routes = [
       {
         path: 'event/:id/edit',
         loadComponent: () => import('./features/edit-event/edit-event.component').then((m) => m.EditEventComponent)
+      },
+      {
+        path: 'pending-event/:draftId',
+        loadComponent: () =>
+          import('./features/pending-event-detail/pending-event-detail.component').then(
+            (m) => m.PendingEventDetailComponent
+          )
       }
     ]
   },

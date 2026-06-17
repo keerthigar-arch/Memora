@@ -7,7 +7,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 type ContactItem = {
   country: string;
   hotline: string;
-  email: string;
+  displayNumber: string;
   note: string;
 };
 
@@ -37,43 +37,25 @@ type ContactItem = {
       <div class="container contact-shell">
         <div class="contact-grid">
           <aside class="contact-aside">
-            <article class="lift-card hotline-card">
-              <div class="hotline-icon-wrap" aria-hidden="true">
-                <svg class="hotline-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-                </svg>
-              </div>
-              <p class="hotline-label">{{ 'contact.hotlineLabel' | t }}</p>
-              <a class="hotline-number" href="tel:+18001234567">+1 800-123-4567</a>
-              <p class="hotline-note">{{ 'contact.hotlineNote' | t }}</p>
-            </article>
+            <p class="phones-heading">{{ 'contact.phonesHeading' | t }}</p>
 
-            <div class="lift-card region-card">
-              <label class="region-label" for="country">{{ 'contact.regionLabel' | t }}</label>
-              <div class="select-wrap">
-                <select id="country" [(ngModel)]="selectedCountry" name="country" class="region-select">
-                  @for (item of contacts; track item.country) {
-                    <option [value]="item.country">{{ item.country }}</option>
-                  }
-                </select>
-              </div>
-            </div>
+            @for (item of contacts; track item.country) {
+              <a class="lift-card info-card" [href]="'tel:+' + telDigits(item.hotline)">
+                <span class="info-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                </span>
+                <div class="info-body">
+                  <span class="info-title">{{ item.country }}</span>
+                  <span class="info-main">{{ item.displayNumber }}</span>
+                  <span class="info-sub">{{ item.note }}</span>
+                </div>
+                <span class="info-chevron" aria-hidden="true">→</span>
+              </a>
+            }
 
-            <a class="lift-card info-card" [href]="'tel:+' + telDigits(selectedContact().hotline)">
-              <span class="info-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
-                </svg>
-              </span>
-              <div class="info-body">
-                <span class="info-title">{{ selectedContact().country }}</span>
-                <span class="info-main">+{{ selectedContact().hotline }}</span>
-                <span class="info-sub">{{ selectedContact().note }}</span>
-              </div>
-              <span class="info-chevron" aria-hidden="true">→</span>
-            </a>
-
-            <a class="lift-card info-card" [href]="'mailto:' + selectedContact().email">
+            <a class="lift-card info-card" [href]="'mailto:' + supportEmail">
               <span class="info-icon info-icon-mail" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -82,7 +64,7 @@ type ContactItem = {
               </span>
               <div class="info-body">
                 <span class="info-title">{{ 'contact.emailTitle' | t }}</span>
-                <span class="info-main info-email">{{ selectedContact().email }}</span>
+                <span class="info-main info-email">{{ supportEmail }}</span>
                 <span class="info-sub">{{ 'contact.emailSub' | t }}</span>
               </div>
               <span class="info-chevron" aria-hidden="true">→</span>
@@ -281,6 +263,14 @@ type ContactItem = {
       display: flex;
       flex-direction: column;
       gap: 1rem;
+    }
+    .phones-heading {
+      margin: 0 0 0.15rem;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: #46675f;
     }
 
     .hotline-card {
@@ -660,22 +650,22 @@ type ContactItem = {
   `]
 })
 export class ContactComponent {
+  readonly supportEmail = 'support@lifeeventshub.com';
+
   contacts: ContactItem[] = [
     {
       country: 'Sri Lanka',
-      hotline: '94 11 234 5678',
-      email: 'support@lifeeventshub.com',
-      note: 'Local rates may apply · Mon–Sun 9:00–18:00 IST'
+      hotline: '94112345678',
+      displayNumber: '+94 11 234 5678',
+      note: 'Sample line · Mon–Sun 9:00–18:00 (Colombo)'
     },
     {
       country: 'United Kingdom',
-      hotline: '44 20 3137 6284',
-      email: 'support@lifeeventshub.com',
-      note: 'UK office hours · Calls may be recorded for quality'
+      hotline: '442079460123',
+      displayNumber: '+44 20 7946 0123',
+      note: 'Sample line · Mon–Fri 9:00–17:00 (London)'
     }
   ];
-
-  selectedCountry = 'Sri Lanka';
   name = '';
   email = '';
   subject = '';
@@ -689,13 +679,9 @@ export class ContactComponent {
     private lang: LanguageService
   ) {}
 
-  selectedContact(): ContactItem {
-    return this.contacts.find((c) => c.country === this.selectedCountry) ?? this.contacts[0];
-  }
-
-  /** Strip spaces/plus for tel: href */
+  /** Digits only for tel: href */
   telDigits(hotline: string): string {
-    return hotline.replace(/\s+/g, '').replace(/^\+/, '');
+    return hotline.replace(/\D/g, '');
   }
 
   submit(form: NgForm): void {

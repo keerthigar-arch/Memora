@@ -20,6 +20,7 @@ public class PaymentsController : ControllerBase
     private readonly PricingService _pricing;
     private readonly StripeService _stripe;
     private readonly PricingOrderService _pricingOrders;
+    private readonly AdminNotificationService _notifications;
 
     public PaymentsController(
         AppDbContext db,
@@ -27,7 +28,8 @@ public class PaymentsController : ControllerBase
         JwtService jwt,
         PricingService pricing,
         StripeService stripe,
-        PricingOrderService pricingOrders)
+        PricingOrderService pricingOrders,
+        AdminNotificationService notifications)
     {
         _db = db;
         _fileStorage = fileStorage;
@@ -35,6 +37,7 @@ public class PaymentsController : ControllerBase
         _pricing = pricing;
         _stripe = stripe;
         _pricingOrders = pricingOrders;
+        _notifications = notifications;
     }
 
     [HttpGet("display-options")]
@@ -49,7 +52,7 @@ public class PaymentsController : ControllerBase
 
     /// <summary>Create Stripe Checkout Session. Returns URL to redirect user to Stripe.</summary>
     [HttpPost("create-checkout-session")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Customer")]
     public async Task<IActionResult> CreateCheckoutSession([FromBody] CreateCheckoutRequest request, CancellationToken ct)
     {
         if (request.DraftId <= 0)
@@ -79,7 +82,10 @@ public class PaymentsController : ControllerBase
 
         try
         {
-            var session = await _stripe.CreateCheckoutSessionAsync(draft.Id, option.Price, option.Label, customerEmail, ct);
+            var useCustomerPortal = User.IsInRole("Customer");
+            var session = useCustomerPortal
+                ? await _stripe.CreateCustomerEventCheckoutSessionAsync(draft.Id, option.Price, option.Label, customerEmail, ct)
+                : await _stripe.CreateCheckoutSessionAsync(draft.Id, option.Price, option.Label, customerEmail, ct);
             if (string.IsNullOrEmpty(session.Url))
                 return BadRequest(new { message = "Stripe did not return a checkout URL. Check your Stripe dashboard and API key." });
             return Ok(new { url = session.Url });
@@ -96,7 +102,7 @@ public class PaymentsController : ControllerBase
 
     /// <summary>Verify Stripe session and create event. Call after user returns from Stripe success redirect.</summary>
     [HttpPost("verify-session")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Customer")]
     public async Task<ActionResult<EventDetailDto>> VerifySession([FromBody] VerifySessionRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.SessionId))
@@ -152,6 +158,12 @@ public class PaymentsController : ControllerBase
         if (draft == null)
             return NotFound(new { message = "Draft not found or already used." });
 
+        var userId = _jwt.GetUserIdFromClaims(User);
+        if (draft.UserId.HasValue && draft.UserId != userId && !User.IsInRole("Admin"))
+            return Forbid();
+
+        draft.PaymentMethod = "Card";
+        draft.PaymentReceived = true;
         return await PublishDraftAsync(draft, ct);
     }
 
@@ -188,7 +200,9 @@ public class PaymentsController : ControllerBase
             Visibility = draft.Visibility,
             DisplayDays = draft.DisplayDays,
             DisplayValidityEndDate = validityEnd,
-            PaymentReceived = draft.PaymentReceived
+            PaymentReceived = true,
+            CurrencyCode = "USD",
+            AmountPaid = draft.AmountPaid
         };
 
         _db.Events.Add(ev);
@@ -236,6 +250,8 @@ public class PaymentsController : ControllerBase
             ? await _db.EventInvites.Where(i => i.EventId == ev.Id).Select(i => i.InvitedEmail).ToListAsync(ct)
             : new List<string>();
 
+        await _notifications.ClearNotificationsOnPublishAsync(draftId, ct);
+
         return Ok(new EventDetailDto(
             ev.Id,
             ev.Title,
@@ -261,7 +277,7 @@ public class PaymentsController : ControllerBase
 
     /// <summary>Mock payment confirmation. Use when Stripe is not configured (e.g. local dev).</summary>
     [HttpPost("confirm-mock")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Customer")]
     public async Task<ActionResult<EventDetailDto>> ConfirmMock([FromBody] ConfirmPaymentRequest request)
     {
         if (request.DraftId <= 0)
@@ -275,7 +291,132 @@ public class PaymentsController : ControllerBase
         if (draft.UserId.HasValue && draft.UserId != userId)
             return Forbid();
 
+        draft.PaymentMethod = "Card";
+        draft.PaymentReceived = true;
         return await PublishDraftAsync(draft, default);
+    }
+
+    /// <summary>Customer submits offline payment — draft awaits admin approval before feed publish.</summary>
+    [HttpPost("submit-offline")]
+    [Authorize(Roles = "Customer,Admin")]
+    public async Task<IActionResult> SubmitOfflinePayment([FromBody] ConfirmPaymentRequest request, CancellationToken ct)
+    {
+        if (request.DraftId <= 0)
+            return BadRequest(new { message = "Invalid draft ID." });
+
+        var draft = await _db.PendingEvents.FindAsync(new object[] { request.DraftId }, ct);
+        if (draft == null)
+            return NotFound(new { message = "Draft not found." });
+
+        var userId = _jwt.GetUserIdFromClaims(User);
+        if (draft.UserId.HasValue && draft.UserId != userId && !User.IsInRole("Admin"))
+            return Forbid();
+
+        if (draft.AwaitingOfflineApproval)
+            return Ok(new { message = "Already submitted for approval.", draftId = draft.Id });
+
+        draft.PaymentMethod = "Offline";
+        draft.AwaitingOfflineApproval = true;
+        draft.OfflineSubmittedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        await _notifications.NotifyCustomerOfflineSubmittedAsync(draft, ct);
+
+        return Ok(new { message = "Submitted for admin approval. You will see it on the feed after approval.", draftId = draft.Id });
+    }
+
+    /// <summary>Admin: offline payment drafts awaiting approval.</summary>
+    [HttpGet("pending-offline")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<IReadOnlyList<CustomerDraftListDto>>> GetPendingOfflineApprovals(CancellationToken ct)
+    {
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
+        var drafts = await _db.PendingEvents.AsNoTracking()
+            .Where(d => d.AwaitingOfflineApproval)
+            .OrderByDescending(d => d.OfflineSubmittedAt ?? d.CreatedAt)
+            .ToListAsync(ct);
+
+        var items = drafts.Select(d =>
+        {
+            var main = d.MainImagePath;
+            if (!string.IsNullOrEmpty(main) && main.StartsWith('/') && !main.StartsWith("//", StringComparison.Ordinal))
+                main = baseUrl + main;
+            return new CustomerDraftListDto(
+                d.Id,
+                d.Title,
+                d.EventType,
+                d.EventDate,
+                d.DisplayDays,
+                d.AmountPaid,
+                d.AwaitingOfflineApproval,
+                d.PaymentMethod,
+                d.CreatedAt,
+                main
+            );
+        }).ToList();
+
+        return Ok(items);
+    }
+
+    /// <summary>Admin: full detail for an offline-payment draft awaiting approval.</summary>
+    [HttpGet("offline-draft/{draftId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<CustomerDraftDetailDto>> GetOfflineDraftDetail(int draftId, CancellationToken ct)
+    {
+        var draft = await _db.PendingEvents.AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == draftId, ct);
+        if (draft == null)
+            return NotFound(new { message = "Draft not found or already published." });
+
+        var owner = draft.UserId.HasValue
+            ? await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == draft.UserId.Value, ct)
+            : null;
+
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
+        var main = draft.MainImagePath;
+        if (!string.IsNullOrEmpty(main) && main.StartsWith('/') && !main.StartsWith("//", StringComparison.Ordinal))
+            main = baseUrl + main;
+
+        return Ok(new CustomerDraftDetailDto(
+            draft.Id,
+            draft.Title,
+            draft.Description,
+            draft.EventType,
+            draft.EventDate,
+            draft.BirthDate,
+            draft.DeathDate,
+            draft.WeddingDate,
+            draft.Location,
+            draft.Country,
+            main,
+            draft.GalleryPathsJson,
+            draft.CreatedBy,
+            draft.Visibility,
+            draft.DisplayDays,
+            draft.AmountPaid,
+            draft.AwaitingOfflineApproval,
+            draft.PaymentMethod,
+            draft.CreatedAt,
+            draft.OfflineSubmittedAt,
+            owner?.DisplayName,
+            owner?.Email
+        ));
+    }
+
+    /// <summary>Admin approves offline payment and publishes event to the feed.</summary>
+    [HttpPost("approve-offline/{draftId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<EventDetailDto>> ApproveOfflineDraft(int draftId, CancellationToken ct)
+    {
+        var draft = await _db.PendingEvents.FindAsync(new object[] { draftId }, ct);
+        if (draft == null)
+            return NotFound(new { message = "Draft not found." });
+        if (!draft.AwaitingOfflineApproval)
+            return BadRequest(new { message = "This draft is not awaiting offline approval." });
+
+        draft.PaymentReceived = true;
+        draft.PaymentMethod = "Offline";
+        return await PublishDraftAsync(draft, ct);
     }
 }
 

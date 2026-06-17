@@ -60,9 +60,10 @@ import { environment } from '../../../environments/environment';
           <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">{{
             'nav.feed' | t
           }}</a>
-          <a class="nav-link" routerLink="/pricing/obituary/srilanka" routerLinkActive="active">{{ 'nav.pricing' | t }}</a>
+          <a class="nav-link" routerLink="/pricing" routerLinkActive="active">{{ 'nav.pricing' | t }}</a>
           <a class="nav-link" routerLink="/contact" routerLinkActive="active">{{ 'nav.contact' | t }}</a>
           @if (auth.isLoggedIn()) {
+            <a class="nav-link" routerLink="/my-events" routerLinkActive="active">{{ 'nav.myEvents' | t }}</a>
             <button type="button" class="nav-btn nav-btn-ghost" (click)="auth.logout()">{{ 'nav.logout' | t }}</button>
           } @else {
             <button type="button" class="nav-link nav-link-muted nav-auth-btn" (click)="authUi.openLogin()">

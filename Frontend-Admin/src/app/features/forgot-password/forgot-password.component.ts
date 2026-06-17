@@ -37,6 +37,17 @@ import { AuthService } from '../../services/auth.service';
           @if (successMessage()) {
             <div class="success-msg" role="status">{{ successMessage() }}</div>
           }
+          @if (devResetUrl()) {
+            <div class="dev-reset-banner" role="region" aria-label="Development reset link">
+              <p class="dev-reset-title">No real email in dev mode — open this link to reset your password:</p>
+              <a class="dev-reset-link" [href]="devResetUrl()!" target="_blank" rel="noopener noreferrer">{{
+                devResetUrl()
+              }}</a>
+              <p class="dev-reset-hint">
+                Turn off <code>Smtp:DevLogOnly</code> and configure Gmail when you want messages in your inbox.
+              </p>
+            </div>
+          }
           @if (error()) {
             <div class="error-msg">{{ error() }}</div>
           }
@@ -186,6 +197,38 @@ import { AuthService } from '../../services/auth.service';
       font-size: 0.9rem;
       border: 1px solid #a7f3d0;
     }
+    .dev-reset-banner {
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.88rem;
+      line-break: anywhere;
+    }
+    .dev-reset-title {
+      margin: 0 0 0.5rem;
+      font-weight: 600;
+      color: #1e3a5f;
+    }
+    .dev-reset-link {
+      display: block;
+      word-break: break-all;
+      color: #1d4ed8;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    .dev-reset-hint {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .dev-reset-hint code {
+      font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+    }
     .error-msg {
       background: #fef2f2;
       color: #c53030;
@@ -218,6 +261,8 @@ export class ForgotPasswordComponent implements OnInit {
   loading = signal(false);
   error = signal('');
   successMessage = signal('');
+  /** Set when API runs with Smtp:DevLogOnly — reset URL shown instead of inbox delivery. */
+  devResetUrl = signal<string | null>(null);
   expiredFlow = signal(false);
 
   constructor(
@@ -241,21 +286,28 @@ export class ForgotPasswordComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
     this.successMessage.set('');
+    this.devResetUrl.set(null);
     this.auth.forgotPassword(id).subscribe({
       next: (res) => {
         this.loading.set(false);
         this.successMessage.set(res.message ?? 'Password reset instructions have been sent to your email address.');
+        this.devResetUrl.set(res.devEmailSkipped && res.resetUrl ? res.resetUrl : null);
         this.userName = '';
       },
       error: (err) => {
         this.loading.set(false);
+        const body = typeof err.error === 'object' && err.error !== null ? err.error : {};
+        const detail =
+          typeof (body as { detail?: string }).detail === 'string'
+            ? ` ${(body as { detail: string }).detail}`
+            : '';
         const msg =
           err.status === 404
             ? 'Forgot-password API is not available. Restart Backend with the latest code and try again.'
             : typeof err.error === 'string'
               ? err.error
-              : (err.error?.message ?? err.message ?? 'Something went wrong. Try again.');
-        this.error.set(msg);
+              : ((body as { message?: string }).message ?? err.message ?? 'Something went wrong. Try again.');
+        this.error.set(msg + detail);
       }
     });
   }

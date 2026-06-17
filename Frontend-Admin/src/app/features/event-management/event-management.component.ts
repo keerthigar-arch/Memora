@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService, AdminEventListDto } from '../../services/api.service';
 import { EventStatsService } from '../../services/event-stats.service';
@@ -17,7 +17,7 @@ import { environment } from '../../../environments/environment';
           <p class="hero-kicker">Memora Admin</p>
           <h1>Event Management</h1>
           <p class="hero-sub">
-            Your events as they appear on the public site. Update, hide from the public, or delete.
+            Manage admin-created and customer-submitted events in separate views.
           </p>
         </div>
         <a routerLink="/create-event" class="hero-create">+ Create event</a>
@@ -25,11 +25,39 @@ import { environment } from '../../../environments/environment';
     </section>
 
     <section class="filters container">
+      <div class="source-switch" role="tablist" aria-label="Event source">
+        <button
+          type="button"
+          role="tab"
+          class="source-tab"
+          [class.active]="sourceTab() === 'admin'"
+          [attr.aria-selected]="sourceTab() === 'admin'"
+          (click)="setSourceTab('admin')"
+        >
+          <span class="source-tab-icon admin-icon" aria-hidden="true"></span>
+          <span class="source-tab-label">Admin events</span>
+          <span class="source-tab-count">{{ adminCount() }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="source-tab"
+          [class.active]="sourceTab() === 'customer'"
+          [attr.aria-selected]="sourceTab() === 'customer'"
+          (click)="setSourceTab('customer')"
+        >
+          <span class="source-tab-icon customer-icon" aria-hidden="true"></span>
+          <span class="source-tab-label">Customer events</span>
+          <span class="source-tab-count">{{ customerCount() }}</span>
+        </button>
+        <span class="source-switch-indicator" [class.customer]="sourceTab() === 'customer'"></span>
+      </div>
+
       <div class="search-row">
         <input
           type="text"
           class="search-input"
-          placeholder="Search your events..."
+          [placeholder]="sourceTab() === 'admin' ? 'Search admin events...' : 'Search customer events...'"
           [(ngModel)]="searchTerm"
           (keyup.enter)="onSearch()"
         />
@@ -57,14 +85,19 @@ import { environment } from '../../../environments/environment';
       } @else if (events().length === 0) {
         <div class="empty-state">
           <span class="empty-icon">✦</span>
-          <h3>No events yet</h3>
-          <p>Create your first event to see it here.</p>
-          <a routerLink="/create-event" class="btn btn-primary">Create event</a>
+          @if (sourceTab() === 'admin') {
+            <h3>No admin events yet</h3>
+            <p>Events you create from the admin portal appear here.</p>
+            <a routerLink="/create-event" class="btn btn-primary">Create event</a>
+          } @else {
+            <h3>No customer events yet</h3>
+            <p>Published events created by customers through My Events will appear here.</p>
+          }
         </div>
       } @else {
         <div class="event-grid">
           @for (ev of events(); track ev.id) {
-            <div class="event-card card">
+            <div class="event-card card" [class.customer-event]="ev.ownerRole === 'Customer'">
               @if (ev.isPublished) {
                 <a [href]="publicEventUrl(ev.id)" target="_blank" rel="noopener" class="card-image-link">
                   <div class="card-image" [style.background-image]="'url(' + (ev.mainImageUrl || placeholderImage) + ')'"></div>
@@ -74,6 +107,9 @@ import { environment } from '../../../environments/environment';
               }
               <div class="card-content">
                 <div class="badges-row">
+                  <span class="owner-badge" [class.admin]="ev.ownerRole !== 'Customer'" [class.customer]="ev.ownerRole === 'Customer'">
+                    {{ ev.ownerRole === 'Customer' ? 'Customer' : 'Admin' }}
+                  </span>
                   <span class="event-type-badge" [ngClass]="getEventTypeClass(ev.eventType)">{{ getEventTypeLabel(ev.eventType) }}</span>
                   @if (!ev.isPublished) {
                     <span class="status-badge hidden">Hidden</span>
@@ -88,6 +124,9 @@ import { environment } from '../../../environments/environment';
                 <p>{{ ev.description }}</p>
                 <div class="card-meta">
                   <span>{{ ev.eventDate | date: 'mediumDate' }}</span>
+                  @if (ev.ownerRole === 'Customer' && ev.ownerDisplayName) {
+                    <span>By {{ ev.ownerDisplayName }}</span>
+                  }
                   <span>Payment: {{ ev.paymentReceived ? 'Received' : 'Pending' }}</span>
                   <span>💝 {{ ev.wishCount }} wishes</span>
                 </div>
@@ -184,6 +223,98 @@ import { environment } from '../../../environments/environment';
       outline-offset: 3px;
     }
     .filters { padding: 0.85rem 1.5rem 0; }
+    .source-switch {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.35rem;
+      max-width: 32rem;
+      margin: 0 auto 1.25rem;
+      padding: 0.35rem;
+      border-radius: 999px;
+      background: #eef4f1;
+      border: 1px solid rgba(13, 61, 50, 0.1);
+      box-shadow: inset 0 1px 2px rgba(13, 61, 50, 0.06);
+    }
+    .source-switch-indicator {
+      position: absolute;
+      top: 0.35rem;
+      left: 0.35rem;
+      width: calc(50% - 0.35rem);
+      height: calc(100% - 0.7rem);
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0d3d32 0%, #1f6a53 100%);
+      box-shadow: 0 4px 12px rgba(13, 61, 50, 0.22);
+      transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .source-switch-indicator.customer {
+      transform: translateX(calc(100% + 0.35rem));
+      background: linear-gradient(135deg, #1e4a72 0%, #2563eb 100%);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+    .source-tab {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.65rem 0.85rem;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: #4b635c;
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: color 180ms ease;
+    }
+    .source-tab.active {
+      color: #fff;
+    }
+    .source-tab-icon {
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .source-tab-icon.admin-icon {
+      background: #0d3d32;
+      box-shadow: 0 0 0 2px rgba(13, 61, 50, 0.15);
+    }
+    .source-tab.active .source-tab-icon.admin-icon {
+      background: #fff;
+      box-shadow: none;
+    }
+    .source-tab-icon.customer-icon {
+      background: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+    .source-tab.active .source-tab-icon.customer-icon {
+      background: #fff;
+      box-shadow: none;
+    }
+    .source-tab-count {
+      min-width: 1.35rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: rgba(13, 61, 50, 0.1);
+      color: inherit;
+    }
+    .source-tab.active .source-tab-count {
+      background: rgba(255, 255, 255, 0.22);
+    }
+    .source-tab-label {
+      white-space: nowrap;
+    }
+    @media (max-width: 520px) {
+      .source-tab-label { font-size: 0.82rem; }
+    }
     .search-row { display: flex; gap: 0.75rem; margin-bottom: 1rem; justify-content: center; flex-wrap: wrap; }
     .search-input {
       flex: 1; min-width: 200px; max-width: 400px;
@@ -224,6 +355,25 @@ import { environment } from '../../../environments/environment';
     }
     .card-content { padding: 1.25rem; flex: 1; display: flex; flex-direction: column; }
     .badges-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; align-items: center; }
+    .owner-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+    }
+    .owner-badge.admin {
+      background: rgba(13, 61, 50, 0.12);
+      color: #0d3d32;
+    }
+    .owner-badge.customer {
+      background: rgba(37, 99, 235, 0.12);
+      color: #1d4ed8;
+    }
+    .event-card.customer-event {
+      border-left: 3px solid #2563eb;
+    }
     .event-type-badge {
       font-size: 0.7rem;
       font-weight: 700;
@@ -316,6 +466,9 @@ export class EventManagementComponent implements OnInit {
   searchTerm = '';
   pageSize = 12;
   busyId = signal<number | null>(null);
+  sourceTab = signal<'admin' | 'customer'>('admin');
+  adminCount = signal(0);
+  customerCount = signal(0);
 
   placeholderImage =
     'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&h=400&fit=crop';
@@ -328,10 +481,41 @@ export class EventManagementComponent implements OnInit {
 
   constructor(
     private api: ApiService,
-    private stats: EventStatsService
+    private stats: EventStatsService,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit() {
+    this.loadManageStats();
+    this.route.queryParamMap.subscribe((params) => {
+      const source = params.get('source');
+      if (source === 'admin' || source === 'customer') {
+        this.sourceTab.set(source);
+      }
+      this.page.set(1);
+      this.events.set([]);
+      this.loadEvents();
+    });
+  }
+
+  loadManageStats() {
+    this.api.getManageEventStats().subscribe({
+      next: (stats) => {
+        this.adminCount.set(stats.adminCount);
+        this.customerCount.set(stats.customerCount);
+      },
+      error: () => {
+        this.adminCount.set(0);
+        this.customerCount.set(0);
+      }
+    });
+  }
+
+  setSourceTab(tab: 'admin' | 'customer') {
+    if (this.sourceTab() === tab) return;
+    this.sourceTab.set(tab);
+    this.page.set(1);
+    this.events.set([]);
     this.loadEvents();
   }
 
@@ -388,7 +572,7 @@ export class EventManagementComponent implements OnInit {
     this.loading.set(true);
     const evType = this.filter() || undefined;
     const search = this.searchTerm?.trim() || undefined;
-    this.api.getMyEvents(this.page(), this.pageSize, evType, search).subscribe({
+    this.api.getManageEvents(this.page(), this.pageSize, evType, search, this.sourceTab()).subscribe({
       next: (res) => {
         const items = this.page() === 1 ? res.items : [...this.events(), ...res.items];
         this.events.set(items);
@@ -435,6 +619,7 @@ export class EventManagementComponent implements OnInit {
         this.events.update((list) => list.filter((e) => e.id !== ev.id));
         this.total.update((t) => Math.max(0, t - 1));
         this.busyId.set(null);
+        this.loadManageStats();
         this.stats.loadFromApi();
       },
       error: () => {

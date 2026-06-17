@@ -118,7 +118,7 @@ const REMEMBER_EMAIL_KEY = 'memora_customer_login_email';
               <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" />
               <span>Remember me</span>
             </label>
-            <a routerLink="/contact" class="auth-forgot" (click)="close()">Forgot password?</a>
+            <a routerLink="/forgot-password" class="auth-forgot" (click)="close()">Forgot password?</a>
           </div>
           @if (loginError()) {
             <div class="auth-error">{{ loginError() }}</div>

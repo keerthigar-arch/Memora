@@ -109,19 +109,30 @@ public class EventsController : ControllerBase
 
     /// <summary>All events created by the logged-in organizer (including hidden / not yet public).</summary>
     [HttpGet("mine")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Customer")]
     public async Task<ActionResult<PagedResult<AdminEventListDto>>> GetMyEvents(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 12,
         [FromQuery] string? eventType = null,
-        [FromQuery] string? search = null)
+        [FromQuery] string? search = null,
+        [FromQuery] string? fromDate = null,
+        [FromQuery] string? toDate = null,
+        [FromQuery] string? country = null)
     {
         (page, pageSize) = Paging.Normalize(page, pageSize, defaultPageSize: 12, maxPageSize: Paging.MaxPageSize);
 
         var userId = _jwt.GetUserIdFromClaims(User);
         if (userId == null) return Unauthorized();
 
+        var ownerRole = User.IsInRole("Admin") ? "Admin" : "Customer";
+
         var query = _db.Events.AsNoTracking().Where(e => e.UserId == userId.Value);
+
+        if (!string.IsNullOrWhiteSpace(country))
+        {
+            var c = country.Trim().ToLowerInvariant();
+            query = query.Where(e => e.Country != null && e.Country.Trim().ToLower() == c);
+        }
 
         if (!string.IsNullOrEmpty(eventType))
         {
@@ -140,6 +151,11 @@ public class EventsController : ControllerBase
                 (e.Location != null && e.Location.ToLower().Contains(term)) ||
                 (e.Country != null && e.Country.ToLower().Contains(term)));
         }
+
+        if (DateTime.TryParse(fromDate, out var fromDt))
+            query = query.Where(e => e.EventDate.Date >= fromDt.Date);
+        if (DateTime.TryParse(toDate, out var toDt))
+            query = query.Where(e => e.EventDate.Date <= toDt.Date);
 
         var total = await query.CountAsync();
         var items = await query
@@ -164,11 +180,202 @@ public class EventsController : ControllerBase
                 e.Visibility,
                 e.IsPublished,
                 e.DisplayValidityEndDate,
-                e.PaymentReceived
+                e.PaymentReceived,
+                ownerRole,
+                null
             ))
             .ToListAsync();
 
         return Ok(new PagedResult<AdminEventListDto>(items, total, page, pageSize));
+    }
+
+    /// <summary>Recent wishes on the logged-in customer's own events (My Events sidebar).</summary>
+    [HttpGet("my-recent-wishes")]
+    [Authorize(Roles = "Customer,Admin")]
+    public async Task<ActionResult<List<RecentWishSidebarDto>>> GetMyRecentWishes([FromQuery] int take = 10)
+    {
+        take = Math.Clamp(take, 1, 25);
+        var userId = _jwt.GetUserIdFromClaims(User);
+        if (userId == null) return Unauthorized();
+
+        var wishesData = await _db.Wishes
+            .AsNoTracking()
+            .Join(
+                _db.Events.AsNoTracking(),
+                w => w.EventId,
+                ev => ev.Id,
+                (w, ev) => new { w, ev })
+            .Where(x => x.ev.UserId == userId.Value)
+            .OrderByDescending(x => x.w.CreatedAt)
+            .Take(take)
+            .Select(x => new
+            {
+                x.w.Id,
+                x.w.SenderName,
+                x.w.Message,
+                x.w.CreatedAt,
+                x.w.EventId,
+                EventTitle = x.ev.Title,
+                EventMainImage = x.ev.MainImageUrl
+            })
+            .ToListAsync();
+
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
+        static string Preview(string msg, int max)
+        {
+            if (string.IsNullOrEmpty(msg)) return "";
+            var t = msg.Trim();
+            return t.Length <= max ? t : t[..max].TrimEnd() + "…";
+        }
+
+        string? Img(string? u) =>
+            u != null && u.StartsWith('/') && !u.StartsWith("//", StringComparison.Ordinal)
+                ? baseUrl + u
+                : u;
+
+        var result = wishesData.Select(w => new RecentWishSidebarDto(
+            w.Id,
+            w.SenderName,
+            Preview(w.Message, 100),
+            w.CreatedAt,
+            w.EventId,
+            w.EventTitle,
+            Img(w.EventMainImage)
+        )).ToList();
+
+        return Ok(result);
+    }
+
+    /// <summary>Admin portal: counts of events by creator role.</summary>
+    [HttpGet("manage/stats")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<EventManageStatsDto>> GetManageEventStats()
+    {
+        var rows = await _db.Events.AsNoTracking()
+            .GroupJoin(
+                _db.Users.AsNoTracking(),
+                e => e.UserId,
+                u => u.Id,
+                (e, users) => new { e, u = users.FirstOrDefault() })
+            .Select(x => x.u != null && x.u.Role == "Admin" ? "Admin" : "Customer")
+            .GroupBy(role => role)
+            .Select(g => new { Role = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var adminCount = rows.FirstOrDefault(x => x.Role == "Admin")?.Count ?? 0;
+        var customerCount = rows.FirstOrDefault(x => x.Role == "Customer")?.Count ?? 0;
+        return Ok(new EventManageStatsDto(adminCount, customerCount));
+    }
+
+    /// <summary>Admin portal: all platform events, optionally filtered by creator role.</summary>
+    [HttpGet("manage")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<PagedResult<AdminEventListDto>>> GetManageEvents(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 12,
+        [FromQuery] string? eventType = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? source = null)
+    {
+        (page, pageSize) = Paging.Normalize(page, pageSize, defaultPageSize: 12, maxPageSize: Paging.MaxPageSize);
+
+        var query = _db.Events.AsNoTracking()
+            .GroupJoin(
+                _db.Users.AsNoTracking(),
+                e => e.UserId,
+                u => u.Id,
+                (e, users) => new { Event = e, User = users.FirstOrDefault() });
+
+        if (string.Equals(source, "admin", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(x => x.User == null || x.User.Role == "Admin");
+        else if (string.Equals(source, "customer", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(x => x.User != null && x.User.Role == "Customer");
+
+        if (!string.IsNullOrEmpty(eventType))
+        {
+            var types = eventType == "Obituary"
+                ? new[] { "Obituary", "Funeral" }
+                : new[] { eventType };
+            query = query.Where(x => types.Contains(x.Event.EventType));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(x =>
+                x.Event.Title.ToLower().Contains(term) ||
+                x.Event.Description.ToLower().Contains(term) ||
+                (x.Event.Location != null && x.Event.Location.ToLower().Contains(term)) ||
+                (x.Event.Country != null && x.Event.Country.ToLower().Contains(term)) ||
+                (x.User != null && x.User.DisplayName.ToLower().Contains(term)));
+        }
+
+        var total = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(x => x.Event.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new AdminEventListDto(
+                x.Event.Id,
+                x.Event.Title,
+                x.Event.Description.Length > 200 ? x.Event.Description.Substring(0, 200) + "..." : x.Event.Description,
+                x.Event.EventType,
+                x.Event.EventDate,
+                x.Event.BirthDate,
+                x.Event.DeathDate,
+                x.Event.WeddingDate,
+                x.Event.Location,
+                x.Event.Country,
+                x.Event.MainImageUrl,
+                x.Event.CreatedBy,
+                x.Event.CreatedAt,
+                x.Event.Wishes.Count,
+                x.Event.Visibility,
+                x.Event.IsPublished,
+                x.Event.DisplayValidityEndDate,
+                x.Event.PaymentReceived,
+                x.User != null && x.User.Role == "Admin" ? "Admin" : "Customer",
+                x.User != null ? x.User.DisplayName : null
+            ))
+            .ToListAsync();
+
+        return Ok(new PagedResult<AdminEventListDto>(items, total, page, pageSize));
+    }
+
+    /// <summary>Pending payment drafts for the logged-in customer (not yet published).</summary>
+    [HttpGet("my-drafts")]
+    [Authorize(Roles = "Customer,Admin")]
+    public async Task<ActionResult<IReadOnlyList<CustomerDraftListDto>>> GetMyDrafts()
+    {
+        var userId = _jwt.GetUserIdFromClaims(User);
+        if (userId == null) return Unauthorized();
+
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
+        var drafts = await _db.PendingEvents.AsNoTracking()
+            .Where(d => d.UserId == userId.Value)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
+
+        var items = drafts.Select(d =>
+        {
+            var main = d.MainImagePath;
+            if (!string.IsNullOrEmpty(main) && main.StartsWith('/') && !main.StartsWith("//", StringComparison.Ordinal))
+                main = baseUrl + main;
+            return new CustomerDraftListDto(
+                d.Id,
+                d.Title,
+                d.EventType,
+                d.EventDate,
+                d.DisplayDays,
+                d.AmountPaid,
+                d.AwaitingOfflineApproval,
+                d.PaymentMethod,
+                d.CreatedAt,
+                main
+            );
+        }).ToList();
+
+        return Ok(items);
     }
 
     /// <summary>Load event for editing (owner admin) even if unpublished or expired on the public feed.</summary>
@@ -186,7 +393,6 @@ public class EventsController : ControllerBase
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (ev == null) return NotFound();
-        if (!ev.UserId.HasValue || ev.UserId != userId) return Forbid();
 
         var baseUrl = _fileStorage.GetBaseUrl(Request);
         var mainImage = ev.MainImageUrl != null && ev.MainImageUrl.StartsWith('/') && !ev.MainImageUrl.StartsWith("//", StringComparison.Ordinal)
@@ -229,7 +435,6 @@ public class EventsController : ControllerBase
 
         var ev = await _db.Events.FindAsync(id);
         if (ev == null) return NotFound();
-        if (!ev.UserId.HasValue || ev.UserId != userId) return Forbid();
 
         ev.IsPublished = dto.Published;
         await _db.SaveChangesAsync();
@@ -363,12 +568,12 @@ public class EventsController : ControllerBase
 
     /// <summary>Save event as draft before payment. Returns draftId for payment flow.</summary>
     [HttpPost("save-draft")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Customer")]
     public async Task<ActionResult<SaveDraftResultDto>> SaveDraft([FromForm] CreateEventFormDto dto)
     {
         var option = _pricing.GetOption(dto.DisplayDays);
         if (option == null)
-            return BadRequest(new { message = "Invalid display duration. Choose 1, 3, 7, 14, 30, or 90 days." });
+            return BadRequest(new { message = "Invalid display duration. Choose 1 month (30 days), 3 months (90 days), 6 months (180 days), or 12 months (365 days)." });
 
         var userId = _jwt.GetUserIdFromClaims(User);
         var user = userId.HasValue ? await _db.Users.FindAsync(userId.Value) : null;
@@ -435,7 +640,7 @@ public class EventsController : ControllerBase
     {
         var option = _pricing.GetOption(dto.DisplayDays);
         if (option == null)
-            return BadRequest(new { message = "Invalid display duration. Choose 1, 3, 7, 14, 30, or 90 days." });
+            return BadRequest(new { message = "Invalid display duration. Choose 1 month (30 days), 3 months (90 days), 6 months (180 days), or 12 months (365 days)." });
 
         var userId = _jwt.GetUserIdFromClaims(User);
         var user = userId.HasValue ? await _db.Users.FindAsync(new object[] { userId.Value }, cancellationToken) : null;
@@ -545,14 +750,14 @@ public class EventsController : ControllerBase
             return NotFound();
 
         var userId = _jwt.GetUserIdFromClaims(User);
-        if (!ev.UserId.HasValue || ev.UserId != userId)
-            return Forbid();
+        if (userId == null) return Unauthorized();
 
+        var storageUserId = ev.UserId ?? userId.Value;
         var baseUrl = _fileStorage.GetBaseUrl(Request);
         string? mainImageUrl = ev.MainImageUrl;
         if (dto.MainImage != null)
         {
-            var url = await _fileStorage.SaveFileAsync(dto.MainImage, userId.Value, id);
+            var url = await _fileStorage.SaveFileAsync(dto.MainImage, storageUserId, id);
             if (url != null)
                 mainImageUrl = baseUrl + url;
         }
@@ -563,7 +768,7 @@ public class EventsController : ControllerBase
             var list = new List<string>();
             foreach (var img in dto.GalleryImages)
             {
-                var url = await _fileStorage.SaveFileAsync(img, userId.Value, id);
+                var url = await _fileStorage.SaveFileAsync(img, storageUserId, id);
                 if (url != null)
                     list.Add(baseUrl + url);
             }
@@ -649,10 +854,6 @@ public class EventsController : ControllerBase
         if (ev == null)
             return NotFound();
 
-        var userId = _jwt.GetUserIdFromClaims(User);
-        if (!ev.UserId.HasValue || ev.UserId != userId)
-            return Forbid();
-
         _db.Events.Remove(ev);
         await _db.SaveChangesAsync();
         return NoContent();
@@ -665,7 +866,7 @@ public class CreateEventFormDto
     public string Description { get; set; } = "";
     public string EventType { get; set; } = "";
     public DateTime EventDate { get; set; }
-    public int DisplayDays { get; set; } = 30; // 7, 30, or 90 - required for save-draft
+    public int DisplayDays { get; set; } = 30; // 30, 90, 180, or 365 — required for save-draft
     public string? Location { get; set; }
     public string? Country { get; set; }
     public DateTime? BirthDate { get; set; }

@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<ContactSubmission> ContactSubmissions => Set<ContactSubmission>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<PricingOrder> PricingOrders => Set<PricingOrder>();
+    public DbSet<AdminNotification> AdminNotifications => Set<AdminNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -76,6 +77,14 @@ public class AppDbContext : DbContext
         {
             p.HasIndex(x => x.ReferenceCode).IsUnique();
             p.HasIndex(x => x.CreatedAt);
+        });
+
+        modelBuilder.Entity<AdminNotification>(n =>
+        {
+            n.HasIndex(x => x.CreatedAt);
+            n.HasIndex(x => x.EventId);
+            n.HasIndex(x => x.PendingEventId);
+            n.HasIndex(x => x.IsRead);
         });
     }
 }

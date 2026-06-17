@@ -34,7 +34,7 @@ const RETURN_STORAGE_KEY = 'memora_pricing_return';
         @if (!paramsOk()) {
           <div class="lift-card err-card" role="alert">
             <p>This order link is incomplete. Please choose a package from the pricing page.</p>
-            <a routerLink="/pricing/obituary/srilanka" class="btn-primary">Go to pricing</a>
+            <a routerLink="/pricing" class="btn-primary">Go to pricing</a>
           </div>
         } @else if (loading()) {
           <div class="lift-card loading-card" aria-busy="true">

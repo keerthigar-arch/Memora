@@ -37,8 +37,12 @@ public record AdminEventListDto(
     string Visibility,
     bool IsPublished,
     DateTime? DisplayValidityEndDate,
-    bool PaymentReceived
+    bool PaymentReceived,
+    string OwnerRole = "Customer",
+    string? OwnerDisplayName = null
 );
+
+public record EventManageStatsDto(int AdminCount, int CustomerCount);
 
 public record SetPublishedDto(bool Published);
 
@@ -73,6 +77,44 @@ public record CreateEventDto(
     DateTime EventDate,
     string? Location,
     string CreatedBy
+);
+
+public record CustomerDraftListDto(
+    int Id,
+    string Title,
+    string EventType,
+    DateTime EventDate,
+    int DisplayDays,
+    decimal AmountPaid,
+    bool AwaitingOfflineApproval,
+    string? PaymentMethod,
+    DateTime CreatedAt,
+    string? MainImageUrl
+);
+
+public record CustomerDraftDetailDto(
+    int Id,
+    string Title,
+    string Description,
+    string EventType,
+    DateTime EventDate,
+    DateTime? BirthDate,
+    DateTime? DeathDate,
+    DateTime? WeddingDate,
+    string? Location,
+    string? Country,
+    string? MainImageUrl,
+    string? GalleryUrlsJson,
+    string CreatedBy,
+    string Visibility,
+    int DisplayDays,
+    decimal AmountPaid,
+    bool AwaitingOfflineApproval,
+    string? PaymentMethod,
+    DateTime CreatedAt,
+    DateTime? OfflineSubmittedAt,
+    string? OwnerDisplayName,
+    string? OwnerEmail
 );
 
 public record RecentWishSidebarDto(

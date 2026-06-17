@@ -12,14 +12,13 @@ public class DisplayOption
 
 public class PricingService
 {
+    /// <summary>Fixed USD display plans — same price for every event type and country.</summary>
     private static readonly DisplayOption[] Options =
     {
-        new() { Days = 1, Price = 0.99m, Label = "1 day" },
-        new() { Days = 3, Price = 1.99m, Label = "3 days" },
-        new() { Days = 7, Price = 2.99m, Label = "7 days" },
-        new() { Days = 14, Price = 4.99m, Label = "14 days" },
-        new() { Days = 30, Price = 7.99m, Label = "30 days" },
-        new() { Days = 90, Price = 14.99m, Label = "90 days" }
+        new() { Days = 30, Price = 300m, Label = "1 Month" },
+        new() { Days = 90, Price = 450m, Label = "3 Months" },
+        new() { Days = 180, Price = 750m, Label = "6 Months" },
+        new() { Days = 365, Price = 1000m, Label = "12 Months" }
     };
 
     public IReadOnlyList<DisplayOption> GetDisplayOptions() => Options;
@@ -41,29 +40,22 @@ public class PricingService
             _ => "Sri Lanka"
         };
 
-        var currency = normalizedCountry switch
-        {
-            "uk" or "unitedkingdom" => "GBP",
-            "canada" => "CAD",
-            _ => "LKR"
-        };
+        const string currency = "USD";
+        var packageDays = Options.Select(o => o.Label).ToArray();
+        var priceDisplays = Options.Select(o => FormatUsd(o.Price)).ToArray();
 
         var matrix = new List<PricingMatrixRowDto>
         {
-            new("Price", new[] { "36,000", "54,000", "72,000", "90,000", "108,000", "126,000" }),
-            new("Word Limit", new[] { "50 words", "70 words", "Unlimited", "Unlimited", "Unlimited", "Unlimited" })
+            new("Price", priceDisplays)
         };
 
-        var packageDays = new[] { "2 Days", "3 Days", "4 Days", "5 Days", "6 Days", "7 Days" };
-
-        var typeTitle = CategoryDisplayTitle(normalizedCategory);
         var contentSections = new List<PricingTextSectionDto>
         {
             new(
-                $"{typeTitle} publishing terms",
+                "Event publishing terms",
                 new[]
                 {
-                    "Order requests are reviewed by our team before publication.",
+                    "Display plans apply to all event types at the same USD rates.",
                     "Publishing is available for life-event notices and announcements matching your selected event type.",
                     "Support team may request document proof before final approval.",
                     "Changes after publishing are limited and subject to review.",
@@ -97,12 +89,15 @@ public class PricingService
             HotlineInternational: "0044 203 137 6284",
             LocalNumbers: new[] { "+44 20 3137 6284", "+94 75 472 7075" },
             PackageDays: packageDays,
-            RecommendedIndex: 2,
+            RecommendedIndex: 1,
             Matrix: matrix,
             PaymentMethods: new[] { "Mastercard", "Visa", "PayPal", "American Express", "Bank Transfer", "Western Union" },
             ContentSections: contentSections
         );
     }
+
+    private static string FormatUsd(decimal amount) =>
+        amount >= 1000m ? $"${amount:N0}" : $"${amount:0}";
 
     private static string NormalizePricingCategory(string? category)
     {
@@ -127,9 +122,9 @@ public class PricingService
     {
         packageDayLabel = "";
         amountDisplay = "";
-        wordLimitDisplay = "";
+        wordLimitDisplay = "—";
         amountMajor = 0;
-        stripeCurrencyCode = "lkr";
+        stripeCurrencyCode = "usd";
         normalizedCategory = "obituary";
         categoryDisplayTitle = "Obituary";
         var page = GetPricingPage(category, country);
@@ -138,14 +133,14 @@ public class PricingService
         if (columnIndex < 0 || columnIndex >= page.PackageDays.Count)
             return false;
         var priceRow = page.Matrix.FirstOrDefault(r => r.Feature.Equals("Price", StringComparison.OrdinalIgnoreCase));
-        var wordRow = page.Matrix.FirstOrDefault(r => r.Feature.Equals("Word Limit", StringComparison.OrdinalIgnoreCase));
-        if (priceRow == null || wordRow == null ||
-            columnIndex >= priceRow.Values.Count || columnIndex >= wordRow.Values.Count)
+        if (priceRow == null || columnIndex >= priceRow.Values.Count)
             return false;
         packageDayLabel = page.PackageDays[columnIndex];
         amountDisplay = priceRow.Values[columnIndex];
-        wordLimitDisplay = wordRow.Values[columnIndex];
-        var digits = amountDisplay.Replace(",", "", StringComparison.Ordinal).Trim();
+        var digits = amountDisplay
+            .Replace(",", "", StringComparison.Ordinal)
+            .Replace("$", "", StringComparison.Ordinal)
+            .Trim();
         if (!decimal.TryParse(digits, NumberStyles.Number, CultureInfo.InvariantCulture, out amountMajor) ||
             amountMajor <= 0)
             return false;

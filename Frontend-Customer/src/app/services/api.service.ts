@@ -19,6 +19,25 @@ function clampPublicPageSize(pageSize: number, fallback = 12): number {
   return Math.min(Math.max(1, base), MAX_PAGE_SIZE);
 }
 
+export interface AdminEventListDto extends EventListDto {
+  isPublished: boolean;
+  displayValidityEndDate?: string | null;
+  paymentReceived?: boolean;
+}
+
+export interface CustomerDraftListDto {
+  id: number;
+  title: string;
+  eventType: string;
+  eventDate: string;
+  displayDays: number;
+  amountPaid: number;
+  awaitingOfflineApproval: boolean;
+  paymentMethod?: string | null;
+  createdAt: string;
+  mainImageUrl?: string | null;
+}
+
 export interface EventListDto {
   id: number;
   title: string;
@@ -143,6 +162,39 @@ export class ApiService {
 
   getEvent(id: number): Observable<EventDetailDto> {
     return this.http.get<EventDetailDto>(`${API}/events/${id}`);
+  }
+
+  getMyEvents(
+    page = 1,
+    pageSize = 12,
+    eventType?: string,
+    search?: string,
+    fromDate?: string,
+    toDate?: string,
+    country?: string
+  ): Observable<PagedResult<AdminEventListDto>> {
+    let params = new HttpParams()
+      .set('page', String(clampPage(page)))
+      .set('pageSize', String(clampPublicPageSize(pageSize, 12)));
+    if (eventType) params = params.set('eventType', eventType);
+    if (search?.trim()) params = params.set('search', search.trim());
+    if (fromDate) params = params.set('fromDate', fromDate);
+    if (toDate) params = params.set('toDate', toDate);
+    if (country?.trim()) params = params.set('country', country.trim());
+    return this.http.get<PagedResult<AdminEventListDto>>(`${API}/events/mine`, { params });
+  }
+
+  getMyRecentWishes(take = 10): Observable<RecentWishSidebarDto[]> {
+    const params = new HttpParams().set('take', String(take));
+    return this.http.get<RecentWishSidebarDto[]>(`${API}/events/my-recent-wishes`, { params });
+  }
+
+  getMyDrafts(): Observable<CustomerDraftListDto[]> {
+    return this.http.get<CustomerDraftListDto[]>(`${API}/events/my-drafts`);
+  }
+
+  submitOfflinePayment(draftId: number): Observable<{ message: string; draftId: number }> {
+    return this.http.post<{ message: string; draftId: number }>(`${API}/payments/submit-offline`, { draftId });
   }
 
   getDisplayOptions(): Observable<{ days: number; price: number; label: string }[]> {

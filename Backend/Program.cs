@@ -11,6 +11,10 @@ using MySqlConnector;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile(
+    $"appsettings.{builder.Environment.EnvironmentName}.local.json",
+    optional: true,
+    reloadOnChange: true);
 
 builder.Services.AddControllers().AddJsonOptions(o =>
 {
@@ -64,6 +68,7 @@ builder.Services.AddSingleton<PricingService>();
 builder.Services.AddSingleton<StripeService>();
 builder.Services.AddScoped<PricingOrderService>();
 builder.Services.AddScoped<AdminCustomerListService>();
+builder.Services.AddScoped<AdminNotificationService>();
 
 // ✅ FIXED: Added all possible frontend ports
 builder.Services.AddCors(options =>
@@ -466,6 +471,27 @@ using (var scope = app.Services.CreateScope())
     try
     {
         await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE `PendingEvents` ADD COLUMN `AwaitingOfflineApproval` tinyint(1) NOT NULL DEFAULT 0");
+    }
+    catch { }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE `PendingEvents` ADD COLUMN `OfflineSubmittedAt` datetime(6) NULL");
+    }
+    catch { }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE `PendingEvents` ADD COLUMN `PaymentMethod` varchar(20) NULL");
+    }
+    catch { }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
             "ALTER TABLE `Events` ADD COLUMN `CurrencyCode` varchar(16) NOT NULL DEFAULT 'USD'");
     }
     catch
@@ -502,6 +528,81 @@ using (var scope = app.Services.CreateScope())
     {
         /* Column already exists. */
     }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS `AdminNotifications` (
+              `Id` int NOT NULL AUTO_INCREMENT,
+              `EventId` int NULL,
+              `PendingEventId` int NULL,
+              `Kind` varchar(40) NOT NULL,
+              `IsRead` tinyint(1) NOT NULL DEFAULT 0,
+              `ReadAt` datetime(6) NULL,
+              `CreatedAt` datetime(6) NOT NULL,
+              PRIMARY KEY (`Id`),
+              KEY `IX_AdminNotifications_CreatedAt` (`CreatedAt`),
+              KEY `IX_AdminNotifications_EventId` (`EventId`),
+              KEY `IX_AdminNotifications_PendingEventId` (`PendingEventId`),
+              KEY `IX_AdminNotifications_IsRead` (`IsRead`)
+            )
+            """);
+    }
+    catch { }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE `AdminNotifications` ADD COLUMN `IsRead` tinyint(1) NOT NULL DEFAULT 0");
+    }
+    catch { }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE `AdminNotifications` ADD COLUMN `ReadAt` datetime(6) NULL");
+    }
+    catch { }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+            UPDATE `AdminNotifications` n
+            SET n.`IsRead` = 1,
+                n.`ReadAt` = COALESCE(
+                    (SELECT MIN(r.`ReadAt`) FROM `AdminNotificationReads` r WHERE r.`NotificationId` = n.`Id`),
+                    UTC_TIMESTAMP(6))
+            WHERE EXISTS (SELECT 1 FROM `AdminNotificationReads` r WHERE r.`NotificationId` = n.`Id`)
+            """);
+    }
+    catch { }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE `AdminNotifications` DROP COLUMN `Title`");
+    }
+    catch { }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE `AdminNotifications` DROP COLUMN `EventType`");
+    }
+    catch { }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE `AdminNotifications` DROP COLUMN `CustomerDisplayName`");
+    }
+    catch { }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS `AdminNotificationReads`");
+    }
+    catch { }
 
     var testEmail = "test@example.com";
     var testUser = await db.Users.FirstOrDefaultAsync(u => u.Email == testEmail);
@@ -763,6 +864,9 @@ using (var scope = app.Services.CreateScope())
 
     if (showcaseEvents.Count > 0)
         await db.SaveChangesAsync();
+
+    var notifications = scope.ServiceProvider.GetRequiredService<AdminNotificationService>();
+    await notifications.CleanupStaleNotificationsAsync();
 }
 
 app.Run();

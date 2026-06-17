@@ -21,7 +21,7 @@ const RETURN_STORAGE_KEY = 'memora_pricing_return';
             <h1 class="title">Payment could not be confirmed</h1>
             <p class="msg">{{ error() }}</p>
             <div class="actions">
-              <a routerLink="/pricing/obituary/srilanka" class="btn-outline">Pricing</a>
+              <a routerLink="/pricing" class="btn-outline">Pricing</a>
               <a routerLink="/contact" class="btn-primary">Contact support</a>
             </div>
           </div>
@@ -216,7 +216,7 @@ export class PricingOrderSuccessComponent implements OnInit {
   }
 
   finish(): void {
-    let target = '/pricing/obituary/srilanka';
+    let target = '/pricing';
     try {
       const stored = sessionStorage.getItem(RETURN_STORAGE_KEY);
       if (stored?.startsWith('/')) target = stored;
