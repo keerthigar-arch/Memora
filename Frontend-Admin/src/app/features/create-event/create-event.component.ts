@@ -24,16 +24,19 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
 
     <div class="create-page">
       <header class="create-hero">
-        <div class="create-hero-inner">
-          <p class="create-eyebrow">Compose</p>
-          <h1>Create an event</h1>
-          <p class="create-lede">A calm, guided flow to publish birthdays, anniversaries, and memorials—aligned with how guests discover them.</p>
+        <div class="container create-hero-inner">
+          <a routerLink="/events" class="back-link">← Back to event management</a>
+          <div class="create-hero-copy">
+            <p class="create-kicker">Compose</p>
+            <h1>Create an event</h1>
+            <p class="create-sub">
+              A calm, guided flow to publish birthdays, anniversaries, and memorials—aligned with how guests discover them.
+            </p>
+          </div>
         </div>
       </header>
 
-      <div class="form-shell">
-        <a routerLink="/events" class="back-nav">← Back to event management</a>
-
+      <div class="container form-shell">
         <form (ngSubmit)="submit()" #createForm="ngForm" class="create-form">
 
         <section class="form-section" aria-labelledby="sec-basics">
@@ -364,7 +367,11 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
                 <label class="display-option-card" [class.selected]="displayDays === opt.days">
                   <input type="radio" [(ngModel)]="displayDays" name="displayDays" [value]="opt.days" required />
                   <span class="option-duration">{{ opt.label }}</span>
-                  <span class="option-days">\${{ opt.price }} USD · {{ opt.days }} days on the feed</span>
+                  <span class="option-price">
+                    <span class="option-amount">\${{ opt.price | number:'1.0-0' }}</span>
+                    <span class="option-currency">USD</span>
+                  </span>
+                  <span class="option-feed">{{ opt.days }} days on the feed</span>
                 </label>
               }
             </div>
@@ -474,11 +481,16 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
         }
 
         <div class="submit-bar">
-          <button type="submit" class="btn btn-primary btn-lg btn-submit"
+          <button type="submit" class="btn btn-primary btn-submit"
             [disabled]="saving() || !isFormValid()">
-            {{ saving() ? 'Saving…' : 'Save Event' }}
+            @if (saving()) {
+              <span class="btn-spinner" aria-hidden="true"></span>
+              Saving…
+            } @else {
+              Save event
+            }
           </button>
-          <p class="submit-hint">This saves the event directly in admin.</p>
+          <p class="submit-hint">Publishes directly from the admin console.</p>
         </div>
 
       </form>
@@ -488,115 +500,104 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
   styles: [`
     :host {
       display: block;
-      --create-radius: 20px;
-      --create-radius-sm: 14px;
-      --create-ink: #0f1f1a;
-      --create-muted: #5c6b66;
-      --create-edge: rgba(15, 31, 26, 0.08);
-      --create-glow: rgba(45, 143, 115, 0.12);
+      --create-radius: 12px;
+      --create-radius-sm: 10px;
+      --create-ink: #0f2922;
+      --create-muted: #5c726b;
+      --create-edge: rgba(13, 61, 50, 0.1);
+      --create-glow: rgba(26, 95, 74, 0.12);
     }
 
     .create-page {
       min-height: 100%;
-      background:
-        radial-gradient(1200px 600px at 10% -10%, rgba(45, 143, 115, 0.14), transparent 55%),
-        radial-gradient(900px 500px at 100% 0%, rgba(212, 165, 116, 0.12), transparent 50%),
-        linear-gradient(180deg, #f3f6f4 0%, #f8f6f3 40%, #f5f3ef 100%);
+      background: var(--bg);
     }
 
     .create-hero {
-      position: relative;
-      padding: clamp(2.5rem, 6vw, 4rem) 1.5rem 3rem;
-      text-align: center;
-      overflow: hidden;
-    }
-    .create-hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(145deg, #0d3d32 0%, #1a5f4a 42%, #2d6f5c 100%);
-      opacity: 1;
-    }
-    .create-hero::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
-      pointer-events: none;
+      border-bottom: 1px solid rgba(13, 61, 50, 0.08);
+      background: linear-gradient(135deg, #0d3d32 0%, #1b5f4b 60%, #2f7e66 100%);
+      color: #fff;
+      padding: 1rem 0 1.35rem;
     }
     .create-hero-inner {
-      position: relative;
-      z-index: 1;
-      max-width: 36rem;
-      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 0 1.5rem;
+      gap: 0.85rem;
     }
-    .create-eyebrow {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.2em;
+    .back-link {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.82);
+      text-decoration: none;
+      padding: 0.2rem 0;
+      transition: color 0.15s ease;
+    }
+    .back-link:hover {
+      color: #fff;
+    }
+    .back-link:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+    .create-hero-copy {
+      max-width: 40rem;
+    }
+    .create-kicker {
+      margin: 0 0 0.4rem;
       text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.72);
-      margin: 0 0 0.75rem;
+      letter-spacing: 0.12em;
+      font-weight: 600;
+      font-size: 0.72rem;
+      color: rgba(255, 255, 255, 0.82);
     }
     .create-hero h1 {
-      font-family: var(--font-display);
-      font-size: clamp(1.85rem, 4vw, 2.35rem);
-      font-weight: 600;
-      letter-spacing: -0.02em;
+      margin: 0 0 0.4rem;
       color: #fff;
-      margin: 0 0 0.75rem;
-      line-height: 1.15;
+      font-size: clamp(1.12rem, 2.3vw, 1.55rem);
+      line-height: 1.24;
+      font-weight: 700;
+      font-family: var(--font-display);
     }
-    .create-lede {
-      margin: 0;
-      font-size: 1.02rem;
-      line-height: 1.55;
-      color: rgba(255, 255, 255, 0.88);
-      font-weight: 400;
+    .create-sub {
+      margin: 0 auto;
+      color: rgba(255, 255, 255, 0.93);
+      font-size: 0.86rem;
+      line-height: 1.45;
+      max-width: 42ch;
     }
 
     .form-shell {
-      max-width: 720px;
-      margin: -2.25rem auto 0;
-      padding: 0 1.25rem 3.5rem;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 1.5rem 1.5rem 3rem;
       position: relative;
       z-index: 2;
     }
 
-    .back-nav {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--create-muted);
-      text-decoration: none;
-      margin-bottom: 1rem;
-      padding: 0.35rem 0;
-      transition: color 0.2s ease, transform 0.2s ease;
-    }
-    .back-nav:hover {
-      color: var(--primary);
-      transform: translateX(-2px);
-    }
-
     .create-form {
-      background: rgba(255, 255, 255, 0.86);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      padding: clamp(1.75rem, 4vw, 2.5rem);
+      background: #fff;
+      padding: 1.5rem;
       border-radius: var(--create-radius);
       border: 1px solid var(--create-edge);
-      box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.7) inset,
-        0 24px 48px -12px rgba(15, 31, 26, 0.12),
-        0 8px 16px -8px rgba(15, 31, 26, 0.08);
+      box-shadow: 0 1px 2px rgba(13, 61, 50, 0.04), 0 8px 24px rgba(13, 61, 50, 0.06);
+    }
+    @media (min-width: 768px) {
+      .create-form {
+        padding: 1.75rem 2rem 2rem;
+      }
     }
 
     .form-section {
-      margin-bottom: 2rem;
-      padding-bottom: 2rem;
-      border-bottom: 1px solid var(--create-edge);
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(13, 61, 50, 0.08);
     }
     .form-section:last-of-type {
       border-bottom: none;
@@ -605,25 +606,24 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
     }
     .form-section-media {
       border-bottom: none;
-      margin-bottom: 1.5rem;
+      margin-bottom: 0;
       padding-bottom: 0;
     }
 
     .form-section-head {
-      margin-bottom: 1.25rem;
+      margin-bottom: 1rem;
     }
     .form-section-title {
       font-family: var(--font-display);
-      font-size: 1.2rem;
+      font-size: 1.0625rem;
       font-weight: 600;
-      letter-spacing: -0.02em;
-      color: var(--create-ink);
-      margin: 0 0 0.35rem;
+      color: var(--primary-dark);
+      margin: 0 0 0.25rem;
     }
     .form-section-hint {
       margin: 0;
-      font-size: 0.875rem;
-      line-height: 1.5;
+      font-size: 0.8125rem;
+      line-height: 1.45;
       color: var(--create-muted);
     }
 
@@ -643,30 +643,40 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
     }
 
     .create-form .form-group {
-      margin-bottom: 1.15rem;
+      margin-bottom: 1rem;
     }
     .create-form .form-group label {
+      display: block;
       font-size: 0.8125rem;
       font-weight: 600;
-      letter-spacing: 0.01em;
-      color: var(--create-ink);
-      margin-bottom: 0.45rem;
+      color: #3d524b;
+      margin-bottom: 0.4rem;
     }
     .create-form input:not([type="file"]),
     .create-form textarea,
     .create-form select {
+      width: 100%;
+      box-sizing: border-box;
       border-radius: var(--create-radius-sm);
-      border: 1px solid var(--create-edge);
-      background: rgba(255, 255, 255, 0.95);
-      padding: 0.7rem 0.95rem;
-      font-size: 0.975rem;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      border: 1px solid #dce8e3;
+      background: #fff;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.9375rem;
+      color: var(--create-ink);
+      transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+    }
+    .create-form input:not([type="file"]):hover,
+    .create-form textarea:hover,
+    .create-form select:hover {
+      border-color: #c5d8d0;
     }
     .create-form input:not([type="file"]):focus,
     .create-form textarea:focus,
     .create-form select:focus {
       outline: none;
-      border-color: rgba(26, 95, 74, 0.45);
+      border-color: var(--primary);
       box-shadow: 0 0 0 3px var(--create-glow);
     }
 
@@ -675,17 +685,19 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 5.5rem;
+      min-height: 5rem;
       padding: 1rem 1.25rem;
-      border: 1.5px dashed rgba(15, 31, 26, 0.18);
+      border: 1.5px dashed #d0ddd8;
       border-radius: var(--create-radius-sm);
-      background: rgba(255, 255, 255, 0.6);
+      background: #fafcfb;
       cursor: pointer;
-      transition: border-color 0.2s ease, background 0.2s ease;
+      transition:
+        border-color 0.15s ease,
+        background-color 0.15s ease;
     }
     .file-drop:hover {
       border-color: rgba(26, 95, 74, 0.35);
-      background: rgba(45, 143, 115, 0.04);
+      background: #f4f8f6;
     }
     .file-drop input[type="file"] {
       position: absolute;
@@ -720,13 +732,17 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
     }
 
     .error-msg {
-      background: linear-gradient(135deg, #fef2f2, #fff5f5);
-      color: #9b1c1c;
-      padding: 1rem 1.1rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      background: #fef2f2;
+      color: #b91c1c;
+      padding: 0.85rem 1rem;
       border-radius: var(--create-radius-sm);
       margin-bottom: 1rem;
-      border: 1px solid rgba(220, 38, 38, 0.15);
-      font-size: 0.9rem;
+      border: 1px solid #fecaca;
+      font-size: 0.875rem;
+      line-height: 1.45;
     }
     .validation-error { color: #c53030; font-size: 0.8125rem; margin-top: 0.35rem; }
     .validation-error small { display: block; }
@@ -748,12 +764,7 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
     .create-form input.ng-invalid.ng-touched,
     .create-form textarea.ng-invalid.ng-touched,
     .create-form select.ng-invalid.ng-touched {
-      border-color: rgba(197, 48, 48, 0.45);
-    }
-    .create-form input.ng-valid.ng-touched:not(:focus),
-    .create-form textarea.ng-valid.ng-touched:not(:focus),
-    .create-form select.ng-valid.ng-touched:not(:focus) {
-      border-color: rgba(34, 139, 87, 0.35);
+      border-color: #f87171;
     }
 
     .invite-section textarea { min-height: 96px; }
@@ -803,7 +814,7 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
 
     .display-options {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
       gap: 0.85rem;
       margin-top: 0.5rem;
     }
@@ -811,13 +822,15 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      padding: 1.1rem 1.15rem;
-      border: 1.5px solid var(--create-edge);
+      padding: 1rem;
+      border: 1px solid var(--create-edge);
       border-radius: var(--create-radius-sm);
       cursor: pointer;
-      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
       position: relative;
-      background: rgba(255, 255, 255, 0.65);
+      background: #fff;
     }
     .checkbox-row {
       display: inline-flex;
@@ -838,70 +851,99 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
     }
     .display-option-card:hover {
       border-color: rgba(26, 95, 74, 0.28);
-      transform: translateY(-2px);
-      box-shadow: 0 12px 28px -8px rgba(15, 31, 26, 0.12);
+      box-shadow: 0 4px 14px rgba(13, 61, 50, 0.08);
     }
     .display-option-card.selected {
       border-color: var(--primary);
-      background: linear-gradient(160deg, rgba(45, 143, 115, 0.1), rgba(255, 255, 255, 0.9));
-      box-shadow: 0 0 0 2px rgba(26, 95, 74, 0.2);
+      background: #f4f9f7;
+      box-shadow: 0 0 0 2px rgba(26, 95, 74, 0.12);
     }
     .option-duration {
-      font-size: 0.9375rem;
-      font-weight: 700;
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 600;
       color: var(--primary);
-      margin-bottom: 0.2rem;
-      letter-spacing: -0.02em;
-    }
-    .option-days {
-      font-size: 0.75rem;
-      color: var(--create-muted);
-      margin-bottom: 0.65rem;
-      line-height: 1.35;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.01em;
     }
     .option-price {
-      font-size: 1.2rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.35rem;
+      margin-bottom: 0.4rem;
+    }
+    .option-amount {
+      font-size: 1.35rem;
       font-weight: 700;
       color: var(--create-ink);
       letter-spacing: -0.03em;
+      line-height: 1.1;
     }
-    .option-per-day {
-      font-size: 0.72rem;
+    .option-currency {
+      font-size: 0.75rem;
+      font-weight: 600;
       color: var(--create-muted);
-      margin-top: 0.35rem;
+      letter-spacing: 0.02em;
     }
-    .option-usd-equiv {
-      font-size: 0.68rem;
+    .option-feed {
+      display: block;
+      font-size: 0.75rem;
       color: var(--create-muted);
-      margin-top: 0.25rem;
-      opacity: 0.85;
+      line-height: 1.4;
     }
 
     .submit-bar {
-      margin-top: 1.75rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--create-edge);
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(13, 61, 50, 0.08);
     }
-    .btn-lg.btn-submit {
-      width: 100%;
-      max-width: 100%;
-      padding: 1rem 1.5rem;
-      font-size: 1rem;
+    .btn-submit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      min-width: 10rem;
+      padding: 0.7rem 1.35rem;
+      font-size: 0.875rem;
       font-weight: 600;
-      letter-spacing: 0.02em;
-      border-radius: 999px;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      box-shadow: 0 4px 20px rgba(26, 95, 74, 0.35);
+      border-radius: var(--create-radius-sm);
+      background: var(--primary);
+      border: 1px solid transparent;
+      box-shadow: 0 1px 2px rgba(13, 61, 50, 0.12), 0 4px 12px rgba(26, 95, 74, 0.18);
+      transition:
+        background-color 0.15s ease,
+        box-shadow 0.15s ease;
     }
-    .btn-lg.btn-submit:hover:not(:disabled) {
-      box-shadow: 0 8px 28px rgba(26, 95, 74, 0.4);
+    .btn-submit:hover:not(:disabled) {
+      background: var(--primary-dark);
+      box-shadow: 0 2px 6px rgba(13, 61, 50, 0.14), 0 8px 20px rgba(26, 95, 74, 0.22);
+    }
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .btn-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spinBtn 0.7s linear infinite;
+    }
+    @keyframes spinBtn {
+      to {
+        transform: rotate(360deg);
+      }
     }
     .submit-hint {
-      margin: 0.85rem 0 0;
-      font-size: 0.78rem;
+      margin: 0;
+      font-size: 0.8125rem;
       color: var(--create-muted);
-      letter-spacing: 0.02em;
     }
   `]
 })

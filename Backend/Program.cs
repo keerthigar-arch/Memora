@@ -94,12 +94,36 @@ var app = builder.Build();
 var mediaRoot = Path.GetFullPath(app.Configuration["FileStorage:RootPath"] ?? Path.Combine("C:", "events"));
 Directory.CreateDirectory(mediaRoot);
 
-// ✅ FIXED: Correct middleware order — project wwwroot + external C:\events (or configured) at /media
+var configuredEventPath = app.Configuration["FileStorage:EventPath"];
+var eventMediaRoot = Path.GetFullPath(
+    string.IsNullOrWhiteSpace(configuredEventPath)
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Memora", "Event")
+        : configuredEventPath);
+Directory.CreateDirectory(eventMediaRoot);
+
+var configuredAdminProfile = app.Configuration["FileStorage:AdminProfilePath"];
+var adminProfileRoot = Path.GetFullPath(
+    string.IsNullOrWhiteSpace(configuredAdminProfile)
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Memora-AdminProfile")
+        : configuredAdminProfile);
+Directory.CreateDirectory(adminProfileRoot);
+
+// ✅ FIXED: Correct middleware order — project wwwroot + profile media + event media
 app.UseStaticFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(mediaRoot),
     RequestPath = FileStorageService.MediaRequestPath
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(eventMediaRoot),
+    RequestPath = FileStorageService.EventMediaRequestPath
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(adminProfileRoot),
+    RequestPath = FileStorageService.AdminProfileRequestPath
 });
 app.UseCors("AllowAngular");      // Must be before Auth
 app.UseAuthentication();

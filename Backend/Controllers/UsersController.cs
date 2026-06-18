@@ -71,7 +71,10 @@ public class UsersController : ControllerBase
 
         if (profileImage != null)
         {
-            var url = await _fileStorage.SaveProfileImageAsync(profileImage, userId.Value);
+            var isAdmin = string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase);
+            var url = isAdmin
+                ? await _fileStorage.SaveAdminProfileImageAsync(profileImage, userId.Value)
+                : await _fileStorage.SaveProfileImageAsync(profileImage, userId.Value);
             if (url != null)
             {
                 var baseUrl = _fileStorage.GetBaseUrl(Request);

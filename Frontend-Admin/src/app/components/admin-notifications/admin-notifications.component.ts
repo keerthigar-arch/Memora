@@ -81,21 +81,29 @@ import { AdminNotificationDto, NotificationService } from '../../services/notifi
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 2.35rem;
-        height: 2.35rem;
-        border: 1px solid #d6e4de;
-        border-radius: 999px;
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 1px solid rgba(13, 61, 50, 0.08);
+        border-radius: 10px;
         background: #fff;
-        color: #35584f;
+        color: #4a635c;
         cursor: pointer;
-        transition: all 160ms ease;
+        transition:
+          color 0.15s ease,
+          background-color 0.15s ease,
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
       }
       .notif-trigger:hover,
       .notif-trigger[aria-expanded='true'] {
         color: var(--primary);
-        border-color: #c5d8d0;
-        background: #f8fcfa;
-        box-shadow: 0 4px 12px rgba(13, 61, 50, 0.12);
+        border-color: #dce8e3;
+        background: #f4f8f6;
+        box-shadow: 0 2px 8px rgba(13, 61, 50, 0.08);
+      }
+      .notif-trigger:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
       }
       .notif-icon {
         width: 1.15rem;
@@ -104,32 +112,33 @@ import { AdminNotificationDto, NotificationService } from '../../services/notifi
       }
       .notif-badge {
         position: absolute;
-        top: -0.2rem;
-        right: -0.15rem;
-        min-width: 1.1rem;
-        height: 1.1rem;
-        padding: 0 0.25rem;
+        top: -4px;
+        right: -4px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
         border-radius: 999px;
         background: #dc2626;
         color: #fff;
-        font-size: 0.62rem;
+        font-size: 0.625rem;
         font-weight: 700;
-        line-height: 1.1rem;
+        line-height: 18px;
         text-align: center;
+        border: 2px solid #fff;
         box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
       }
       .notif-panel {
         position: absolute;
-        top: calc(100% + 0.55rem);
+        top: calc(100% + 8px);
         right: 0;
         width: min(22rem, calc(100vw - 2rem));
         max-height: 24rem;
         overflow: auto;
-        border-radius: 14px;
-        border: 1px solid #e3ece8;
+        border-radius: 12px;
+        border: 1px solid rgba(13, 61, 50, 0.08);
         background: #fff;
-        box-shadow: 0 16px 40px rgba(8, 38, 30, 0.16);
-        z-index: 200;
+        box-shadow: 0 4px 6px rgba(13, 61, 50, 0.04), 0 16px 40px rgba(13, 61, 50, 0.12);
+        z-index: 300;
       }
       .notif-panel-head {
         display: flex;

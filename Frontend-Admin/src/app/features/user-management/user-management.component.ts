@@ -13,8 +13,7 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
       <div class="container">
         <h1>User management</h1>
         <p class="page-lead">
-          Customers who registered on the public site—the same profile details they can edit after sign-up (display name, email,
-          visibility, and whether email is shown on their profile).
+          View and manage customer accounts registered on the public Memora site, including display name, email, and profile settings.
         </p>
       </div>
     </section>
@@ -57,7 +56,6 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
                 <th class="th-avatar"></th>
                 <th>Display name</th>
                 <th>Email</th>
-                <th>Profile</th>
                 <th scope="col" class="col-events">Events</th>
                 <th class="th-date">Registered</th>
               </tr>
@@ -74,10 +72,6 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
                   </td>
                   <td class="name-cell">{{ u.displayName }}</td>
                   <td class="email-cell">{{ u.email }}</td>
-                  <td class="meta-cell">
-                    <span class="pill">{{ u.profileVisibility }}</span>
-                    <span class="tiny muted">{{ u.showEmail ? 'Email on profile' : 'Email hidden' }}</span>
-                  </td>
                   <td class="col-events">{{ u.eventCount }}</td>
                   <td class="date-cell">{{ u.createdAt | date: 'mediumDate' }}</td>
                 </tr>
@@ -249,11 +243,6 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
       .muted {
         color: var(--text-muted);
       }
-      .tiny {
-        font-size: 0.72rem;
-        display: block;
-        margin-top: 0.25rem;
-      }
       .table-shell {
         overflow-x: auto;
         border-radius: 12px;
@@ -284,7 +273,6 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
       .th-avatar {
         width: 3.25rem;
       }
-      /* Events: same centered alignment as other columns */
       .user-table th.col-events,
       .user-table td.col-events {
         width: 5.5rem;
@@ -345,19 +333,6 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
         word-break: break-word;
         max-width: 200px;
         font-size: 0.8125rem;
-      }
-      .meta-cell {
-        white-space: nowrap;
-        text-align: center;
-      }
-      .pill {
-        display: inline-block;
-        padding: 0.2rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.72rem;
-        font-weight: 600;
-        background: rgba(26, 95, 74, 0.12);
-        color: var(--primary-dark);
       }
       .date-cell {
         white-space: nowrap;

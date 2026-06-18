@@ -282,11 +282,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'nav.login': 'உள்நுழைவு',
     'nav.register': 'பதிவு',
     'nav.logout': 'வெளியேறு',
-<<<<<<< HEAD
     'nav.myEvents': 'என் நிகழ்வுகள்',
-=======
-    'nav.profile': 'சுயவிவரம்',
->>>>>>> 39103c53f378fa9766bf7a27e67b0193be2d8fe1
     'lang.switchLabel': 'மொழி',
     'lang.en': 'English',
     'lang.ta': 'தமிழ்',

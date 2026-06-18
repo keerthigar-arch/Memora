@@ -12,74 +12,92 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
     <section class="page-head">
       <div class="container">
         <h1>Pricing payments</h1>
+        <p class="page-lead">Review pricing orders, payment channels, and direct transfer confirmations.</p>
       </div>
     </section>
 
     <section class="container panel-wrap">
       <div class="filters-card">
-        <div class="filters-grid">
-          <label class="fld">
+        <div class="filters-row filters-row--search">
+          <label class="fld fld-grow">
             <span class="lbl">Search</span>
             <input
               type="search"
               class="inp"
-              placeholder="Reference, name, email, phone…"
+              placeholder="Reference, customer name, email, or phone"
               [(ngModel)]="filterSearch"
               name="filterSearch"
               (keydown.enter)="applyFilters()"
             />
           </label>
+          <div class="filters-actions-inline">
+            <button type="button" class="btn btn-primary" (click)="applyFilters()">Search</button>
+            <button type="button" class="btn btn-ghost" (click)="resetFilters()">Reset</button>
+          </div>
+        </div>
+
+        <div class="filters-row filters-row--controls">
           <label class="fld">
-            <span class="lbl">Channel</span>
-            <select class="inp" [(ngModel)]="filterChannel" name="filterChannel">
-              <option value="">All</option>
-              <option value="direct">Direct</option>
+            <span class="lbl">Payment channel</span>
+            <select class="inp" [(ngModel)]="filterChannel" name="filterChannel" (change)="onChannelChange()">
+              <option value="">All channels</option>
+              <option value="direct">Direct transfer</option>
               <option value="card">Card</option>
             </select>
           </label>
           <label class="fld">
-            <span class="lbl">Order status</span>
+            <span class="lbl">Payment status</span>
             <select class="inp" [(ngModel)]="filterStatus" name="filterStatus">
-              <option value="">All</option>
-              <option value="pending_payment">Pending payment</option>
-              <option value="direct_open">Direct · reference issued</option>
+              <option value="">All statuses</option>
+              <option value="pending_payment">Awaiting payment</option>
+              <option value="direct_open">Reference issued</option>
               <option value="paid_card">Paid (card)</option>
               <option value="paid_direct">Paid (direct)</option>
             </select>
           </label>
           <label class="fld">
-            <span class="lbl">Manual paid (direct)</span>
+            <span class="lbl">Direct confirmation</span>
             <select
               class="inp"
               [(ngModel)]="filterManual"
               name="filterManual"
               [disabled]="filterChannel === 'card'"
             >
-              <option value="">All</option>
-              <option value="pending">Not confirmed</option>
-              <option value="received">Confirmed</option>
+              <option value="">All direct orders</option>
+              <option value="pending">Awaiting confirmation</option>
+              <option value="received">Payment confirmed</option>
             </select>
           </label>
           <label class="fld">
-            <span class="lbl">Category</span>
-            <input type="text" class="inp" [(ngModel)]="filterCategory" name="filterCategory" placeholder="e.g. obituary" />
-          </label>
-          <label class="fld">
-            <span class="lbl">Country</span>
-            <input type="text" class="inp" [(ngModel)]="filterCountry" name="filterCountry" placeholder="Code or name" />
-          </label>
-          <label class="fld">
-            <span class="lbl">From date</span>
-            <input type="date" class="inp" [(ngModel)]="filterDateFrom" name="filterDateFrom" />
-          </label>
-          <label class="fld">
-            <span class="lbl">To date</span>
-            <input type="date" class="inp" [(ngModel)]="filterDateTo" name="filterDateTo" />
+            <span class="lbl">Date range</span>
+            <select class="inp" [(ngModel)]="filterDatePreset" name="filterDatePreset" (change)="onDatePresetChange()">
+              <option value="all">All time</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="month">This month</option>
+              <option value="custom">Custom range</option>
+            </select>
           </label>
         </div>
-        <div class="filters-actions">
-          <button type="button" class="btn btn-primary" (click)="applyFilters()">Apply filters</button>
-          <button type="button" class="btn btn-ghost" (click)="resetFilters()">Reset</button>
+
+        @if (filterDatePreset === 'custom') {
+          <div class="filters-row filters-row--dates">
+            <label class="fld">
+              <span class="lbl">From</span>
+              <input type="date" class="inp" [(ngModel)]="filterDateFrom" name="filterDateFrom" />
+            </label>
+            <label class="fld">
+              <span class="lbl">To</span>
+              <input type="date" class="inp" [(ngModel)]="filterDateTo" name="filterDateTo" />
+            </label>
+          </div>
+        }
+
+        <div class="filters-foot">
+          <button type="button" class="btn btn-primary btn-sm" (click)="applyFilters()">Apply filters</button>
+          @if (hasActiveFilters()) {
+            <span class="active-filters-hint">{{ activeFiltersLabel() }}</span>
+          }
         </div>
       </div>
 
@@ -105,7 +123,7 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
                 <th>Package</th>
                 <th class="th-num">Price</th>
                 <th class="th-date">Created</th>
-                <th>Manual paid</th>
+                <th>Direct confirmation</th>
               </tr>
             </thead>
             <tbody>
@@ -183,37 +201,70 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
         padding: 1.25rem 0 0.25rem;
       }
       .page-head h1 {
-        margin: 0;
+        margin: 0 0 0.3rem;
         font-size: clamp(1.35rem, 2.8vw, 1.75rem);
         font-weight: 700;
         letter-spacing: -0.02em;
         color: var(--primary-dark);
+      }
+      .page-lead {
+        margin: 0;
+        max-width: 42rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: var(--text-muted);
       }
       .panel-wrap {
         padding-bottom: 2.5rem;
       }
       .filters-card {
         margin-bottom: 1.25rem;
-        padding: 1.1rem 1.25rem;
-        background: linear-gradient(145deg, var(--bg-card) 0%, rgba(26, 95, 74, 0.04) 100%);
+        padding: 1rem 1.15rem;
+        background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: 12px;
-        box-shadow: var(--shadow);
+        box-shadow: 0 1px 2px rgba(13, 61, 50, 0.04), 0 6px 20px rgba(13, 61, 50, 0.05);
       }
-      .filters-grid {
+      .filters-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem 0.85rem;
+        align-items: flex-end;
+      }
+      .filters-row--search {
+        margin-bottom: 0.85rem;
+        padding-bottom: 0.85rem;
+        border-bottom: 1px solid rgba(13, 61, 50, 0.08);
+      }
+      .filters-row--controls {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 0.85rem 1rem;
-        align-items: end;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem 0.85rem;
+      }
+      @media (min-width: 900px) {
+        .filters-row--controls {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+      .filters-row--dates {
+        margin-top: 0.65rem;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-width: 28rem;
       }
       .fld {
         display: flex;
         flex-direction: column;
-        gap: 0.35rem;
+        gap: 0.3rem;
         margin: 0;
+        min-width: 0;
+      }
+      .fld-grow {
+        flex: 1;
+        min-width: 200px;
       }
       .lbl {
-        font-size: 0.72rem;
+        font-size: 0.6875rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -225,24 +276,42 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
         border: 1px solid var(--border);
         border-radius: 8px;
         font-size: 0.875rem;
-        background: var(--bg-card);
+        background: #fff;
         color: inherit;
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+      .inp:hover:not(:disabled) {
+        border-color: #c5d8d0;
       }
       .inp:focus {
-        outline: 2px solid rgba(26, 95, 74, 0.35);
-        outline-offset: 1px;
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(26, 95, 74, 0.12);
       }
       .inp:disabled {
         opacity: 0.55;
         cursor: not-allowed;
+        background: #f7faf8;
       }
-      .filters-actions {
+      .filters-actions-inline {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
-        margin-top: 1rem;
+      }
+      .filters-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.65rem 1rem;
+        margin-top: 0.85rem;
         padding-top: 0.85rem;
-        border-top: 1px solid var(--border);
+        border-top: 1px solid rgba(13, 61, 50, 0.08);
+      }
+      .active-filters-hint {
+        font-size: 0.8125rem;
+        color: var(--text-muted);
       }
       .btn {
         border-radius: 8px;
@@ -497,8 +566,7 @@ export class PricingPaymentsComponent implements OnInit {
   filterChannel = '';
   filterStatus = '';
   filterManual = '';
-  filterCategory = '';
-  filterCountry = '';
+  filterDatePreset = 'all';
   filterDateFrom = '';
   filterDateTo = '';
 
@@ -506,6 +574,82 @@ export class PricingPaymentsComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+  }
+
+  onChannelChange(): void {
+    if (this.filterChannel === 'card') {
+      this.filterManual = '';
+    }
+  }
+
+  onDatePresetChange(): void {
+    if (this.filterDatePreset === 'custom') {
+      return;
+    }
+    const range = this.resolveDatePresetRange(this.filterDatePreset);
+    this.filterDateFrom = range.from;
+    this.filterDateTo = range.to;
+  }
+
+  hasActiveFilters(): boolean {
+    return (
+      !!this.filterSearch.trim() ||
+      !!this.filterChannel ||
+      !!this.filterStatus ||
+      !!this.filterManual ||
+      this.filterDatePreset !== 'all'
+    );
+  }
+
+  activeFiltersLabel(): string {
+    const parts: string[] = [];
+    if (this.filterSearch.trim()) parts.push('search');
+    if (this.filterChannel) parts.push('channel');
+    if (this.filterStatus) parts.push('status');
+    if (this.filterManual) parts.push('direct confirmation');
+    if (this.filterDatePreset !== 'all') parts.push('date');
+    return parts.length ? `Active: ${parts.join(', ')}` : '';
+  }
+
+  private resolveDatePresetRange(preset: string): { from: string; to: string } {
+    if (preset === 'all') {
+      return { from: '', to: '' };
+    }
+    const today = new Date();
+    const to = this.formatDateInput(today);
+    if (preset === '7d') {
+      const from = new Date(today);
+      from.setDate(from.getDate() - 6);
+      return { from: this.formatDateInput(from), to };
+    }
+    if (preset === '30d') {
+      const from = new Date(today);
+      from.setDate(from.getDate() - 29);
+      return { from: this.formatDateInput(from), to };
+    }
+    if (preset === 'month') {
+      const from = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { from: this.formatDateInput(from), to };
+    }
+    return { from: this.filterDateFrom, to: this.filterDateTo };
+  }
+
+  private formatDateInput(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  private resolvedDateFilters(): { from?: string; to?: string } {
+    if (this.filterDatePreset === 'all') {
+      return {};
+    }
+    const range = this.resolveDatePresetRange(this.filterDatePreset);
+    return {
+      from: range.from || undefined,
+      to: range.to || undefined
+    };
   }
 
   totalPages(): number {
@@ -533,8 +677,7 @@ export class PricingPaymentsComponent implements OnInit {
     this.filterChannel = '';
     this.filterStatus = '';
     this.filterManual = '';
-    this.filterCategory = '';
-    this.filterCountry = '';
+    this.filterDatePreset = 'all';
     this.filterDateFrom = '';
     this.filterDateTo = '';
     this.page.set(1);
@@ -555,6 +698,8 @@ export class PricingPaymentsComponent implements OnInit {
     if (this.filterManual === 'received') directManualReceived = true;
     else if (this.filterManual === 'pending') directManualReceived = false;
 
+    const dates = this.resolvedDateFilters();
+
     this.api
       .getPricingOrdersAdmin({
         page: this.page(),
@@ -562,10 +707,8 @@ export class PricingPaymentsComponent implements OnInit {
         paymentChannel: this.filterChannel || undefined,
         status: this.filterStatus || undefined,
         search: this.filterSearch || undefined,
-        category: this.filterCategory || undefined,
-        country: this.filterCountry || undefined,
-        dateFrom: this.filterDateFrom || undefined,
-        dateTo: this.filterDateTo || undefined,
+        dateFrom: dates.from,
+        dateTo: dates.to,
         directManualReceived
       })
       .subscribe({
@@ -627,10 +770,11 @@ export class PricingPaymentsComponent implements OnInit {
 
   statusLabel(row: PricingOrderAdminDto): string {
     if (row.paymentChannel?.toLowerCase() === 'card') {
-      return 'Paid';
+      return 'Paid (card)';
     }
     const s = (row.status || '').toLowerCase();
-    if (s === 'direct_open' || s === 'paid_direct') return 'Direct · reference issued';
+    if (s === 'direct_open') return 'Reference issued';
+    if (s === 'paid_direct') return 'Paid (direct)';
     if (s === 'pending_payment') return 'Awaiting payment';
     return row.status;
   }

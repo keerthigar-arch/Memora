@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService, UserProfile } from '../../services/auth.service';
@@ -16,27 +16,43 @@ import { AuthService, UserProfile } from '../../services/auth.service';
     } @else if (profile()) {
       <div class="profile-page">
         <header class="profile-hero" aria-labelledby="admin-profile-heading">
-          <div class="profile-hero-glow" aria-hidden="true"></div>
+          <div class="hero-backdrop" aria-hidden="true"></div>
           <div class="container profile-hero-inner">
-            <p class="hero-eyebrow">Admin</p>
-            <div class="profile-identity">
-              <div class="avatar-ring" [class.has-photo]="!!profile()!.profileImageUrl">
-                @if (profile()!.profileImageUrl) {
-                  <img [src]="profile()!.profileImageUrl" alt="" />
-                } @else {
-                  <span class="avatar-initials">{{ initials() }}</span>
-                }
+            <div class="hero-shell">
+              <div class="hero-head">
+                <p class="hero-kicker">Memora Admin</p>
+                <h1 id="admin-profile-heading">My account</h1>
+                <p class="hero-sub">Manage your profile and password in one place.</p>
               </div>
-              <div class="profile-identity-text">
-                <h1 id="admin-profile-heading" class="profile-name">{{ profile()!.displayName }}</h1>
-                <p class="profile-email">{{ profile()!.email }}</p>
-                <div class="identity-chips">
-                  <span class="chip">{{ profile()!.role || 'Admin' }}</span>
-                  <span class="chip chip-outline">{{ profile()!.createdAt | date: 'mediumDate' }}</span>
+
+              <div class="hero-identity-card">
+                <div class="avatar-wrap">
+                  <div class="avatar" [class.has-photo]="!!avatarImageUrl()">
+                    @if (avatarImageUrl()) {
+                      <img [src]="avatarImageUrl()" alt="" />
+                    } @else {
+                      <span class="avatar-initials">{{ initials() }}</span>
+                    }
+                  </div>
+                </div>
+
+                <div class="identity-main">
+                  <span class="identity-name">{{ profile()!.displayName }}</span>
+                  <span class="identity-email">{{ profile()!.email }}</span>
+                </div>
+
+                <div class="identity-meta">
+                  <div class="meta-block">
+                    <span class="meta-label">Role</span>
+                    <span class="meta-value">{{ profile()!.role || 'Admin' }}</span>
+                  </div>
+                  <div class="meta-block">
+                    <span class="meta-label">Member since</span>
+                    <span class="meta-value">{{ profile()!.createdAt | date: 'MMM d, yyyy' }}</span>
+                  </div>
                 </div>
               </div>
             </div>
-            <p class="hero-lede">View your account details, update your profile, and manage your password.</p>
           </div>
         </header>
 
@@ -66,6 +82,13 @@ import { AuthService, UserProfile } from '../../services/auth.service';
                 </div>
                 <form (ngSubmit)="saveProfile()" class="form-block">
                   <p class="form-section-label">Update profile</p>
+                  <input
+                    id="adm-photo"
+                    type="file"
+                    class="photo-input"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    (change)="onPhotoSelected($event)"
+                  />
                   <div class="form-group">
                     <label for="adm-name">Display name</label>
                     <input id="adm-name" [(ngModel)]="displayName" name="displayName" required />
@@ -80,8 +103,24 @@ import { AuthService, UserProfile } from '../../services/auth.service';
                       placeholder="Tell others about yourself"
                     ></textarea>
                   </div>
+                  <div class="form-group">
+                    <label for="adm-photo">Profile photo</label>
+                    <div class="photo-field">
+                      <label class="btn btn-outline photo-choose" for="adm-photo">Choose image</label>
+                      @if (pendingPhotoName()) {
+                        <span class="file-hint">{{ pendingPhotoName() }} — save profile to upload</span>
+                      } @else if (profile()!.profileImageUrl) {
+                        <span class="file-hint">Current photo is saved on the server.</span>
+                      } @else {
+                        <span class="file-hint">PNG, JPG, GIF, or WebP · max 5 MB</span>
+                      }
+                    </div>
+                  </div>
                   @if (profileError()) {
                     <div class="error-msg">{{ profileError() }}</div>
+                  }
+                  @if (profileOk()) {
+                    <div class="success-msg">Profile saved successfully.</div>
                   }
                   <button type="submit" class="btn btn-primary btn-block" [disabled]="savingProfile()">
                     {{ savingProfile() ? 'Saving…' : 'Save profile' }}
@@ -113,33 +152,6 @@ import { AuthService, UserProfile } from '../../services/auth.service';
                     {{ savingPassword() ? 'Saving…' : 'Update password' }}
                   </button>
                 </form>
-
-                <div class="divider"></div>
-                <div class="alt-reset">
-                  <p>If you forgot your current password, send a reset link to:</p>
-                  <p class="email-line">{{ profile()!.email }}</p>
-                  @if (forgotError()) {
-                    <div class="error-msg">{{ forgotError() }}</div>
-                  }
-                  @if (forgotSuccess()) {
-                    <div class="success-msg">{{ forgotSuccess() }}</div>
-                  }
-                  @if (forgotDevResetUrl()) {
-                    <div class="dev-reset-banner">
-                      <p class="dev-reset-title">Development: no real email sent. Open this link to reset:</p>
-                      <a
-                        class="dev-reset-link"
-                        [href]="forgotDevResetUrl()!"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        >{{ forgotDevResetUrl() }}</a
-                      >
-                    </div>
-                  }
-                  <button type="button" class="btn btn-outline btn-block" [disabled]="sendingForgot()" (click)="sendResetEmail()">
-                    {{ sendingForgot() ? 'Sending…' : 'Send reset email' }}
-                  </button>
-                </div>
               </section>
             </div>
           </div>
@@ -170,103 +182,175 @@ import { AuthService, UserProfile } from '../../services/auth.service';
     .profile-hero {
       position: relative;
       overflow: hidden;
-      background: linear-gradient(135deg, #0a2a22 0%, var(--primary-dark) 35%, var(--primary) 70%, #1f6a53 100%);
+      background: linear-gradient(135deg, #0d3d32 0%, #1b5f4b 55%, #2a7a62 100%);
       color: #fff;
-      padding: 2.25rem 0 2.5rem;
+      padding: 1.75rem 0 2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .profile-hero-glow {
+    .hero-backdrop {
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(ellipse 50% 90% at 0% 50%, rgba(212, 165, 116, 0.2) 0%, transparent 55%),
-        radial-gradient(ellipse 45% 80% at 100% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+        radial-gradient(ellipse 70% 120% at 0% 0%, rgba(212, 165, 116, 0.22) 0%, transparent 52%),
+        radial-gradient(ellipse 55% 90% at 100% 100%, rgba(255, 255, 255, 0.08) 0%, transparent 48%);
       pointer-events: none;
     }
     .profile-hero-inner {
       position: relative;
       z-index: 1;
     }
-    .hero-eyebrow {
-      margin: 0 0 1rem;
+    .hero-shell {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+    .hero-head {
+      margin-bottom: 1.25rem;
+    }
+    .hero-kicker {
+      margin: 0 0 0.35rem;
       font-size: 0.68rem;
       font-weight: 700;
-      letter-spacing: 0.28em;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
-      opacity: 0.85;
+      color: rgba(255, 255, 255, 0.72);
     }
-    .profile-identity {
-      display: flex;
+    .hero-head h1 {
+      margin: 0 0 0.35rem;
+      font-family: var(--font-display);
+      font-size: clamp(1.45rem, 3vw, 1.85rem);
+      font-weight: 600;
+      line-height: 1.15;
+      color: #fff;
+    }
+    .hero-sub {
+      margin: 0;
+      max-width: 28rem;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.82);
+    }
+    .hero-identity-card {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-rows: auto auto;
+      gap: 1rem 1.25rem;
       align-items: center;
-      gap: 1.35rem;
-      flex-wrap: wrap;
+      padding: 1.15rem 1.35rem;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.12) inset,
+        0 16px 40px rgba(0, 0, 0, 0.14);
+      backdrop-filter: blur(12px);
     }
-    .avatar-ring {
-      width: 5.25rem;
-      height: 5.25rem;
+    .avatar-wrap {
+      grid-row: 1 / span 2;
+      width: fit-content;
+    }
+    .avatar {
+      width: 6.75rem;
+      height: 6.75rem;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      background: linear-gradient(145deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.06) 100%);
-      border: 3px solid rgba(255, 255, 255, 0.4);
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25);
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.06) 100%);
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      box-shadow:
+        0 0 0 3px rgba(212, 165, 116, 0.35),
+        0 10px 24px rgba(0, 0, 0, 0.2);
     }
-    .avatar-ring.has-photo {
+    .avatar.has-photo {
       padding: 0;
       overflow: hidden;
       background: #fff;
     }
-    .avatar-ring img {
+    .avatar img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
     .avatar-initials {
       font-family: var(--font-display);
-      font-size: 1.25rem;
+      font-size: 1.65rem;
       font-weight: 600;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
       color: #fff;
     }
-    .profile-name {
-      font-family: var(--font-display);
-      font-size: clamp(1.55rem, 3.5vw, 2rem);
-      font-weight: 600;
-      margin: 0 0 0.25rem;
-      color: #fff;
-      line-height: 1.2;
+    .photo-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
-    .profile-email {
-      margin: 0 0 0.85rem;
-      font-size: 0.95rem;
-      opacity: 0.92;
-    }
-    .identity-chips {
+    .photo-field {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.45rem;
-    }
-    .chip {
-      display: inline-flex;
       align-items: center;
-      padding: 0.28rem 0.75rem;
-      border-radius: 999px;
-      font-size: 0.78rem;
+      gap: 0.65rem 0.85rem;
+    }
+    .photo-choose {
+      margin: 0;
+      cursor: pointer;
+      font-size: 0.88rem;
+      padding: 0.55rem 1rem;
+    }
+    .file-hint {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .identity-main {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 0;
+    }
+    .identity-name {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
       font-weight: 600;
-      background: rgba(255, 255, 255, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.28);
+      line-height: 1.25;
+      color: #fff;
     }
-    .chip-outline {
-      background: transparent;
-      border-color: rgba(255, 255, 255, 0.45);
+    .identity-email {
+      font-size: 0.88rem;
+      color: rgba(255, 255, 255, 0.78);
+      word-break: break-word;
     }
-    .hero-lede {
-      margin: 1.35rem 0 0;
-      max-width: 32rem;
-      font-size: 0.94rem;
-      line-height: 1.55;
-      opacity: 0.88;
+    .identity-meta {
+      grid-column: 2;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+    }
+    .meta-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      min-width: 6.5rem;
+    }
+    .meta-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.58);
+    }
+    .meta-value {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #fff;
     }
     .profile-body {
       padding: 1.75rem 1.5rem 3rem;
@@ -394,56 +478,12 @@ import { AuthService, UserProfile } from '../../services/auth.service';
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(26, 95, 74, 0.12);
     }
-    .divider {
-      height: 1px;
-      margin: 1.35rem 0;
-      background: linear-gradient(90deg, transparent, var(--border), transparent);
-    }
-    .alt-reset {
-      padding: 1rem;
-      border-radius: 12px;
-      background: rgba(26, 95, 74, 0.04);
-      border: 1px dashed rgba(26, 95, 74, 0.2);
-    }
-    .alt-reset > p:first-child {
-      margin: 0 0 0.5rem;
-      font-size: 0.88rem;
-      color: var(--text-muted);
-    }
-    .email-line {
-      font-weight: 600;
-      color: var(--text);
-      margin: 0 0 0.85rem !important;
-      font-size: 0.92rem;
-    }
-    .dev-reset-banner {
-      margin-top: 0.85rem;
-      padding: 0.9rem 1rem;
-      background: #eff6ff;
-      border: 1px solid #93c5fd;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      line-break: anywhere;
-    }
-    .dev-reset-title {
-      margin: 0 0 0.5rem;
-      font-weight: 600;
-      color: #1e3a5f;
-    }
-    .dev-reset-link {
-      word-break: break-all;
-      color: #1d4ed8;
-      font-weight: 600;
-    }
     .btn-block {
       width: 100%;
     }
     .btn-primary:not(:disabled):hover {
       transform: translateY(-1px);
       box-shadow: 0 8px 22px rgba(26, 95, 74, 0.28);
-    }
-    .btn-outline:hover:not(:disabled) {
-      background: rgba(26, 95, 74, 0.06);
     }
     .error-msg {
       background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%);
@@ -481,32 +521,78 @@ import { AuthService, UserProfile } from '../../services/auth.service';
       .details-grid {
         grid-template-columns: 1fr;
       }
-      .profile-identity {
+      .hero-identity-card {
+        grid-template-columns: auto 1fr;
+        padding: 1rem 1.1rem;
+      }
+      .avatar-wrap {
+        grid-row: 1;
+      }
+      .avatar {
+        width: 5.25rem;
+        height: 5.25rem;
+      }
+      .avatar-initials {
+        font-size: 1.35rem;
+      }
+      .identity-main {
+        grid-column: 2;
+      }
+      .identity-meta {
+        grid-column: 1 / -1;
+        gap: 1rem;
+      }
+      .meta-block {
+        flex: 1;
+        min-width: 0;
+      }
+    }
+    @media (min-width: 768px) {
+      .hero-identity-card {
+        grid-template-columns: auto 1fr auto;
+        grid-template-rows: auto;
+        gap: 1.25rem 1.5rem;
+        padding: 1.25rem 1.5rem;
+      }
+      .avatar-wrap {
+        grid-row: auto;
+      }
+      .identity-meta {
+        grid-column: auto;
         flex-direction: column;
-        align-items: flex-start;
+        gap: 1rem;
+        padding-top: 0;
+        padding-left: 1.5rem;
+        border-top: none;
+        border-left: 1px solid rgba(255, 255, 255, 0.14);
       }
     }
   `]
 })
-export class ProfileComponent implements OnInit {
+export class ProfileComponent implements OnInit, OnDestroy {
   profile = signal<UserProfile | null>(null);
   loading = signal(true);
   displayName = '';
   bio = '';
   currentPassword = '';
   newPassword = '';
+  photoFile: File | null = null;
+  photoPreviewUrl: string | null = null;
+  pendingPhotoName = signal<string | null>(null);
 
   savingProfile = signal(false);
   savingPassword = signal(false);
-  sendingForgot = signal(false);
   profileError = signal('');
+  profileOk = signal(false);
   passwordError = signal('');
   passwordSuccess = signal(false);
-  forgotError = signal('');
-  forgotSuccess = signal('');
-  forgotDevResetUrl = signal<string | null>(null);
 
   constructor(private auth: AuthService) {}
+
+  avatarImageUrl(): string | null {
+    if (this.photoPreviewUrl) return this.photoPreviewUrl;
+    return this.profile()?.profileImageUrl ?? null;
+  }
 
   initials(): string {
     const u = this.profile();
@@ -538,12 +624,60 @@ export class ProfileComponent implements OnInit {
     });
   }
 
+  ngOnDestroy() {
+    if (this.photoPreviewUrl) {
+      URL.revokeObjectURL(this.photoPreviewUrl);
+    }
+  }
+
+  onPhotoSelected(ev: Event) {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (this.photoPreviewUrl) {
+      URL.revokeObjectURL(this.photoPreviewUrl);
+      this.photoPreviewUrl = null;
+    }
+    if (!file) {
+      this.photoFile = null;
+      this.pendingPhotoName.set(null);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      this.profileError.set('Image must be 5 MB or smaller.');
+      input.value = '';
+      this.photoFile = null;
+      this.pendingPhotoName.set(null);
+      return;
+    }
+    const allowed = /^image\/(jpeg|png|gif|webp)$/i;
+    if (!allowed.test(file.type)) {
+      this.profileError.set('Use PNG, JPG, GIF, or WebP.');
+      input.value = '';
+      this.photoFile = null;
+      this.pendingPhotoName.set(null);
+      return;
+    }
+    this.photoFile = file;
+    this.photoPreviewUrl = URL.createObjectURL(file);
+    this.pendingPhotoName.set(file.name);
+    this.profileError.set('');
+    this.profileOk.set(false);
+  }
+
   saveProfile() {
     this.savingProfile.set(true);
     this.profileError.set('');
-    this.auth.updateProfile(this.displayName, this.bio).subscribe({
+    this.profileOk.set(false);
+    this.auth.updateProfile(this.displayName, this.bio, this.photoFile ?? undefined).subscribe({
       next: (u) => {
         this.profile.set(u);
+        if (this.photoPreviewUrl) {
+          URL.revokeObjectURL(this.photoPreviewUrl);
+          this.photoPreviewUrl = null;
+        }
+        this.photoFile = null;
+        this.pendingPhotoName.set(null);
+        this.profileOk.set(true);
         this.savingProfile.set(false);
       },
       error: (err) => {
@@ -583,32 +717,6 @@ export class ProfileComponent implements OnInit {
             : (err.error?.message || 'Failed to change password.');
         this.passwordError.set(msg);
         this.savingPassword.set(false);
-      }
-    });
-  }
-
-  sendResetEmail() {
-    const account = this.profile();
-    if (!account?.email) {
-      this.forgotError.set('No email found for this account.');
-      return;
-    }
-
-    this.sendingForgot.set(true);
-    this.forgotError.set('');
-    this.forgotSuccess.set('');
-    this.forgotDevResetUrl.set(null);
-
-    this.auth.forgotPassword(account.email).subscribe({
-      next: (res) => {
-        this.forgotSuccess.set(res.message || 'Password reset instructions have been sent to your email address.');
-        this.forgotDevResetUrl.set(res.devEmailSkipped && res.resetUrl ? res.resetUrl : null);
-        this.sendingForgot.set(false);
-      },
-      error: (err) => {
-        const msg = typeof err.error === 'string' ? err.error : (err.error?.message || 'Unable to send reset email.');
-        this.forgotError.set(msg);
-        this.sendingForgot.set(false);
       }
     });
   }

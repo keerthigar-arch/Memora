@@ -445,13 +445,20 @@ public class EventsController : ControllerBase
     public async Task<ActionResult<List<CountryCountDto>>> GetCountryStats()
     {
         var now = DateTime.UtcNow;
-        var stats = await _db.Events
+        var countries = await _db.Events
             .AsNoTracking()
-            .Where(e => e.IsPublished && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now) && e.Visibility == "Public" && e.Country != null && e.Country != "")
-            .GroupBy(e => e.Country!)
+            .Where(e => e.IsPublished
+                && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now)
+                && e.Visibility == "Public"
+                && e.Country != null && e.Country != "")
+            .Select(e => e.Country!)
+            .ToListAsync();
+
+        var stats = countries
+            .GroupBy(c => c)
             .Select(g => new CountryCountDto(g.Key, g.Count()))
             .OrderByDescending(x => x.Count)
-            .ToListAsync();
+            .ToList();
 
         return Ok(stats);
     }
