@@ -108,6 +108,13 @@ var adminProfileRoot = Path.GetFullPath(
         : configuredAdminProfile);
 Directory.CreateDirectory(adminProfileRoot);
 
+var configuredCustomerProfile = app.Configuration["FileStorage:CustomerProfilePath"];
+var customerProfileRoot = Path.GetFullPath(
+    string.IsNullOrWhiteSpace(configuredCustomerProfile)
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Memora", "Profile")
+        : configuredCustomerProfile);
+Directory.CreateDirectory(customerProfileRoot);
+
 // ✅ FIXED: Correct middleware order — project wwwroot + profile media + event media
 app.UseStaticFiles();
 app.UseStaticFiles(new StaticFileOptions
@@ -119,6 +126,11 @@ app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(eventMediaRoot),
     RequestPath = FileStorageService.EventMediaRequestPath
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(customerProfileRoot),
+    RequestPath = FileStorageService.CustomerProfileRequestPath
 });
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -141,6 +153,74 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.EnsureCreatedAsync();
+
+    async Task<bool> ColumnExistsAsync(string table, string column)
+    {
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(*)
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = @table
+              AND COLUMN_NAME = @column
+            """;
+        var tableParam = command.CreateParameter();
+        tableParam.ParameterName = "@table";
+        tableParam.Value = table;
+        command.Parameters.Add(tableParam);
+        var columnParam = command.CreateParameter();
+        columnParam.ParameterName = "@column";
+        columnParam.Value = column;
+        command.Parameters.Add(columnParam);
+        return Convert.ToInt32(await command.ExecuteScalarAsync()) > 0;
+    }
+
+    async Task<bool> IndexExistsAsync(string table, string indexName)
+    {
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(*)
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = @table
+              AND INDEX_NAME = @index
+            """;
+        var tableParam = command.CreateParameter();
+        tableParam.ParameterName = "@table";
+        tableParam.Value = table;
+        command.Parameters.Add(tableParam);
+        var indexParam = command.CreateParameter();
+        indexParam.ParameterName = "@index";
+        indexParam.Value = indexName;
+        command.Parameters.Add(indexParam);
+        return Convert.ToInt32(await command.ExecuteScalarAsync()) > 0;
+    }
+
+    async Task AddColumnIfMissingAsync(string table, string column, string alterSql)
+    {
+        if (!await ColumnExistsAsync(table, column))
+            await db.Database.ExecuteSqlRawAsync(alterSql);
+    }
+
+    async Task DropColumnIfExistsAsync(string table, string column)
+    {
+        if (await ColumnExistsAsync(table, column))
+            await db.Database.ExecuteSqlRawAsync($"ALTER TABLE `{table}` DROP COLUMN `{column}`");
+    }
+
+    async Task CreateIndexIfMissingAsync(string table, string indexName, string createSql)
+    {
+        if (!await IndexExistsAsync(table, indexName))
+            await db.Database.ExecuteSqlRawAsync(createSql);
+    }
 
     try
     {
@@ -203,40 +283,16 @@ using (var scope = app.Services.CreateScope())
         /* Table may already exist. */
     }
 
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `PricingOrders` ADD COLUMN `StripePaymentIntentId` varchar(128) NULL");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `PricingOrders` ADD COLUMN `PaidAmountMinorUnits` bigint NULL");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `PricingOrders` ADD COLUMN `PaidCurrencyCode` varchar(16) NULL");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `PricingOrders` ADD COLUMN `DirectManualPaymentReceived` tinyint(1) NOT NULL DEFAULT 0");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `PricingOrders` ADD COLUMN `DirectManualPaymentMarkedAt` datetime(6) NULL");
-    }
-    catch { }
+    await AddColumnIfMissingAsync("PricingOrders", "StripePaymentIntentId",
+        "ALTER TABLE `PricingOrders` ADD COLUMN `StripePaymentIntentId` varchar(128) NULL");
+    await AddColumnIfMissingAsync("PricingOrders", "PaidAmountMinorUnits",
+        "ALTER TABLE `PricingOrders` ADD COLUMN `PaidAmountMinorUnits` bigint NULL");
+    await AddColumnIfMissingAsync("PricingOrders", "PaidCurrencyCode",
+        "ALTER TABLE `PricingOrders` ADD COLUMN `PaidCurrencyCode` varchar(16) NULL");
+    await AddColumnIfMissingAsync("PricingOrders", "DirectManualPaymentReceived",
+        "ALTER TABLE `PricingOrders` ADD COLUMN `DirectManualPaymentReceived` tinyint(1) NOT NULL DEFAULT 0");
+    await AddColumnIfMissingAsync("PricingOrders", "DirectManualPaymentMarkedAt",
+        "ALTER TABLE `PricingOrders` ADD COLUMN `DirectManualPaymentMarkedAt` datetime(6) NULL");
 
     try
     {
@@ -386,172 +442,51 @@ using (var scope = app.Services.CreateScope())
         /* Sample seed optional; ignore duplicate key races. */
     }
 
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `Users` ADD COLUMN `Role` varchar(20) NOT NULL DEFAULT 'Customer'");
-    }
-    catch
-    {
-        /* Column already exists when DB was created with an older schema. */
-    }
+    await AddColumnIfMissingAsync("Users", "Role",
+        "ALTER TABLE `Users` ADD COLUMN `Role` varchar(20) NOT NULL DEFAULT 'Customer'");
 
     await db.Database.ExecuteSqlRawAsync(
         "UPDATE `Users` SET `Role` = 'Customer' WHERE `Role` IS NULL OR `Role` = ''");
 
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `Users` ADD COLUMN `MustChangePassword` tinyint(1) NOT NULL DEFAULT 0");
-    }
-    catch
-    {
-        /* Column already exists. */
-    }
+    await AddColumnIfMissingAsync("Users", "MustChangePassword",
+        "ALTER TABLE `Users` ADD COLUMN `MustChangePassword` tinyint(1) NOT NULL DEFAULT 0");
+    await AddColumnIfMissingAsync("Users", "UserName",
+        "ALTER TABLE `Users` ADD COLUMN `UserName` varchar(64) NULL");
+    await CreateIndexIfMissingAsync("Users", "IX_Users_UserName",
+        "CREATE UNIQUE INDEX `IX_Users_UserName` ON `Users` (`UserName`)");
 
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `Users` ADD COLUMN `UserName` varchar(64) NULL");
-    }
-    catch
-    {
-        /* Column already exists. */
-    }
+    /* Performance: large-table scans (feed, admin lists, country stats). */
+    await CreateIndexIfMissingAsync("Events", "IX_Events_UserId_CreatedAt",
+        "CREATE INDEX `IX_Events_UserId_CreatedAt` ON `Events` (`UserId`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_IsPublished_CreatedAt",
+        "CREATE INDEX `IX_Events_IsPublished_CreatedAt` ON `Events` (`IsPublished`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_DisplayValidityEndDate",
+        "CREATE INDEX `IX_Events_DisplayValidityEndDate` ON `Events` (`DisplayValidityEndDate`)");
+    await CreateIndexIfMissingAsync("Wishes", "IX_Wishes_CreatedAt",
+        "CREATE INDEX `IX_Wishes_CreatedAt` ON `Wishes` (`CreatedAt`)");
+    await CreateIndexIfMissingAsync("Wishes", "IX_Wishes_EventId",
+        "CREATE INDEX `IX_Wishes_EventId` ON `Wishes` (`EventId`)");
+    await CreateIndexIfMissingAsync("PricingOrders", "IX_PricingOrders_Status_CreatedAt",
+        "CREATE INDEX `IX_PricingOrders_Status_CreatedAt` ON `PricingOrders` (`Status`, `CreatedAt`)");
 
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "CREATE UNIQUE INDEX `IX_Users_UserName` ON `Users` (`UserName`)");
-    }
-    catch
-    {
-        /* Index already exists. */
-    }
-
-    /* Performance: large-table scans (feed, admin lists, country stats). Safe to re-run — duplicate index ignored. */
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "CREATE INDEX `IX_Events_UserId_CreatedAt` ON `Events` (`UserId`, `CreatedAt`)");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "CREATE INDEX `IX_Events_IsPublished_CreatedAt` ON `Events` (`IsPublished`, `CreatedAt`)");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "CREATE INDEX `IX_Events_DisplayValidityEndDate` ON `Events` (`DisplayValidityEndDate`)");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "CREATE INDEX `IX_Wishes_CreatedAt` ON `Wishes` (`CreatedAt`)");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "CREATE INDEX `IX_Wishes_EventId` ON `Wishes` (`EventId`)");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "CREATE INDEX `IX_PricingOrders_Status_CreatedAt` ON `PricingOrders` (`Status`, `CreatedAt`)");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `Events` ADD COLUMN `PaymentReceived` tinyint(1) NOT NULL DEFAULT 0");
-    }
-    catch
-    {
-        /* Column already exists. */
-    }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `PendingEvents` ADD COLUMN `PaymentReceived` tinyint(1) NOT NULL DEFAULT 0");
-    }
-    catch
-    {
-        /* Column already exists. */
-    }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `PendingEvents` ADD COLUMN `AwaitingOfflineApproval` tinyint(1) NOT NULL DEFAULT 0");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `PendingEvents` ADD COLUMN `OfflineSubmittedAt` datetime(6) NULL");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `PendingEvents` ADD COLUMN `PaymentMethod` varchar(20) NULL");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `Events` ADD COLUMN `CurrencyCode` varchar(16) NOT NULL DEFAULT 'USD'");
-    }
-    catch
-    {
-        /* Column already exists. */
-    }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `Events` ADD COLUMN `AmountGBP` decimal(18,4) NOT NULL DEFAULT 0");
-    }
-    catch
-    {
-        /* Column already exists. */
-    }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `Events` ADD COLUMN `AmountPaid` decimal(18,4) NOT NULL DEFAULT 0");
-    }
-    catch
-    {
-        /* Column already exists. */
-    }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `Events` ADD COLUMN `ExchangeRateUsed` decimal(18,6) NOT NULL DEFAULT 1");
-    }
-    catch
-    {
-        /* Column already exists. */
-    }
+    await AddColumnIfMissingAsync("Events", "PaymentReceived",
+        "ALTER TABLE `Events` ADD COLUMN `PaymentReceived` tinyint(1) NOT NULL DEFAULT 0");
+    await AddColumnIfMissingAsync("PendingEvents", "PaymentReceived",
+        "ALTER TABLE `PendingEvents` ADD COLUMN `PaymentReceived` tinyint(1) NOT NULL DEFAULT 0");
+    await AddColumnIfMissingAsync("PendingEvents", "AwaitingOfflineApproval",
+        "ALTER TABLE `PendingEvents` ADD COLUMN `AwaitingOfflineApproval` tinyint(1) NOT NULL DEFAULT 0");
+    await AddColumnIfMissingAsync("PendingEvents", "OfflineSubmittedAt",
+        "ALTER TABLE `PendingEvents` ADD COLUMN `OfflineSubmittedAt` datetime(6) NULL");
+    await AddColumnIfMissingAsync("PendingEvents", "PaymentMethod",
+        "ALTER TABLE `PendingEvents` ADD COLUMN `PaymentMethod` varchar(20) NULL");
+    await AddColumnIfMissingAsync("Events", "CurrencyCode",
+        "ALTER TABLE `Events` ADD COLUMN `CurrencyCode` varchar(16) NOT NULL DEFAULT 'USD'");
+    await AddColumnIfMissingAsync("Events", "AmountGBP",
+        "ALTER TABLE `Events` ADD COLUMN `AmountGBP` decimal(18,4) NOT NULL DEFAULT 0");
+    await AddColumnIfMissingAsync("Events", "AmountPaid",
+        "ALTER TABLE `Events` ADD COLUMN `AmountPaid` decimal(18,4) NOT NULL DEFAULT 0");
+    await AddColumnIfMissingAsync("Events", "ExchangeRateUsed",
+        "ALTER TABLE `Events` ADD COLUMN `ExchangeRateUsed` decimal(18,6) NOT NULL DEFAULT 1");
 
     try
     {
@@ -574,53 +509,36 @@ using (var scope = app.Services.CreateScope())
     }
     catch { }
 
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `AdminNotifications` ADD COLUMN `IsRead` tinyint(1) NOT NULL DEFAULT 0");
-    }
-    catch { }
+    await AddColumnIfMissingAsync("AdminNotifications", "IsRead",
+        "ALTER TABLE `AdminNotifications` ADD COLUMN `IsRead` tinyint(1) NOT NULL DEFAULT 0");
+    await AddColumnIfMissingAsync("AdminNotifications", "ReadAt",
+        "ALTER TABLE `AdminNotifications` ADD COLUMN `ReadAt` datetime(6) NULL");
 
     try
     {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `AdminNotifications` ADD COLUMN `ReadAt` datetime(6) NULL");
+        var readsTableExists = await db.Database.SqlQueryRaw<int>(
+            """
+            SELECT COUNT(*) AS Value
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'AdminNotificationReads'
+            """).FirstOrDefaultAsync();
+        if (readsTableExists > 0)
+        {
+            await db.Database.ExecuteSqlRawAsync("""
+                UPDATE `AdminNotifications` n
+                SET n.`IsRead` = 1,
+                    n.`ReadAt` = COALESCE(
+                        (SELECT MIN(r.`ReadAt`) FROM `AdminNotificationReads` r WHERE r.`NotificationId` = n.`Id`),
+                        UTC_TIMESTAMP(6))
+                WHERE EXISTS (SELECT 1 FROM `AdminNotificationReads` r WHERE r.`NotificationId` = n.`Id`)
+                """);
+        }
     }
     catch { }
 
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync("""
-            UPDATE `AdminNotifications` n
-            SET n.`IsRead` = 1,
-                n.`ReadAt` = COALESCE(
-                    (SELECT MIN(r.`ReadAt`) FROM `AdminNotificationReads` r WHERE r.`NotificationId` = n.`Id`),
-                    UTC_TIMESTAMP(6))
-            WHERE EXISTS (SELECT 1 FROM `AdminNotificationReads` r WHERE r.`NotificationId` = n.`Id`)
-            """);
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `AdminNotifications` DROP COLUMN `Title`");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `AdminNotifications` DROP COLUMN `EventType`");
-    }
-    catch { }
-
-    try
-    {
-        await db.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE `AdminNotifications` DROP COLUMN `CustomerDisplayName`");
-    }
-    catch { }
+    await DropColumnIfExistsAsync("AdminNotifications", "Title");
+    await DropColumnIfExistsAsync("AdminNotifications", "EventType");
+    await DropColumnIfExistsAsync("AdminNotifications", "CustomerDisplayName");
 
     try
     {

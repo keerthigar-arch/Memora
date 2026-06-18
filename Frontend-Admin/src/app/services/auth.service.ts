@@ -1,8 +1,8 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { tap } from 'rxjs/operators';
-import { Observable } from 'rxjs';
+import { tap, catchError } from 'rxjs/operators';
+import { Observable, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 const API = `${environment.apiUrl}/api`;
@@ -137,6 +137,21 @@ export class AuthService {
     return this.token();
   }
 
+  private clearStaleSession() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(PENDING_FIRST_LOGIN_KEY);
+    this.token.set(null);
+    this.user.set(null);
+  }
+
+  private handleStaleProfileError(err: { status?: number }) {
+    if (err.status === 401 || err.status === 404) {
+      this.clearStaleSession();
+    }
+    return throwError(() => err);
+  }
+
   refreshProfile(): Observable<UserProfile> {
     return this.http.get<UserProfile>(`${API}/users/me`).pipe(
       tap((u) => {
@@ -144,7 +159,8 @@ export class AuthService {
         this.syncPendingFirstLoginFlag(normalized);
         this.user.set(normalized);
         localStorage.setItem(USER_KEY, JSON.stringify(normalized));
-      })
+      }),
+      catchError((err) => this.handleStaleProfileError(err))
     );
   }
 
@@ -159,7 +175,8 @@ export class AuthService {
         this.syncPendingFirstLoginFlag(normalized);
         this.user.set(normalized);
         localStorage.setItem(USER_KEY, JSON.stringify(normalized));
-      })
+      }),
+      catchError((err) => this.handleStaleProfileError(err))
     );
   }
 

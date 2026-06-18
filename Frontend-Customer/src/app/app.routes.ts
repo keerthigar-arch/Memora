@@ -73,6 +73,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/register/register.component').then((m) => m.RegisterComponent)
       },
       {
+        path: 'profile',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('./features/profile/profile.component').then((m) => m.CustomerProfileComponent)
+      },
+      {
         path: 'my-events',
         canActivate: [authGuard],
         loadComponent: () =>

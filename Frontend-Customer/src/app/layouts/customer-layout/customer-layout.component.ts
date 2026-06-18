@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
@@ -65,7 +65,78 @@ import { environment } from '../../../environments/environment';
           <a class="nav-link" routerLink="/contact" routerLinkActive="active">{{ 'nav.contact' | t }}</a>
           @if (auth.isLoggedIn()) {
             <a class="nav-link" routerLink="/my-events" routerLinkActive="active">{{ 'nav.myEvents' | t }}</a>
-            <button type="button" class="nav-btn nav-btn-ghost" (click)="auth.logout()">{{ 'nav.logout' | t }}</button>
+            <div class="profile-menu" #profileMenuRoot>
+              <button
+                type="button"
+                class="profile-trigger"
+                (click)="toggleProfileMenu($event)"
+                [attr.aria-expanded]="profileMenuOpen()"
+                aria-haspopup="menu"
+                [attr.aria-label]="('nav.myAccount' | t) + ' — ' + (userDisplayName() || '')"
+              >
+                <span class="profile-avatar" [class.has-photo]="!!profileImageUrl()">
+                  @if (profileImageUrl()) {
+                    <img [src]="profileImageUrl()!" alt="" />
+                  } @else {
+                    <span class="profile-initials">{{ userInitials() }}</span>
+                  }
+                </span>
+                <svg class="profile-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+
+              @if (profileMenuOpen()) {
+                <div class="profile-dropdown" role="menu" [attr.aria-label]="'nav.myAccount' | t">
+                  <div class="profile-dropdown-header">
+                    <span class="profile-dropdown-name">{{ userDisplayName() }}</span>
+                    <span class="profile-dropdown-email">{{ userEmail() }}</span>
+                  </div>
+                  <ul class="profile-dropdown-list">
+                    <li>
+                      <a
+                        class="profile-dropdown-item"
+                        role="menuitem"
+                        routerLink="/profile"
+                        routerLinkActive="is-active"
+                        (click)="closeProfileMenu()"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            d="M20 21a8 8 0 1 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                          />
+                        </svg>
+                        {{ 'nav.myAccount' | t }}
+                      </a>
+                    </li>
+                    <li class="profile-dropdown-divider" role="separator"></li>
+                    <li>
+                      <button
+                        type="button"
+                        class="profile-dropdown-item profile-dropdown-item--danger"
+                        role="menuitem"
+                        (click)="logout()"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                        {{ 'nav.logout' | t }}
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              }
+            </div>
           } @else {
             <button type="button" class="nav-link nav-link-muted nav-auth-btn" (click)="authUi.openLogin()">
               {{ 'nav.login' | t }}
@@ -76,7 +147,8 @@ import { environment } from '../../../environments/environment';
       </div>
     </header>
 
-    <section class="showcase" [class.showcase--profile]="isProfileRoute()">
+    @if (!isProfileRoute()) {
+    <section class="showcase">
       <div class="container showcase-content">
         <div class="showcase-copy">
           <p class="showcase-kicker">{{ 'showcase.kicker' | t }}</p>
@@ -111,6 +183,7 @@ import { environment } from '../../../environments/environment';
         </div>
       </div>
     </section>
+    }
 
     @if (!isProfileRoute()) {
     <section class="country-summary-bar">
@@ -522,6 +595,160 @@ import { environment } from '../../../environments/environment';
         border-color: #c5d8d0;
         background: #f8fcfa;
       }
+      .profile-menu {
+        position: relative;
+      }
+      .profile-trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 40px;
+        padding: 4px 8px 4px 4px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        background: transparent;
+        cursor: pointer;
+        transition: background-color 0.15s ease, border-color 0.15s ease;
+      }
+      .profile-trigger:hover,
+      .profile-trigger[aria-expanded='true'] {
+        background: #fff;
+        border-color: #dce8e3;
+      }
+      .profile-trigger:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      .profile-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        background: linear-gradient(145deg, #e8f3ee 0%, #d4e8df 100%);
+        border: 1.5px solid rgba(26, 95, 74, 0.18);
+        overflow: hidden;
+      }
+      .profile-avatar.has-photo {
+        background: #fff;
+      }
+      .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .profile-initials {
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: var(--primary);
+        line-height: 1;
+      }
+      .profile-chevron {
+        width: 16px;
+        height: 16px;
+        color: #6b857c;
+        flex-shrink: 0;
+        transition: transform 0.15s ease;
+      }
+      .profile-trigger[aria-expanded='true'] .profile-chevron {
+        transform: rotate(180deg);
+      }
+      .profile-dropdown {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        width: 240px;
+        border-radius: 12px;
+        border: 1px solid rgba(13, 61, 50, 0.08);
+        background: #fff;
+        box-shadow: 0 4px 6px rgba(13, 61, 50, 0.04), 0 16px 40px rgba(13, 61, 50, 0.12);
+        z-index: 300;
+        overflow: hidden;
+        animation: dropdownIn 0.15s ease;
+      }
+      @keyframes dropdownIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .profile-dropdown-header {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 12px 16px;
+        border-bottom: 1px solid #eef3f0;
+        background: #fafcfb;
+      }
+      .profile-dropdown-name {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--primary-dark);
+        line-height: 1.3;
+      }
+      .profile-dropdown-email {
+        font-size: 0.75rem;
+        color: #6b857c;
+        word-break: break-word;
+      }
+      .profile-dropdown-list {
+        list-style: none;
+        margin: 0;
+        padding: 8px;
+      }
+      .profile-dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 10px 12px;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: #2f4a42;
+        font: inherit;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-decoration: none;
+        text-align: left;
+        cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease;
+      }
+      .profile-dropdown-item svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        color: #6b857c;
+      }
+      .profile-dropdown-item:hover,
+      .profile-dropdown-item:focus-visible,
+      .profile-dropdown-item.is-active {
+        background: #f4f8f6;
+        color: var(--primary-dark);
+        outline: none;
+      }
+      .profile-dropdown-item:hover svg,
+      .profile-dropdown-item:focus-visible svg,
+      .profile-dropdown-item.is-active svg {
+        color: var(--primary);
+      }
+      .profile-dropdown-item--danger {
+        color: #b42318;
+      }
+      .profile-dropdown-item--danger svg {
+        color: #d92d20;
+      }
+      .profile-dropdown-item--danger:hover,
+      .profile-dropdown-item--danger:focus-visible {
+        background: #fef3f2;
+        color: #912018;
+      }
+      .profile-dropdown-divider {
+        height: 1px;
+        margin: 4px 8px;
+        background: #eef3f0;
+      }
     }
     .country-summary-bar {
       background: #f8fcfa;
@@ -577,6 +804,12 @@ import { environment } from '../../../environments/environment';
         flex-wrap: wrap;
         border-radius: 16px;
       }
+      .profile-chevron {
+        display: none;
+      }
+      .profile-trigger {
+        padding: 4px;
+      }
       .showcase {
         padding: 0.75rem 0;
       }
@@ -594,10 +827,15 @@ import { environment } from '../../../environments/environment';
     }
   `]
 })
-export class CustomerLayoutComponent {
+export class CustomerLayoutComponent implements OnInit {
   readonly env = environment;
 
-  /** Country chips are feed-only; slideshow showcase stays visible on profile too. */
+  profileMenuOpen = signal(false);
+  profileImageUrl = computed(() => this.auth.currentUser()?.profileImageUrl ?? null);
+  userDisplayName = computed(() => this.auth.currentUser()?.displayName?.trim() || '');
+  userEmail = computed(() => this.auth.currentUser()?.email || '');
+
+  /** Country chips and showcase are hidden on profile; profile has its own hero. */
   readonly isProfileRoute = signal(false);
 
   constructor(
@@ -605,13 +843,61 @@ export class CustomerLayoutComponent {
     public auth: AuthService,
     public authUi: AuthUiService,
     public i18n: LanguageService,
-    private router: Router
+    private router: Router,
+    private host: ElementRef<HTMLElement>
   ) {
     const syncRoute = () => {
       const path = this.router.url.split('?')[0].split('#')[0];
       this.isProfileRoute.set(path === '/profile' || path.startsWith('/profile/'));
     };
     syncRoute();
-    this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe(syncRoute);
+    this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe(() => {
+      syncRoute();
+      this.closeProfileMenu();
+    });
+  }
+
+  userInitials(): string {
+    const name = this.auth.currentUser()?.displayName?.trim();
+    if (!name) return '?';
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const a = parts[0][0] ?? '';
+      const b = parts[parts.length - 1][0] ?? '';
+      return (a + b).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }
+
+  ngOnInit() {
+    if (this.auth.isLoggedIn()) {
+      this.auth.refreshProfile().subscribe({ error: () => {} });
+    }
+  }
+
+  toggleProfileMenu(event: MouseEvent) {
+    event.stopPropagation();
+    this.profileMenuOpen.update((v) => !v);
+  }
+
+  closeProfileMenu() {
+    this.profileMenuOpen.set(false);
+  }
+
+  logout() {
+    this.closeProfileMenu();
+    this.auth.logout();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    if (this.profileMenuOpen() && !this.host.nativeElement.contains(event.target as Node)) {
+      this.closeProfileMenu();
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape() {
+    this.closeProfileMenu();
   }
 }

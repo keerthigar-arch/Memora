@@ -681,10 +681,33 @@ export class ProfileComponent implements OnInit, OnDestroy {
         this.savingProfile.set(false);
       },
       error: (err) => {
-        this.profileError.set(err.error?.message || 'Failed to update profile.');
+        this.profileError.set(this.readApiError(err, 'Failed to update profile.'));
         this.savingProfile.set(false);
       }
     });
+  }
+
+  private readApiError(err: { status?: number; error?: unknown; message?: string }, fallback: string): string {
+    if (err.status === 0) {
+      return 'Cannot reach the API. Start the backend on port 5000 and try again.';
+    }
+    if (err.status === 401) {
+      return 'Your session expired. Please log in again.';
+    }
+    if (err.status === 404) {
+      return 'Your account was not found. Please log out and sign in again.';
+    }
+    if (typeof err.error === 'string' && err.error.trim()) {
+      return err.error;
+    }
+    const body = err.error as { message?: string; detail?: string } | null | undefined;
+    if (body?.message) {
+      return body.detail ? `${body.message} (${body.detail})` : body.message;
+    }
+    if (err.message) {
+      return err.message;
+    }
+    return fallback;
   }
 
   changePasswordSubmit() {

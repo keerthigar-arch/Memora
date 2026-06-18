@@ -8,6 +8,7 @@ public class FileStorageService
 {
     private readonly string _rootPath;
     private readonly string _eventRootPath;
+    private readonly string _customerProfileRootPath;
     private readonly string _adminProfileRootPath;
     private readonly string[] _allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
     private const int MaxFileSize = 5 * 1024 * 1024; // 5MB
@@ -17,6 +18,9 @@ public class FileStorageService
 
     /// <summary>URL prefix for event images on disk under Desktop/Memora/Event.</summary>
     public const string EventMediaRequestPath = "/media/event";
+
+    /// <summary>URL prefix for customer profile photos on disk under Desktop/Memora/Profile.</summary>
+    public const string CustomerProfileRequestPath = "/media/customer-profile";
 
     /// <summary>URL prefix for admin profile photos on disk under Desktop/Memora-AdminProfile.</summary>
     public const string AdminProfileRequestPath = "/media/admin-profile";
@@ -35,6 +39,15 @@ public class FileStorageService
             : configuredEvent;
         Directory.CreateDirectory(_eventRootPath);
 
+        var configuredCustomerProfile = configuration["FileStorage:CustomerProfilePath"];
+        _customerProfileRootPath = string.IsNullOrWhiteSpace(configuredCustomerProfile)
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                "Memora",
+                "Profile")
+            : configuredCustomerProfile;
+        Directory.CreateDirectory(_customerProfileRootPath);
+
         var configuredAdmin = configuration["FileStorage:AdminProfilePath"];
         _adminProfileRootPath = string.IsNullOrWhiteSpace(configuredAdmin)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Memora-AdminProfile")
@@ -47,6 +60,9 @@ public class FileStorageService
 
     /// <summary>Physical root for event images: <c>Desktop/Memora/Event</c>.</summary>
     public string GetEventPhysicalRoot() => _eventRootPath;
+
+    /// <summary>Physical root for customer profile images: <c>Desktop/Memora/Profile</c>.</summary>
+    public string GetCustomerProfilePhysicalRoot() => _customerProfileRootPath;
 
     /// <summary>Physical folder for admin portal profile photos.</summary>
     public string GetAdminProfilePhysicalRoot() => _adminProfileRootPath;
@@ -80,9 +96,31 @@ public class FileStorageService
         return $"{EventMediaRequestPath}/{serialNumber}/{fileName}";
     }
 
-    /// <summary>Profile image: <c>{root}/{userId}/profile/</c>.</summary>
+    /// <summary>Legacy profile image: <c>{root}/{userId}/profile/</c>.</summary>
     public Task<string?> SaveProfileImageAsync(IFormFile file, int userId) =>
-        SaveFileAsync(file, userId, folderSegment: ProfileFolderSegment);
+        SaveLegacyProfileImageAsync(file, userId);
+
+    /// <summary>Customer portal profile image: <c>Desktop/Memora/Profile/{userId}/</c>.</summary>
+    public async Task<string?> SaveCustomerProfileImageAsync(IFormFile file, int userId)
+    {
+        if (file == null || file.Length == 0 || file.Length > MaxFileSize)
+            return null;
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!_allowedExtensions.Contains(ext))
+            return null;
+
+        var folder = Path.Combine(_customerProfileRootPath, userId.ToString());
+        Directory.CreateDirectory(folder);
+
+        var fileName = $"{Guid.NewGuid()}{ext}";
+        var filePath = Path.Combine(folder, fileName);
+
+        await using var stream = new FileStream(filePath, FileMode.Create);
+        await file.CopyToAsync(stream);
+
+        return $"{CustomerProfileRequestPath}/{userId}/{fileName}";
+    }
 
     /// <summary>Admin portal profile image: <c>Desktop/Memora-AdminProfile/{userId}/</c>.</summary>
     public async Task<string?> SaveAdminProfileImageAsync(IFormFile file, int userId)
@@ -104,6 +142,11 @@ public class FileStorageService
         await file.CopyToAsync(stream);
 
         return $"{AdminProfileRequestPath}/{userId}/{fileName}";
+    }
+
+    private async Task<string?> SaveLegacyProfileImageAsync(IFormFile file, int userId)
+    {
+        return await SaveFileAsync(file, userId, ProfileFolderSegment);
     }
 
     private async Task<string?> SaveFileAsync(IFormFile file, int userId, string folderSegment)

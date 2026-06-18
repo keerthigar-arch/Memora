@@ -51,38 +51,71 @@ public class UsersController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var user = await _db.Users.FindAsync(userId.Value);
-        if (user == null) return NotFound();
+        if (user == null)
+            return Unauthorized(new { message = "Your session is no longer valid. Please sign in again." });
 
         return Ok(ToProfile(user));
     }
 
     [Authorize]
     [HttpPut("me")]
+    [Consumes("multipart/form-data")]
     public async Task<ActionResult<UserProfileDto>> UpdateProfile([FromForm] string? displayName, [FromForm] string? bio, [FromForm] IFormFile? profileImage)
     {
         var userId = _jwt.GetUserIdFromClaims(User);
         if (userId == null) return Unauthorized();
 
         var user = await _db.Users.FindAsync(userId.Value);
-        if (user == null) return NotFound();
+        if (user == null)
+            return Unauthorized(new { message = "Your session is no longer valid. Please sign in again." });
 
-        if (!string.IsNullOrWhiteSpace(displayName)) user.DisplayName = displayName.Trim();
-        if (bio != null) user.Bio = string.IsNullOrWhiteSpace(bio) ? null : bio.Trim();
+        if (displayName != null)
+        {
+            var trimmed = displayName.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+                return BadRequest(new { message = "Display name cannot be empty." });
+            if (trimmed.Length > 150)
+                return BadRequest(new { message = "Display name must be 150 characters or fewer." });
+            user.DisplayName = trimmed;
+        }
+
+        if (bio != null)
+            user.Bio = string.IsNullOrWhiteSpace(bio) ? null : bio.Trim();
 
         if (profileImage != null)
         {
+            if (profileImage.Length == 0)
+                return BadRequest(new { message = "Profile image file is empty." });
+
             var isAdmin = string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase);
-            var url = isAdmin
-                ? await _fileStorage.SaveAdminProfileImageAsync(profileImage, userId.Value)
-                : await _fileStorage.SaveProfileImageAsync(profileImage, userId.Value);
-            if (url != null)
+            string? url;
+            try
             {
-                var baseUrl = _fileStorage.GetBaseUrl(Request);
-                user.ProfileImageUrl = baseUrl + url;
+                url = isAdmin
+                    ? await _fileStorage.SaveAdminProfileImageAsync(profileImage, userId.Value)
+                    : await _fileStorage.SaveCustomerProfileImageAsync(profileImage, userId.Value);
             }
+            catch (IOException ex)
+            {
+                return StatusCode(500, new { message = "Could not save profile image on disk.", detail = ex.Message });
+            }
+
+            if (url == null)
+                return BadRequest(new { message = "Invalid profile image. Use PNG, JPG, GIF, or WebP up to 5 MB." });
+
+            var baseUrl = _fileStorage.GetBaseUrl(Request);
+            user.ProfileImageUrl = baseUrl + url;
         }
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            return StatusCode(500, new { message = "Could not save profile changes.", detail = ex.InnerException?.Message ?? ex.Message });
+        }
+
         return Ok(ToProfile(user));
     }
 
@@ -94,7 +127,8 @@ public class UsersController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var user = await _db.Users.FindAsync(userId.Value);
-        if (user == null) return NotFound();
+        if (user == null)
+            return Unauthorized(new { message = "Your session is no longer valid. Please sign in again." });
 
         if (dto.ProfileVisibility != null && new[] { "Public", "Private", "FriendsOnly" }.Contains(dto.ProfileVisibility))
             user.ProfileVisibility = dto.ProfileVisibility;
@@ -113,7 +147,8 @@ public class UsersController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var user = await _db.Users.FindAsync(userId.Value);
-        if (user == null) return NotFound();
+        if (user == null)
+            return Unauthorized(new { message = "Your session is no longer valid. Please sign in again." });
 
         if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
             return BadRequest(new { message = "Current password is incorrect." });

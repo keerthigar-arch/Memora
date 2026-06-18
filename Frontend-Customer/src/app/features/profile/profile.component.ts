@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService, ForgotPasswordResponse, UserProfile } from '../../services/auth.service';
@@ -12,32 +12,48 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     @if (loading()) {
       <div class="container loading-wrap">
         <div class="spinner"></div>
-        <p>Loading your profile…</p>
+        <p>{{ 'profile.loading' | t }}</p>
       </div>
     } @else if (profile()) {
       <div class="profile-page">
-        <header class="profile-hero" aria-labelledby="profile-heading">
-          <div class="profile-hero-glow" aria-hidden="true"></div>
+        <header class="profile-hero" aria-labelledby="customer-profile-heading">
+          <div class="hero-backdrop" aria-hidden="true"></div>
           <div class="container profile-hero-inner">
-            <div class="profile-identity">
-              <div class="avatar-ring" [class.has-photo]="!!profile()!.profileImageUrl">
-                @if (profile()!.profileImageUrl) {
-                  <img [src]="profile()!.profileImageUrl" alt="" />
-                } @else {
-                  <span class="avatar-initials">{{ initials() }}</span>
-                }
+            <div class="hero-shell">
+              <div class="hero-head">
+                <p class="hero-kicker">Memora</p>
+                <h1 id="customer-profile-heading">{{ 'profile.title' | t }}</h1>
+                <p class="hero-sub">{{ 'profile.subtitle' | t }}</p>
               </div>
-              <div class="profile-identity-text">
-                <p class="profile-kicker">{{ 'profile.title' | t }}</p>
-                <h1 id="profile-heading" class="profile-name">{{ profile()!.displayName }}</h1>
-                <p class="profile-email">{{ profile()!.email }}</p>
-                <div class="identity-chips">
-                  <span class="chip">{{ profile()!.role || 'Customer' }}</span>
-                  <span class="chip chip-outline">{{ profile()!.createdAt | date: 'mediumDate' }}</span>
+
+              <div class="hero-identity-card">
+                <div class="avatar-wrap">
+                  <div class="avatar" [class.has-photo]="!!avatarImageUrl()">
+                    @if (avatarImageUrl()) {
+                      <img [src]="avatarImageUrl()" alt="" />
+                    } @else {
+                      <span class="avatar-initials">{{ initials() }}</span>
+                    }
+                  </div>
+                </div>
+
+                <div class="identity-main">
+                  <span class="identity-name">{{ profile()!.displayName }}</span>
+                  <span class="identity-email">{{ profile()!.email }}</span>
+                </div>
+
+                <div class="identity-meta">
+                  <div class="meta-block">
+                    <span class="meta-label">{{ 'profile.role' | t }}</span>
+                    <span class="meta-value">{{ profile()!.role || 'Customer' }}</span>
+                  </div>
+                  <div class="meta-block">
+                    <span class="meta-label">{{ 'profile.joined' | t }}</span>
+                    <span class="meta-value">{{ profile()!.createdAt | date: 'MMM d, yyyy' }}</span>
+                  </div>
                 </div>
               </div>
             </div>
-            <p class="hero-lede">{{ 'profile.subtitle' | t }}</p>
           </div>
         </header>
 
@@ -46,8 +62,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <div class="profile-col-main">
               <section class="profile-card">
                 <p class="card-kicker">{{ 'profile.details' | t }}</p>
-                <h2 class="card-title visually-hidden">{{ 'profile.details' | t }}</h2>
-
+                <h2 class="visually-hidden">{{ 'profile.details' | t }}</h2>
                 <div class="details-grid">
                   <div class="detail-tile">
                     <span class="detail-tile-label">{{ 'profile.email' | t }}</span>
@@ -66,117 +81,123 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     <p class="detail-tile-value">{{ profile()!.displayName }}</p>
                   </div>
                 </div>
-
                 <form (ngSubmit)="saveProfile()" class="form-block">
                   <p class="form-section-label">{{ 'profile.updateProfile' | t }}</p>
-            <div class="form-group">
-              <label for="pf-name">{{ 'profile.displayName' | t }}</label>
-              <input id="pf-name" [(ngModel)]="displayName" name="displayName" required />
-            </div>
-            <div class="form-group">
-              <label for="pf-bio">{{ 'profile.bio' | t }}</label>
-              <textarea id="pf-bio" [(ngModel)]="bio" name="bio" rows="3" placeholder=""></textarea>
-            </div>
-            <div class="form-group">
-              <label for="pf-photo">{{ 'profile.photo' | t }}</label>
-              <input
-                id="pf-photo"
-                type="file"
-                accept="image/*"
-                (change)="onPhotoSelected($event)"
-              />
-              @if (pendingPhotoName()) {
-                <p class="file-hint">{{ pendingPhotoName() }}</p>
-              }
-            </div>
-            @if (profileError()) {
-              <div class="error-msg">{{ profileError() }}</div>
-            }
-            @if (profileOk()) {
-              <div class="success-msg">{{ 'profile.saved' | t }}</div>
-            }
-            <button type="submit" class="btn btn-primary" [disabled]="savingProfile()">
-              {{ savingProfile() ? ('profile.saving' | t) : ('profile.saveProfile' | t) }}
-            </button>
+                  <input
+                    id="cust-photo"
+                    type="file"
+                    class="photo-input"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    (change)="onPhotoSelected($event)"
+                  />
+                  <div class="form-group">
+                    <label for="cust-name">{{ 'profile.displayName' | t }}</label>
+                    <input id="cust-name" [(ngModel)]="displayName" name="displayName" required />
+                  </div>
+                  <div class="form-group">
+                    <label for="cust-bio">{{ 'profile.bio' | t }}</label>
+                    <textarea id="cust-bio" [(ngModel)]="bio" name="bio" rows="3"></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label for="cust-photo">{{ 'profile.photo' | t }}</label>
+                    <div class="photo-field">
+                      <label class="btn btn-outline photo-choose" for="cust-photo">{{ 'profile.choosePhoto' | t }}</label>
+                      @if (pendingPhotoName()) {
+                        <span class="file-hint">{{ pendingPhotoName() }} — {{ 'profile.saveToUpload' | t }}</span>
+                      } @else if (profile()!.profileImageUrl) {
+                        <span class="file-hint">{{ 'profile.photoSaved' | t }}</span>
+                      } @else {
+                        <span class="file-hint">{{ 'profile.photoHint' | t }}</span>
+                      }
+                    </div>
+                  </div>
+                  @if (profileError()) {
+                    <div class="error-msg">{{ profileError() }}</div>
+                  }
+                  @if (profileOk()) {
+                    <div class="success-msg">{{ 'profile.saved' | t }}</div>
+                  }
+                  <button type="submit" class="btn btn-primary btn-block" [disabled]="savingProfile()">
+                    {{ savingProfile() ? ('profile.saving' | t) : ('profile.saveProfile' | t) }}
+                  </button>
                 </form>
               </section>
             </div>
 
             <div class="profile-col-side">
               <section class="profile-card profile-card--compact">
-                <p class="card-kicker">{{ 'profile.privacy' | t }}</p>
-                <h2 class="card-title visually-hidden">{{ 'profile.privacy' | t }}</h2>
-          <form (ngSubmit)="savePrivacy()" class="form-block">
-            <div class="form-group">
-              <label for="pf-vis">{{ 'profile.visibility' | t }}</label>
-              <select id="pf-vis" [(ngModel)]="profileVisibility" name="profileVisibility">
-                <option value="Public">{{ 'profile.visPublic' | t }}</option>
-                <option value="Private">{{ 'profile.visPrivate' | t }}</option>
-                <option value="FriendsOnly">{{ 'profile.visFriends' | t }}</option>
-              </select>
-            </div>
-            <label class="check-row">
-              <input type="checkbox" [(ngModel)]="showEmail" name="showEmail" />
-              <span>{{ 'profile.showEmailLabel' | t }}</span>
-            </label>
-            @if (privacyError()) {
-              <div class="error-msg">{{ privacyError() }}</div>
-            }
-            @if (privacyOk()) {
-              <div class="success-msg">{{ 'profile.privacySaved' | t }}</div>
-            }
-            <button type="submit" class="btn btn-primary" [disabled]="savingPrivacy()">
-              {{ savingPrivacy() ? ('profile.saving' | t) : ('profile.savePrivacy' | t) }}
-            </button>
-          </form>
+                <p class="card-kicker">{{ 'profile.password' | t }}</p>
+                <h2 class="visually-hidden">{{ 'profile.password' | t }}</h2>
+                <form (ngSubmit)="changePasswordSubmit()" class="form-block form-block--flush">
+                  <div class="form-group">
+                    <label for="cust-cur">{{ 'profile.currentPassword' | t }}</label>
+                    <input id="cust-cur" type="password" [(ngModel)]="currentPassword" name="currentPassword" required />
+                  </div>
+                  <div class="form-group">
+                    <label for="cust-new">{{ 'profile.newPassword' | t }}</label>
+                    <input id="cust-new" type="password" [(ngModel)]="newPassword" name="newPassword" required />
+                  </div>
+                  @if (passwordError()) {
+                    <div class="error-msg">{{ passwordError() }}</div>
+                  }
+                  @if (passwordSuccess()) {
+                    <div class="success-msg">{{ 'profile.passwordUpdated' | t }}</div>
+                  }
+                  <button type="submit" class="btn btn-primary btn-block" [disabled]="savingPassword()">
+                    {{ savingPassword() ? ('profile.saving' | t) : ('profile.updatePassword' | t) }}
+                  </button>
+                </form>
+
+                <div class="divider"></div>
+                <div class="alt-reset">
+                  <p>{{ 'profile.forgotIntro' | t }}</p>
+                  <p class="email-line">{{ profile()!.email }}</p>
+                  @if (forgotError()) {
+                    <div class="error-msg">{{ forgotError() }}</div>
+                  }
+                  @if (forgotSuccess()) {
+                    <div class="success-msg">{{ forgotSuccess() }}</div>
+                  }
+                  @if (forgotDevResetUrl()) {
+                    <div class="dev-reset-banner">
+                      <p class="dev-reset-title">{{ 'profile.devResetTitle' | t }}</p>
+                      <a class="dev-reset-link" [href]="forgotDevResetUrl()!" target="_blank" rel="noopener noreferrer">{{
+                        forgotDevResetUrl()
+                      }}</a>
+                    </div>
+                  }
+                  <button type="button" class="btn btn-outline btn-block" [disabled]="sendingForgot()" (click)="sendResetEmail()">
+                    {{ sendingForgot() ? ('profile.sendingReset' | t) : ('profile.sendReset' | t) }}
+                  </button>
+                </div>
               </section>
 
               <section class="profile-card profile-card--compact">
-                <p class="card-kicker">{{ 'profile.password' | t }}</p>
-                <h2 class="card-title visually-hidden">{{ 'profile.password' | t }}</h2>
-
-          <form (ngSubmit)="changePasswordSubmit()" class="form-block">
-            <div class="form-group">
-              <label for="pf-cur">{{ 'profile.currentPassword' | t }}</label>
-              <input id="pf-cur" type="password" [(ngModel)]="currentPassword" name="currentPassword" required />
-            </div>
-            <div class="form-group">
-              <label for="pf-new">{{ 'profile.newPassword' | t }}</label>
-              <input id="pf-new" type="password" [(ngModel)]="newPassword" name="newPassword" required />
-            </div>
-            @if (passwordError()) {
-              <div class="error-msg">{{ passwordError() }}</div>
-            }
-            @if (passwordSuccess()) {
-              <div class="success-msg">{{ 'profile.passwordUpdated' | t }}</div>
-            }
-            <button type="submit" class="btn btn-primary" [disabled]="savingPassword()">
-              {{ savingPassword() ? ('profile.saving' | t) : ('profile.updatePassword' | t) }}
-            </button>
-          </form>
-
-          <div class="divider"></div>
-          <div class="alt-reset">
-            <p>{{ 'profile.forgotIntro' | t }}</p>
-            <p class="email-line">{{ profile()!.email }}</p>
-            @if (forgotError()) {
-              <div class="error-msg">{{ forgotError() }}</div>
-            }
-            @if (forgotSuccess()) {
-              <div class="success-msg">{{ forgotSuccess() }}</div>
-            }
-            @if (forgotDevResetUrl()) {
-              <div class="dev-reset-banner">
-                <p class="dev-reset-title">{{ 'profile.devResetTitle' | t }}</p>
-                <a class="dev-reset-link" [href]="forgotDevResetUrl()!" target="_blank" rel="noopener noreferrer">{{
-                  forgotDevResetUrl()
-                }}</a>
-              </div>
-            }
-            <button type="button" class="btn btn-outline" [disabled]="sendingForgot()" (click)="sendResetEmail()">
-              {{ sendingForgot() ? ('profile.sendingReset' | t) : ('profile.sendReset' | t) }}
-            </button>
-          </div>
+                <p class="card-kicker">{{ 'profile.privacy' | t }}</p>
+                <h2 class="visually-hidden">{{ 'profile.privacy' | t }}</h2>
+                <form (ngSubmit)="savePrivacy()" class="form-block form-block--flush">
+                  <div class="form-group">
+                    <label for="cust-vis">{{ 'profile.visibility' | t }}</label>
+                    <select id="cust-vis" [(ngModel)]="profileVisibility" name="profileVisibility">
+                      <option value="Public">{{ 'profile.visPublic' | t }}</option>
+                      <option value="Private">{{ 'profile.visPrivate' | t }}</option>
+                      <option value="FriendsOnly">{{ 'profile.visFriends' | t }}</option>
+                    </select>
+                  </div>
+                  <label class="check-row">
+                    <input type="checkbox" [(ngModel)]="showEmail" name="showEmail" />
+                    <span>{{ 'profile.showEmailLabel' | t }}</span>
+                  </label>
+                  @if (privacyError()) {
+                    <div class="error-msg">{{ privacyError() }}</div>
+                  }
+                  @if (privacyOk()) {
+                    <div class="success-msg">{{ 'profile.privacySaved' | t }}</div>
+                  }
+                  <button type="submit" class="btn btn-primary btn-block" [disabled]="savingPrivacy()">
+                    {{ savingPrivacy() ? ('profile.saving' | t) : ('profile.savePrivacy' | t) }}
+                  </button>
+                </form>
               </section>
             </div>
           </div>
@@ -204,116 +225,178 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .profile-page {
       margin: 0;
     }
-    /* Light hero: avoids a second heavy green band under the global nav (showcase is hidden on /profile). */
     .profile-hero {
       position: relative;
       overflow: hidden;
-      background:
-        linear-gradient(180deg, #fdfcfa 0%, #f5f8f5 100%);
-      color: var(--text);
-      padding: 2rem 0 2.25rem;
-      margin-bottom: 0;
-      border-bottom: 1px solid rgba(26, 95, 74, 0.12);
-      box-shadow: 0 12px 36px rgba(13, 61, 50, 0.06);
+      background: linear-gradient(135deg, #0d3d32 0%, #1b5f4b 55%, #2a7a62 100%);
+      color: #fff;
+      padding: 1.75rem 0 2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .profile-hero-glow {
+    .hero-backdrop {
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(ellipse 70% 90% at 0% 0%, rgba(26, 95, 74, 0.06) 0%, transparent 55%),
-        radial-gradient(ellipse 50% 70% at 100% 100%, rgba(212, 165, 116, 0.08) 0%, transparent 45%);
+        radial-gradient(ellipse 70% 120% at 0% 0%, rgba(212, 165, 116, 0.22) 0%, transparent 52%),
+        radial-gradient(ellipse 55% 90% at 100% 100%, rgba(255, 255, 255, 0.08) 0%, transparent 48%);
       pointer-events: none;
     }
     .profile-hero-inner {
       position: relative;
       z-index: 1;
     }
-    .profile-identity {
-      display: flex;
-      align-items: center;
-      gap: 1.35rem;
-      flex-wrap: wrap;
+    .hero-shell {
+      max-width: 1040px;
+      margin: 0 auto;
     }
-    .avatar-ring {
-      width: 5.5rem;
-      height: 5.5rem;
+    .hero-head {
+      margin-bottom: 1.25rem;
+    }
+    .hero-kicker {
+      margin: 0 0 0.35rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.72);
+    }
+    .hero-head h1 {
+      margin: 0 0 0.35rem;
+      font-family: var(--font-display);
+      font-size: clamp(1.45rem, 3vw, 1.85rem);
+      font-weight: 600;
+      line-height: 1.15;
+      color: #fff;
+    }
+    .hero-sub {
+      margin: 0;
+      max-width: 28rem;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.82);
+    }
+    .hero-identity-card {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-rows: auto auto;
+      gap: 1rem 1.25rem;
+      align-items: center;
+      padding: 1.15rem 1.35rem;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.12) inset,
+        0 16px 40px rgba(0, 0, 0, 0.14);
+      backdrop-filter: blur(12px);
+    }
+    .avatar-wrap {
+      grid-row: 1 / span 2;
+      width: fit-content;
+    }
+    .avatar {
+      width: 6.75rem;
+      height: 6.75rem;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      background: linear-gradient(160deg, #ffffff 0%, #eef6f2 100%);
-      border: 3px solid rgba(26, 95, 74, 0.22);
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.06) 100%);
+      border: 2px solid rgba(255, 255, 255, 0.35);
       box-shadow:
-        0 8px 28px rgba(13, 61, 50, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        0 0 0 3px rgba(212, 165, 116, 0.35),
+        0 10px 24px rgba(0, 0, 0, 0.2);
     }
-    .avatar-ring.has-photo {
+    .avatar.has-photo {
       padding: 0;
       overflow: hidden;
       background: #fff;
     }
-    .avatar-ring img {
+    .avatar img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
     .avatar-initials {
       font-family: var(--font-display);
-      font-size: 1.35rem;
+      font-size: 1.65rem;
       font-weight: 600;
-      letter-spacing: 0.04em;
-      color: var(--primary-dark);
+      letter-spacing: 0.06em;
+      color: #fff;
     }
-    .profile-kicker {
-      margin: 0 0 0.35rem;
-      font-size: 0.68rem;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--primary);
-      opacity: 0.9;
+    .photo-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
-    .profile-name {
-      font-family: var(--font-display);
-      font-size: clamp(1.65rem, 4vw, 2.1rem);
-      font-weight: 600;
-      margin: 0 0 0.25rem;
-      color: var(--text);
-      line-height: 1.2;
-    }
-    .profile-email {
-      margin: 0 0 0.85rem;
-      font-size: 0.95rem;
-      color: var(--text-muted);
-    }
-    .identity-chips {
+    .photo-field {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.45rem;
-    }
-    .chip {
-      display: inline-flex;
       align-items: center;
-      padding: 0.28rem 0.75rem;
-      border-radius: 999px;
-      font-size: 0.78rem;
+      gap: 0.65rem 0.85rem;
+    }
+    .photo-choose {
+      margin: 0;
+      cursor: pointer;
+      font-size: 0.88rem;
+      padding: 0.55rem 1rem;
+    }
+    .file-hint {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .identity-main {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 0;
+    }
+    .identity-name {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
       font-weight: 600;
-      background: rgba(26, 95, 74, 0.09);
-      border: 1px solid rgba(26, 95, 74, 0.14);
-      color: var(--primary-dark);
+      line-height: 1.25;
+      color: #fff;
     }
-    .chip-outline {
-      background: #fff;
-      border-color: rgba(26, 95, 74, 0.22);
-      color: var(--text-muted);
+    .identity-email {
+      font-size: 0.88rem;
+      color: rgba(255, 255, 255, 0.78);
+      word-break: break-word;
     }
-    .hero-lede {
-      margin: 1.35rem 0 0;
-      max-width: 36rem;
-      font-size: 0.95rem;
-      line-height: 1.55;
-      color: var(--text-muted);
+    .identity-meta {
+      grid-column: 2;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+    }
+    .meta-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      min-width: 6.5rem;
+    }
+    .meta-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.58);
+    }
+    .meta-value {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #fff;
     }
     .profile-body {
       padding: 1.75rem 1.5rem 3rem;
@@ -321,13 +404,13 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .profile-columns {
       display: grid;
       gap: 1.25rem;
-      max-width: 1080px;
+      max-width: 1040px;
       margin: 0 auto;
       align-items: start;
     }
     @media (min-width: 900px) {
       .profile-columns {
-        grid-template-columns: 1.2fr 0.85fr;
+        grid-template-columns: 1.15fr 0.85fr;
         gap: 1.5rem;
       }
     }
@@ -354,8 +437,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       right: 1.75rem;
       height: 3px;
       border-radius: 0 0 4px 4px;
-      background: linear-gradient(90deg, var(--primary-dark), var(--primary-light));
-      opacity: 0.85;
+      background: linear-gradient(90deg, var(--primary-dark), var(--accent));
+      opacity: 0.9;
     }
     .profile-card--compact {
       padding: 1.35rem 1.5rem 1.5rem;
@@ -406,6 +489,11 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       padding-top: 1.35rem;
       border-top: 1px solid rgba(13, 61, 50, 0.08);
     }
+    .form-block--flush {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
     .form-section-label {
       margin: 0 0 1rem;
       font-family: var(--font-display);
@@ -413,7 +501,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       font-weight: 600;
       color: var(--text);
     }
-    .form-group { margin-bottom: 1.05rem; }
+    .form-group {
+      margin-bottom: 1.05rem;
+    }
     .form-group label {
       display: block;
       margin-bottom: 0.4rem;
@@ -423,9 +513,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       text-transform: uppercase;
       color: var(--text-muted);
     }
-    .form-group input[type="text"],
-    .form-group input[type="password"],
-    .form-group input[type="file"],
+    .form-group input,
     .form-group textarea,
     .form-group select {
       width: 100%;
@@ -442,11 +530,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(26, 95, 74, 0.12);
-    }
-    .file-hint {
-      margin: 0.35rem 0 0;
-      font-size: 0.85rem;
-      color: var(--text-muted);
     }
     .check-row {
       display: flex;
@@ -481,6 +564,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       font-size: 0.88rem;
       color: var(--text-muted);
     }
+    .email-line {
+      font-weight: 600;
+      color: var(--text);
+      margin: 0 0 0.85rem !important;
+      font-size: 0.92rem;
+    }
     .dev-reset-banner {
       margin-top: 0.85rem;
       padding: 0.9rem 1rem;
@@ -500,17 +589,10 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       color: #1d4ed8;
       font-weight: 600;
     }
-    .email-line {
-      font-weight: 600;
-      color: var(--text);
-      margin: 0 0 0.85rem !important;
-      font-size: 0.92rem;
-    }
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 100%;
       padding: 0.72rem 1.25rem;
       border-radius: 10px;
       font: inherit;
@@ -519,13 +601,16 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       border: none;
       transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .btn-primary:not(:disabled):hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 22px rgba(26, 95, 74, 0.28);
+    .btn-block {
+      width: 100%;
     }
     .btn-primary {
       background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 55%, var(--primary-light) 100%);
       color: #fff;
+    }
+    .btn-primary:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px rgba(26, 95, 74, 0.28);
     }
     .btn-primary:disabled {
       opacity: 0.65;
@@ -537,8 +622,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       background: #fff;
       border: 1px solid rgba(26, 95, 74, 0.35);
       color: var(--primary-dark);
-      margin-top: 0.65rem;
-      width: 100%;
     }
     .btn-outline:hover:not(:disabled) {
       background: rgba(26, 95, 74, 0.06);
@@ -570,14 +653,52 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       animation: spin 0.75s linear infinite;
       margin: 0 auto 1rem;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
     @media (max-width: 600px) {
       .details-grid { grid-template-columns: 1fr; }
-      .profile-identity { flex-direction: column; align-items: flex-start; }
+      .hero-identity-card {
+        grid-template-columns: auto 1fr;
+        padding: 1rem 1.1rem;
+      }
+      .avatar-wrap { grid-row: 1; }
+      .avatar {
+        width: 5.25rem;
+        height: 5.25rem;
+      }
+      .avatar-initials { font-size: 1.35rem; }
+      .identity-main { grid-column: 2; }
+      .identity-meta {
+        grid-column: 1 / -1;
+        gap: 1rem;
+      }
+      .meta-block {
+        flex: 1;
+        min-width: 0;
+      }
+    }
+    @media (min-width: 768px) {
+      .hero-identity-card {
+        grid-template-columns: auto 1fr auto;
+        grid-template-rows: auto;
+        gap: 1.25rem 1.5rem;
+        padding: 1.25rem 1.5rem;
+      }
+      .avatar-wrap { grid-row: auto; }
+      .identity-meta {
+        grid-column: auto;
+        flex-direction: column;
+        gap: 1rem;
+        padding-top: 0;
+        padding-left: 1.5rem;
+        border-top: none;
+        border-left: 1px solid rgba(255, 255, 255, 0.14);
+      }
     }
   `]
 })
-export class CustomerProfileComponent implements OnInit {
+export class CustomerProfileComponent implements OnInit, OnDestroy {
   profile = signal<UserProfile | null>(null);
   loading = signal(true);
   displayName = '';
@@ -587,6 +708,7 @@ export class CustomerProfileComponent implements OnInit {
   currentPassword = '';
   newPassword = '';
   photoFile: File | null = null;
+  photoPreviewUrl: string | null = null;
   pendingPhotoName = signal<string | null>(null);
 
   savingProfile = signal(false);
@@ -604,6 +726,11 @@ export class CustomerProfileComponent implements OnInit {
   forgotDevResetUrl = signal<string | null>(null);
 
   constructor(private auth: AuthService) {}
+
+  avatarImageUrl(): string | null {
+    if (this.photoPreviewUrl) return this.photoPreviewUrl;
+    return this.profile()?.profileImageUrl ?? null;
+  }
 
   initials(): string {
     const u = this.profile();
@@ -631,6 +758,12 @@ export class CustomerProfileComponent implements OnInit {
     });
   }
 
+  ngOnDestroy() {
+    if (this.photoPreviewUrl) {
+      URL.revokeObjectURL(this.photoPreviewUrl);
+    }
+  }
+
   private applyUser(u: UserProfile) {
     this.profile.set(u);
     this.displayName = u.displayName;
@@ -645,13 +778,35 @@ export class CustomerProfileComponent implements OnInit {
   onPhotoSelected(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (file) {
-      this.photoFile = file;
-      this.pendingPhotoName.set(file.name);
-    } else {
+    if (this.photoPreviewUrl) {
+      URL.revokeObjectURL(this.photoPreviewUrl);
+      this.photoPreviewUrl = null;
+    }
+    if (!file) {
       this.photoFile = null;
       this.pendingPhotoName.set(null);
+      return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      this.profileError.set('Image must be 5 MB or smaller.');
+      input.value = '';
+      this.photoFile = null;
+      this.pendingPhotoName.set(null);
+      return;
+    }
+    const allowed = /^image\/(jpeg|png|gif|webp)$/i;
+    if (!allowed.test(file.type)) {
+      this.profileError.set('Use PNG, JPG, GIF, or WebP.');
+      input.value = '';
+      this.photoFile = null;
+      this.pendingPhotoName.set(null);
+      return;
+    }
+    this.photoFile = file;
+    this.photoPreviewUrl = URL.createObjectURL(file);
+    this.pendingPhotoName.set(file.name);
+    this.profileError.set('');
+    this.profileOk.set(false);
   }
 
   saveProfile() {
@@ -661,13 +816,17 @@ export class CustomerProfileComponent implements OnInit {
     this.auth.updateProfile(this.displayName, this.bio, this.photoFile ?? undefined).subscribe({
       next: (u) => {
         this.profile.set(u);
+        if (this.photoPreviewUrl) {
+          URL.revokeObjectURL(this.photoPreviewUrl);
+          this.photoPreviewUrl = null;
+        }
         this.photoFile = null;
         this.pendingPhotoName.set(null);
         this.profileOk.set(true);
         this.savingProfile.set(false);
       },
       error: (err) => {
-        this.profileError.set(err.error?.message || 'Failed to update profile.');
+        this.profileError.set(this.readApiError(err, 'Failed to update profile.'));
         this.savingProfile.set(false);
       }
     });
@@ -722,6 +881,29 @@ export class CustomerProfileComponent implements OnInit {
         this.savingPassword.set(false);
       }
     });
+  }
+
+  private readApiError(err: { status?: number; error?: unknown; message?: string }, fallback: string): string {
+    if (err.status === 0) {
+      return 'Cannot reach the API. Start the backend on port 5000 and try again.';
+    }
+    if (err.status === 401) {
+      return 'Your session expired. Please log in again.';
+    }
+    if (err.status === 404) {
+      return 'Your account was not found. Please log out and sign in again.';
+    }
+    if (typeof err.error === 'string' && err.error.trim()) {
+      return err.error;
+    }
+    const body = err.error as { message?: string; detail?: string } | null | undefined;
+    if (body?.message) {
+      return body.detail ? `${body.message} (${body.detail})` : body.message;
+    }
+    if (err.message) {
+      return err.message;
+    }
+    return fallback;
   }
 
   sendResetEmail() {
