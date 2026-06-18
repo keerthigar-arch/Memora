@@ -3,11 +3,12 @@ import { Component, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService, PricingPageDto } from '../../services/api.service';
 import { formatUsd, MEMORA_DISPLAY_PLANS } from '../../constants/display-plans';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-pricing-obituary',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, TranslatePipe],
   template: `
     <div class="pricing-page">
       <header class="pricing-hero">
@@ -104,7 +105,13 @@ import { formatUsd, MEMORA_DISPLAY_PLANS } from '../../constants/display-plans';
           }
 
           <section class="lift-card payment-card">
-            <h3 class="prose-title">Payment methods</h3>
+            <h3 class="prose-title">{{ 'pricing.paymentTitle' | t }}</h3>
+            <p class="payment-intro">{{ 'pricing.paymentIntro' | t }}</p>
+            <ul class="payment-instructions">
+              <li>{{ 'pricing.paymentCard' | t }}</li>
+              <li>{{ 'pricing.paymentOffline' | t }}</li>
+              <li>{{ 'pricing.paymentAlt' | t }}</li>
+            </ul>
             <div class="payment-chips">
               @for (m of pricing()!.paymentMethods; track m) {
                 <span class="chip chip--payment">
@@ -501,6 +508,39 @@ import { formatUsd, MEMORA_DISPLAY_PLANS } from '../../constants/display-plans';
       color: #3d4f49;
     }
     .prose-list li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #1a5f4a, #2d8f73);
+      opacity: 0.85;
+    }
+
+    .payment-intro {
+      margin: 0 0 0.75rem;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: #3d4f49;
+    }
+    .payment-instructions {
+      margin: 0 0 1rem;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .payment-instructions li {
+      position: relative;
+      padding-left: 1.15rem;
+      font-size: 0.86rem;
+      line-height: 1.55;
+      color: #3d4f49;
+    }
+    .payment-instructions li::before {
       content: '';
       position: absolute;
       left: 0;

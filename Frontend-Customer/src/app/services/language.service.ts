@@ -1,4 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
+import { parseApiUtcDate } from '../utils/api-datetime';
 import { Lang, MESSAGES } from '../i18n/customer-messages';
 
 const STORAGE_KEY = 'memora_customer_lang';
@@ -96,7 +97,7 @@ export class LanguageService {
 
   formatTimeAgo(createdAt: string | Date): string {
     const now = new Date();
-    const created = new Date(createdAt);
+    const created = parseApiUtcDate(createdAt);
     const diffInSeconds = Math.floor((now.getTime() - created.getTime()) / 1000);
 
     if (diffInSeconds < 60) return this.t('time.justNow');

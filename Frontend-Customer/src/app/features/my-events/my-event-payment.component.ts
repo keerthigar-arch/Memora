@@ -1,9 +1,10 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { formatUsd } from '../../constants/display-plans';
 import { ApiService } from '../../services/api.service';
+import { LanguageService } from '../../services/language.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
@@ -15,6 +16,15 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       <a routerLink="/my-events" class="back">← {{ 'myEvents.back' | t }}</a>
       <h1>{{ 'myEvents.paymentTitle' | t }}</h1>
       <p class="lede">{{ 'myEvents.paymentLede' | t }}</p>
+
+      <div class="instructions" role="note">
+        <h2 class="instructions-title">{{ 'myEvents.paymentHowItWorks' | t }}</h2>
+        <ul class="instructions-list">
+          <li>{{ 'myEvents.paymentInstrCard' | t }}</li>
+          <li>{{ 'myEvents.paymentInstrOffline' | t }}</li>
+          <li>{{ 'myEvents.paymentInstrAlt' | t }}</li>
+        </ul>
+      </div>
 
       <div class="summary">
         <div class="row"><span>Duration</span><strong>{{ label() }}</strong></div>
@@ -45,7 +55,32 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .pay-page { max-width: 520px; padding: 1.25rem 1rem 2.5rem; }
       .back { color: #1a5f4a; text-decoration: none; font-size: 0.88rem; }
       h1 { margin: 0.75rem 0 0.35rem; font-family: var(--font-display); }
-      .lede { color: #5a6f68; font-size: 0.9rem; margin-bottom: 1rem; }
+      .lede { color: #5a6f68; font-size: 0.9rem; margin-bottom: 1rem; line-height: 1.5; }
+      .instructions {
+        background: #f0f9f5;
+        border: 1px solid rgba(26, 95, 74, 0.14);
+        border-radius: 12px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+      }
+      .instructions-title {
+        margin: 0 0 0.6rem;
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #0d3d32;
+      }
+      .instructions-list {
+        margin: 0;
+        padding-left: 1.15rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        font-size: 0.84rem;
+        line-height: 1.5;
+        color: #3d524c;
+      }
       .summary {
         background: #f8fcfa;
         border: 1px solid rgba(26, 95, 74, 0.12);
@@ -83,6 +118,7 @@ export class MyEventPaymentComponent implements OnInit {
   message = signal('');
 
   readonly usd = formatUsd;
+  private readonly i18n = inject(LanguageService);
 
   constructor(
     private route: ActivatedRoute,
@@ -142,9 +178,9 @@ export class MyEventPaymentComponent implements OnInit {
     this.busy.set(true);
     this.error.set('');
     this.api.submitOfflinePayment(this.draftId).subscribe({
-      next: (res) => {
+      next: () => {
         this.busy.set(false);
-        this.message.set(res.message);
+        this.message.set(this.i18n.t('myEvents.offlineSubmitSuccess'));
         setTimeout(() => void this.router.navigate(['/my-events']), 2000);
       },
       error: (err) => {

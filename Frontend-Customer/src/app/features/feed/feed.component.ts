@@ -231,13 +231,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             }
             </div>
 
-            <div class="sidebar-card sidebar-card--host">
-              <h4 class="sidebar-host-title">{{ 'feed.shareMomentTitle' | t }}</h4>
-              <p class="sidebar-host-text">{{ 'feed.shareMomentBody' | t }}</p>
-              <a [href]="env.adminPortalUrl" target="_blank" rel="noopener" class="sidebar-host-btn">{{ 'feed.openOrganizer' | t }}</a>
-              <a routerLink="/contact" class="sidebar-host-link">{{ 'feed.contactUs' | t }}</a>
-            </div>
-
             <div class="sidebar-column-fill" aria-hidden="true">
               <span class="sidebar-fill-mark">✦</span>
               <p class="sidebar-fill-tagline">{{ 'feed.tagline' | t }}</p>
@@ -417,45 +410,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       position: sticky;
       top: 5.5rem;
       z-index: 1;
-    }
-    .sidebar-card--host {
-      padding: 1rem 0.95rem;
-    }
-    .sidebar-host-title {
-      margin: 0 0 0.45rem;
-      font-size: 0.88rem;
-      font-weight: 800;
-      color: #0f2922;
-      letter-spacing: 0.02em;
-    }
-    .sidebar-host-text {
-      margin: 0 0 0.75rem;
-      font-size: 0.8rem;
-      line-height: 1.45;
-      color: #5c6f6a;
-    }
-    .sidebar-host-btn {
-      display: block;
-      text-align: center;
-      padding: 0.5rem 0.75rem;
-      border-radius: 10px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: #fff;
-      text-decoration: none;
-      background: linear-gradient(135deg, #0d3d32 0%, #1f6a53 100%);
-      box-shadow: 0 4px 12px rgba(13, 61, 50, 0.2);
-      margin-bottom: 0.5rem;
-    }
-    .sidebar-host-btn:hover {
-      filter: brightness(1.05);
-    }
-    .sidebar-host-link {
-      display: block;
-      text-align: center;
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: #1a5f4a;
     }
     .sidebar-column-fill {
       flex: 1 1 auto;

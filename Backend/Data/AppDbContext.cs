@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
         {
             u.HasIndex(x => x.Email).IsUnique();
             u.HasIndex(x => x.UserName).IsUnique();
+            u.Property(x => x.CreatedAt).AsUtcTimestamp();
         });
 
          modelBuilder.Entity<Event>(entity =>
@@ -30,6 +31,8 @@ public class AppDbContext : DbContext
                 entity.Property(e => e.AmountGBP).HasColumnType("decimal(18,4)");
                 entity.Property(e => e.AmountPaid).HasColumnType("decimal(18,4)");
                 entity.Property(e => e.ExchangeRateUsed).HasColumnType("decimal(18,6)");
+                entity.Property(e => e.CreatedAt).AsUtcTimestamp();
+                entity.Property(e => e.DisplayValidityEndDate).AsUtcTimestamp();
             });
 
         modelBuilder.Entity<Event>(e =>
@@ -49,6 +52,7 @@ public class AppDbContext : DbContext
         {
             w.HasIndex(x => x.EventId);
             w.HasIndex(x => x.CreatedAt);
+            w.Property(x => x.CreatedAt).AsUtcTimestamp();
             w.HasOne(x => x.Event)
              .WithMany(x => x.Wishes)
              .HasForeignKey(x => x.EventId)
@@ -57,6 +61,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<EventInvite>(ei =>
         {
+            ei.Property(x => x.CreatedAt).AsUtcTimestamp();
             ei.HasOne(x => x.Event)
              .WithMany(x => x.Invites)
              .HasForeignKey(x => x.EventId)
@@ -67,16 +72,33 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PasswordResetToken>(t =>
         {
             t.HasIndex(x => x.Token).IsUnique();
+            t.Property(x => x.ExpiresAt).AsUtcTimestamp();
+            t.Property(x => x.CreatedAt).AsUtcTimestamp();
+            t.Property(x => x.UsedAt).AsUtcTimestamp();
             t.HasOne(x => x.User)
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<PendingEvent>(p =>
+        {
+            p.Property(x => x.CreatedAt).AsUtcTimestamp();
+            p.Property(x => x.OfflineSubmittedAt).AsUtcTimestamp();
+        });
+
+        modelBuilder.Entity<ContactSubmission>(c =>
+        {
+            c.Property(x => x.SubmittedAt).AsUtcTimestamp();
+        });
+
         modelBuilder.Entity<PricingOrder>(p =>
         {
             p.HasIndex(x => x.ReferenceCode).IsUnique();
             p.HasIndex(x => x.CreatedAt);
+            p.Property(x => x.CreatedAt).AsUtcTimestamp();
+            p.Property(x => x.CompletedAt).AsUtcTimestamp();
+            p.Property(x => x.DirectManualPaymentMarkedAt).AsUtcTimestamp();
         });
 
         modelBuilder.Entity<AdminNotification>(n =>
@@ -85,6 +107,8 @@ public class AppDbContext : DbContext
             n.HasIndex(x => x.EventId);
             n.HasIndex(x => x.PendingEventId);
             n.HasIndex(x => x.IsRead);
+            n.Property(x => x.CreatedAt).AsUtcTimestamp();
+            n.Property(x => x.ReadAt).AsUtcTimestamp();
         });
     }
 }
