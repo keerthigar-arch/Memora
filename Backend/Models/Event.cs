@@ -15,7 +15,7 @@ public class Event
 
     [Required]
     [MaxLength(50)]
-    public string EventType { get; set; } = string.Empty; // Birthday, Obituary, Anniversary
+    public string EventType { get; set; } = string.Empty;
 
     public DateTime EventDate { get; set; }
 
@@ -23,7 +23,7 @@ public class Event
 
     public DateTime? DeathDate { get; set; }
 
-    public DateTime? WeddingDate { get; set; } // For Anniversary events
+    public DateTime? WeddingDate { get; set; }
 
     [MaxLength(300)]
     public string? Location { get; set; }
@@ -31,21 +31,20 @@ public class Event
     [MaxLength(100)]
     public string? Country { get; set; }
 
+    [Required]
+    [MaxLength(16)]
+    public string CurrencyCode { get; set; } = "USD";
 
-     [Required]
-        public string CurrencyCode { get; set; } = "USD";  // USD-only
-
-        public decimal AmountGBP { get; set; }       // Legacy field (unused)
-        public decimal AmountPaid { get; set; }      // Amount in USD
-        public decimal ExchangeRateUsed { get; set; }// Rate at time of payment
-
+    public decimal AmountGBP { get; set; }
+    public decimal AmountPaid { get; set; }
+    public decimal ExchangeRateUsed { get; set; }
 
     [MaxLength(500)]
     public string? MainImageUrl { get; set; }
 
-    public string? GalleryUrls { get; set; } // JSON array of image URLs
+    public string? GalleryUrls { get; set; }
 
-    public string? VideoUrls { get; set; } // JSON array of video URLs (paths only; files live on disk)
+    public string? VideoUrls { get; set; }
 
     [Required]
     [MaxLength(200)]
@@ -59,12 +58,10 @@ public class Event
     public bool IsPublished { get; set; } = true;
 
     [MaxLength(20)]
-    public string Visibility { get; set; } = "Public"; // Public, Private, InviteOnly
+    public string Visibility { get; set; } = "Public";
 
-    /// <summary>Number of days the event should be displayed (based on payment tier).</summary>
     public int? DisplayDays { get; set; }
 
-    /// <summary>After this date the event is hidden from the UI. Null = legacy events, shown indefinitely.</summary>
     public DateTime? DisplayValidityEndDate { get; set; }
 
     public bool PaymentReceived { get; set; }

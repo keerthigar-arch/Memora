@@ -95,27 +95,38 @@ public class EventsController : ControllerBase
     {
         (page, pageSize) = Paging.Normalize(page, pageSize, defaultPageSize: 10, maxPageSize: Paging.MaxPageSize);
 
+        var now = DateTime.UtcNow;
         var userId = _jwt.GetUserIdFromClaims(User);
         var userEmail = _jwt.GetUserEmailFromClaims(User)?.Trim().ToLowerInvariant();
 
-        var now = DateTime.UtcNow;
-        var query = _db.Events.AsNoTracking()
-            .Where(e => e.IsPublished && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now) && (
-                e.Visibility == "Public" ||
-                (userId.HasValue && e.UserId == userId) ||
-                (e.Visibility == "InviteOnly" && userId.HasValue && !string.IsNullOrEmpty(userEmail) &&
-                    e.Invites.Any(i => i.InvitedEmail.Trim().ToLower() == userEmail))
-            ));
+        // Anonymous traffic: public-only path avoids invite subquery cost.
+        IQueryable<Event> query;
+        if (!userId.HasValue)
+        {
+            query = _db.Events.AsNoTracking()
+                .Where(e => e.IsPublished
+                    && e.Visibility == "Public"
+                    && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now));
+        }
+        else
+        {
+            query = _db.Events.AsNoTracking()
+                .Where(e => e.IsPublished && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now) && (
+                    e.Visibility == "Public" ||
+                    e.UserId == userId ||
+                    (e.Visibility == "InviteOnly" && !string.IsNullOrEmpty(userEmail) &&
+                        e.Invites.Any(i => i.InvitedEmail.Trim().ToLower() == userEmail))
+                ));
+        }
 
         if (!string.IsNullOrWhiteSpace(country))
         {
             var c = country.Trim().ToLowerInvariant();
-            query = query.Where(e => e.Country != null && e.Country.Trim().ToLower() == c);
+            query = query.Where(e => e.Country != null && e.Country.ToLower() == c);
         }
 
         if (!string.IsNullOrEmpty(eventType))
         {
-            // Legacy: Funeral grouped with Obituary; "Wedding" is its own filter (not merged with Anniversary).
             var types = eventType == "Obituary"
                 ? new[] { "Obituary", "Funeral" }
                 : new[] { eventType };
@@ -516,23 +527,20 @@ public class EventsController : ControllerBase
     }
 
     [HttpGet("stats/count-by-country")]
+    [Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = "CountryStats")]
     public async Task<ActionResult<List<CountryCountDto>>> GetCountryStats()
     {
         var now = DateTime.UtcNow;
-        var countries = await _db.Events
+        var stats = await _db.Events
             .AsNoTracking()
             .Where(e => e.IsPublished
                 && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now)
                 && e.Visibility == "Public"
                 && e.Country != null && e.Country != "")
-            .Select(e => e.Country!)
-            .ToListAsync();
-
-        var stats = countries
-            .GroupBy(c => c)
+            .GroupBy(e => e.Country!)
             .Select(g => new CountryCountDto(g.Key, g.Count()))
             .OrderByDescending(x => x.Count)
-            .ToList();
+            .ToListAsync();
 
         return Ok(stats);
     }

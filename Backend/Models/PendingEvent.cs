@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace LifeEventsHub.Api.Models;
 
-/// <summary>Draft event saved before payment. Converted to Event after payment success.</summary>
 public class PendingEvent
 {
     public int Id { get; set; }
@@ -28,7 +27,6 @@ public class PendingEvent
     public int DisplayDays { get; set; }
     public decimal AmountPaid { get; set; }
     public bool PaymentReceived { get; set; }
-    /// <summary>Customer chose offline payment; waiting for admin approval before feed publish.</summary>
     public bool AwaitingOfflineApproval { get; set; }
     public DateTime? OfflineSubmittedAt { get; set; }
     [MaxLength(20)]

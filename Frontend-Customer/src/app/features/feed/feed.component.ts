@@ -128,7 +128,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <div class="event-grid">
               @for (ev of events(); track ev.id) {
                 <a [routerLink]="['/event', ev.id]" class="event-card">
-                  <div class="card-image" [style.background-image]="'url(' + (ev.mainImageUrl || placeholderImage) + ')'">
+                  <div class="card-image" [class.has-image]="!!ev.mainImageUrl" [style.background-image]="ev.mainImageUrl ? 'url(' + ev.mainImageUrl + ')' : null">
                     <span class="event-type-badge" [ngClass]="getEventTypeClass(ev.eventType)">
                       {{ i18n.eventTypeLabel(ev.eventType) }}
                     </span>
@@ -214,7 +214,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     <a [routerLink]="['/event', w.eventId]" class="wish-item">
                       <div
                         class="wish-thumb"
-                        [style.background-image]="'url(' + (w.eventImageUrl || placeholderImage) + ')'"
+                        [class.has-image]="!!w.eventImageUrl"
+                        [style.background-image]="w.eventImageUrl ? 'url(' + w.eventImageUrl + ')' : null"
                         role="img"
                         [attr.aria-label]="w.eventTitle"
                       ></div>
@@ -642,7 +643,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       flex-shrink: 0;
       background-size: cover;
       background-position: center;
-      background-color: #e2e8f0;
+      background-color: #d7e3de;
+      background-image: linear-gradient(135deg, #d7e3de 0%, #b9cdc5 100%);
       border: 1px solid #e2e8f0;
       transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     }
@@ -714,7 +716,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       background-size: cover;
       background-position: center;
       position: relative;
-      background-color: #d7dce4;
+      background-color: #d7e3de;
+      background-image: linear-gradient(135deg, #d7e3de 0%, #b9cdc5 100%);
     }
     .event-type-badge {
       position: absolute;
@@ -873,8 +876,6 @@ export class FeedComponent implements OnInit, OnDestroy {
   fromDateDisplay = '';
   toDateDisplay = '';
   pageSize = 12;
-
-  placeholderImage = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&h=400&fit=crop';
 
   hasMore = computed(() => {
     const items = this.events().length;

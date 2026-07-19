@@ -26,22 +26,23 @@ public class AppDbContext : DbContext
             u.Property(x => x.CreatedAt).AsUtcTimestamp();
         });
 
-         modelBuilder.Entity<Event>(entity =>
-            {
-                entity.Property(e => e.AmountGBP).HasColumnType("decimal(18,4)");
-                entity.Property(e => e.AmountPaid).HasColumnType("decimal(18,4)");
-                entity.Property(e => e.ExchangeRateUsed).HasColumnType("decimal(18,6)");
-                entity.Property(e => e.CreatedAt).AsUtcTimestamp();
-                entity.Property(e => e.DisplayValidityEndDate).AsUtcTimestamp();
-            });
-
         modelBuilder.Entity<Event>(e =>
         {
+            e.Property(x => x.AmountGBP).HasColumnType("decimal(18,4)");
+            e.Property(x => x.AmountPaid).HasColumnType("decimal(18,4)");
+            e.Property(x => x.ExchangeRateUsed).HasColumnType("decimal(18,6)");
+            e.Property(x => x.CreatedAt).AsUtcTimestamp();
+            e.Property(x => x.DisplayValidityEndDate).AsUtcTimestamp();
+
             e.HasIndex(x => x.EventType);
             e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => x.Country);
             e.HasIndex(x => new { x.UserId, x.CreatedAt });
             e.HasIndex(x => new { x.IsPublished, x.CreatedAt });
             e.HasIndex(x => x.DisplayValidityEndDate);
+            e.HasIndex(x => new { x.IsPublished, x.Visibility, x.DisplayValidityEndDate, x.CreatedAt });
+            e.HasIndex(x => new { x.EventType, x.IsPublished, x.CreatedAt });
+
             e.HasOne(x => x.User)
              .WithMany()
              .HasForeignKey(x => x.UserId)
@@ -52,6 +53,7 @@ public class AppDbContext : DbContext
         {
             w.HasIndex(x => x.EventId);
             w.HasIndex(x => x.CreatedAt);
+            w.HasIndex(x => new { x.EventId, x.CreatedAt });
             w.Property(x => x.CreatedAt).AsUtcTimestamp();
             w.HasOne(x => x.Event)
              .WithMany(x => x.Wishes)
@@ -67,6 +69,7 @@ public class AppDbContext : DbContext
              .HasForeignKey(x => x.EventId)
              .OnDelete(DeleteBehavior.Cascade);
             ei.HasIndex(x => new { x.EventId, x.InvitedEmail }).IsUnique();
+            ei.HasIndex(x => x.InvitedEmail);
         });
 
         modelBuilder.Entity<PasswordResetToken>(t =>
@@ -85,6 +88,8 @@ public class AppDbContext : DbContext
         {
             p.Property(x => x.CreatedAt).AsUtcTimestamp();
             p.Property(x => x.OfflineSubmittedAt).AsUtcTimestamp();
+            p.HasIndex(x => x.UserId);
+            p.HasIndex(x => new { x.AwaitingOfflineApproval, x.CreatedAt });
         });
 
         modelBuilder.Entity<ContactSubmission>(c =>
@@ -96,6 +101,8 @@ public class AppDbContext : DbContext
         {
             p.HasIndex(x => x.ReferenceCode).IsUnique();
             p.HasIndex(x => x.CreatedAt);
+            p.HasIndex(x => new { x.Status, x.CreatedAt });
+            p.HasIndex(x => x.StripeSessionId);
             p.Property(x => x.CreatedAt).AsUtcTimestamp();
             p.Property(x => x.CompletedAt).AsUtcTimestamp();
             p.Property(x => x.DirectManualPaymentMarkedAt).AsUtcTimestamp();
@@ -107,6 +114,7 @@ public class AppDbContext : DbContext
             n.HasIndex(x => x.EventId);
             n.HasIndex(x => x.PendingEventId);
             n.HasIndex(x => x.IsRead);
+            n.HasIndex(x => new { x.IsRead, x.CreatedAt });
             n.Property(x => x.CreatedAt).AsUtcTimestamp();
             n.Property(x => x.ReadAt).AsUtcTimestamp();
         });

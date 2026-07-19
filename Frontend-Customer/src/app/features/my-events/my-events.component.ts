@@ -150,7 +150,7 @@ import { formatUsd, periodLabelForDays } from '../../constants/display-plans';
             <div class="event-grid">
               @for (ev of events(); track ev.id) {
                 <a [routerLink]="['/event', ev.id]" class="event-card">
-                  <div class="card-image" [style.background-image]="'url(' + (ev.mainImageUrl || placeholderImage) + ')'">
+                  <div class="card-image" [class.has-image]="!!ev.mainImageUrl" [style.background-image]="ev.mainImageUrl ? 'url(' + ev.mainImageUrl + ')' : null">
                     <span class="event-type-badge" [ngClass]="getEventTypeClass(ev.eventType)">
                       {{ lang.eventTypeLabel(ev.eventType) }}
                     </span>
@@ -209,7 +209,7 @@ import { formatUsd, periodLabelForDays } from '../../constants/display-plans';
                   @for (w of recentWishes(); track w.id) {
                     <li>
                       <a [routerLink]="['/event', w.eventId]" class="wish-item">
-                        <div class="wish-thumb" [style.background-image]="'url(' + (w.eventImageUrl || placeholderImage) + ')'" role="img" [attr.aria-label]="w.eventTitle"></div>
+                        <div class="wish-thumb" [class.has-image]="!!w.eventImageUrl" [style.background-image]="w.eventImageUrl ? 'url(' + w.eventImageUrl + ')' : null" role="img" [attr.aria-label]="w.eventTitle"></div>
                         <div class="wish-item-body">
                           <span class="wish-event-title">{{ w.eventTitle }}</span>
                           <span class="wish-sender">{{ w.senderName }}</span>
@@ -292,7 +292,7 @@ import { formatUsd, periodLabelForDays } from '../../constants/display-plans';
     .event-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.15rem; }
     .event-card { display: block; text-decoration: none; color: inherit; border: 1px solid #e4e8ef; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 8px 22px rgba(16, 24, 40, 0.05); transition: transform 0.25s ease, box-shadow 0.25s ease; }
     .event-card:hover { transform: translateY(-4px); box-shadow: 0 14px 30px rgba(16, 24, 40, 0.09); }
-    .card-image { aspect-ratio: 16/10; background-size: cover; background-position: center; position: relative; background-color: #d7dce4; }
+    .card-image { aspect-ratio: 16/10; background-size: cover; background-position: center; position: relative; background-color: #d7e3de; background-image: linear-gradient(135deg, #d7e3de 0%, #b9cdc5 100%); }
     .event-type-badge { position: absolute; left: 0.75rem; top: 0.75rem; border-radius: 999px; padding: 0.3rem 0.65rem; font-size: 0.74rem; font-weight: 700; color: #fff; background: rgba(0,0,0,0.45); }
     .event-type-badge.birthday { background: linear-gradient(135deg, #4f46e5, #3730a3); }
     .event-type-badge.puberty { background: linear-gradient(135deg, #6366f1, #4338ca); }
@@ -331,7 +331,7 @@ import { formatUsd, periodLabelForDays } from '../../constants/display-plans';
     .wish-list li:last-child { border-bottom: none; }
     .wish-item { display: flex; gap: 0.65rem; padding: 0.65rem 0.45rem; margin: 0 -0.45rem; border-radius: 11px; text-decoration: none; color: inherit; align-items: flex-start; transition: background-color 0.2s ease; }
     .wish-item:hover { background: rgba(236, 246, 241, 0.95); }
-    .wish-thumb { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; background-size: cover; background-position: center; background-color: #e2e8f0; border: 1px solid #e2e8f0; }
+    .wish-thumb { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; background-size: cover; background-position: center; background-color: #d7e3de; background-image: linear-gradient(135deg, #d7e3de 0%, #b9cdc5 100%); border: 1px solid #e2e8f0; }
     .wish-item-body { min-width: 0; flex: 1; }
     .wish-event-title { font-size: 0.82rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.1rem; }
     .wish-sender { font-size: 0.76rem; font-weight: 600; color: var(--primary, #1a5f4a); }
@@ -372,8 +372,6 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   fromDateDisplay = '';
   toDateDisplay = '';
   pageSize = 12;
-
-  placeholderImage = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&h=400&fit=crop';
 
   paymentDrafts = computed(() => this.drafts().filter((d) => !d.awaitingOfflineApproval));
   pendingDrafts = computed(() => this.drafts().filter((d) => d.awaitingOfflineApproval));

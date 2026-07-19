@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Text;
 using LifeEventsHub.Api.Data;
 using LifeEventsHub.Api.Models;
@@ -16,6 +16,17 @@ builder.Configuration.AddJsonFile(
     optional: true,
     reloadOnChange: true);
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+});
+builder.Services.AddOutputCache(options =>
+{
+    options.AddBasePolicy(b => b.NoCache());
+    options.AddPolicy("CountryStats", b => b.Expire(TimeSpan.FromMinutes(2)));
+});
 builder.Services.AddControllers().AddJsonOptions(o =>
 {
     o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
@@ -70,19 +81,20 @@ builder.Services.AddScoped<PricingOrderService>();
 builder.Services.AddScoped<AdminCustomerListService>();
 builder.Services.AddScoped<AdminNotificationService>();
 
-// ✅ FIXED: Added all possible frontend ports
+var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>()
+    ?? new[]
+    {
+        "http://localhost:4200",
+        "http://localhost:4201",
+        "http://localhost:56604",
+        "http://localhost:56605",
+        "http://localhost:3000"
+    };
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
     {
-        policy
-            .WithOrigins(
-                "http://localhost:4200",
-                "http://localhost:4201",
-                "http://localhost:56604",
-                "http://localhost:56605",
-                "http://localhost:3000"
-            )
+        policy.WithOrigins(corsOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -115,7 +127,7 @@ var customerProfileRoot = Path.GetFullPath(
         : configuredCustomerProfile);
 Directory.CreateDirectory(customerProfileRoot);
 
-// ✅ FIXED: Correct middleware order — project wwwroot + profile media + event media
+app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -137,7 +149,8 @@ app.UseStaticFiles(new StaticFileOptions
     FileProvider = new PhysicalFileProvider(adminProfileRoot),
     RequestPath = FileStorageService.AdminProfileRequestPath
 });
-app.UseCors("AllowAngular");      // Must be before Auth
+app.UseCors("AllowAngular");
+app.UseOutputCache();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -294,160 +307,11 @@ using (var scope = app.Services.CreateScope())
     await AddColumnIfMissingAsync("PricingOrders", "DirectManualPaymentMarkedAt",
         "ALTER TABLE `PricingOrders` ADD COLUMN `DirectManualPaymentMarkedAt` datetime(6) NULL");
 
-    try
-    {
-        var t = DateTime.UtcNow;
-        PricingOrder[] sampleRows =
-        [
-            new PricingOrder
-            {
-                ReferenceCode = "MEM-2026-SAMPLE01",
-                Status = "direct_open",
-                PaymentChannel = "Direct",
-                Category = "obituary",
-                Country = "srilanka",
-                PackageColumnIndex = 1,
-                PackageDayLabel = "3 Months",
-                AmountDisplay = "$450",
-                WordLimitDisplay = "70 words",
-                CurrencyCode = "USD",
-                CustomerName = "Demo · Direct — awaiting bank transfer",
-                CustomerPhone = "+94771234567",
-                CustomerEmail = "demo.direct.pending@example.com",
-                DirectManualPaymentReceived = false,
-                CreatedAt = t.AddDays(-7),
-                CompletedAt = t.AddDays(-7)
-            },
-            new PricingOrder
-            {
-                ReferenceCode = "MEM-2026-SAMPLE02",
-                Status = "direct_open",
-                PaymentChannel = "Direct",
-                Category = "wedding",
-                Country = "srilanka",
-                PackageColumnIndex = 4,
-                PackageDayLabel = "12 Months",
-                AmountDisplay = "$1,000",
-                WordLimitDisplay = "Unlimited",
-                CurrencyCode = "USD",
-                CustomerName = "Demo · Direct — manually confirmed paid",
-                CustomerPhone = "+94777654321",
-                CustomerEmail = "demo.direct.confirmed@example.com",
-                DirectManualPaymentReceived = true,
-                DirectManualPaymentMarkedAt = t.AddDays(-2),
-                CreatedAt = t.AddDays(-10),
-                CompletedAt = t.AddDays(-10)
-            },
-            new PricingOrder
-            {
-                ReferenceCode = "MEM-2026-SAMPLE03",
-                Status = "paid_card",
-                PaymentChannel = "Card",
-                Category = "birthday",
-                Country = "usa",
-                PackageColumnIndex = 2,
-                PackageDayLabel = "3 Months",
-                AmountDisplay = "$450",
-                WordLimitDisplay = "Unlimited",
-                CurrencyCode = "USD",
-                CustomerName = "Demo · Card — Stripe paid (USD)",
-                CustomerPhone = "+1 4155550199",
-                CustomerEmail = "demo.card.usd@example.com",
-                StripeSessionId = "cs_test_a1MemorialBirthdayUsdCheckout01",
-                StripePaymentIntentId = "pi_3SampleUsdBirthday012345678901234",
-                PaidAmountMinorUnits = 45000,
-                PaidCurrencyCode = "USD",
-                DirectManualPaymentReceived = false,
-                CreatedAt = t.AddDays(-4),
-                CompletedAt = t.AddDays(-4)
-            },
-            new PricingOrder
-            {
-                ReferenceCode = "MEM-2026-SAMPLE04",
-                Status = "paid_card",
-                PaymentChannel = "Card",
-                Category = "obituary",
-                Country = "germany",
-                PackageColumnIndex = 3,
-                PackageDayLabel = "6 Months",
-                AmountDisplay = "$750",
-                WordLimitDisplay = "Unlimited",
-                CurrencyCode = "USD",
-                CustomerName = "Demo · Card — Stripe paid (USD)",
-                CustomerPhone = "+49 3012345678",
-                CustomerEmail = "demo.card.usd.de@example.com",
-                StripeSessionId = "cs_test_b2MemorialUsdCheckoutSession02",
-                StripePaymentIntentId = "pi_3SampleUsdObituary098765432109876",
-                PaidAmountMinorUnits = 75000,
-                PaidCurrencyCode = "USD",
-                DirectManualPaymentReceived = false,
-                CreatedAt = t.AddDays(-6),
-                CompletedAt = t.AddDays(-6)
-            },
-            new PricingOrder
-            {
-                ReferenceCode = "MEM-2026-SAMPLE05",
-                Status = "direct_open",
-                PaymentChannel = "Direct",
-                Category = "memorial",
-                Country = "uk",
-                PackageColumnIndex = 2,
-                PackageDayLabel = "3 Months",
-                AmountDisplay = "$450",
-                WordLimitDisplay = "120 words",
-                CurrencyCode = "USD",
-                CustomerName = "Demo · Direct — UK bank transfer open",
-                CustomerPhone = "+44 7700 900123",
-                CustomerEmail = "demo.direct.uk@example.com",
-                DirectManualPaymentReceived = false,
-                CreatedAt = t.AddDays(-1),
-                CompletedAt = t.AddDays(-1)
-            },
-            new PricingOrder
-            {
-                ReferenceCode = "MEM-2026-SAMPLE06",
-                Status = "paid_card",
-                PaymentChannel = "Card",
-                Category = "wedding",
-                Country = "srilanka",
-                PackageColumnIndex = 1,
-                PackageDayLabel = "1 Month",
-                AmountDisplay = "$300",
-                WordLimitDisplay = "70 words",
-                CurrencyCode = "USD",
-                CustomerName = "Demo · Card — paid (USD)",
-                CustomerPhone = "+94770001122",
-                CustomerEmail = "demo.card.usd.lk@example.com",
-                StripeSessionId = "cs_test_c3WeddingUsdCheckoutPaid06",
-                StripePaymentIntentId = "pi_3SampleUsdWedding060987654321098",
-                PaidAmountMinorUnits = 30000,
-                PaidCurrencyCode = "USD",
-                DirectManualPaymentReceived = false,
-                CreatedAt = t.AddHours(-18),
-                CompletedAt = t.AddHours(-18)
-            }
-        ];
-
-        foreach (var row in sampleRows)
-        {
-            var exists = await db.PricingOrders.AnyAsync(o => o.ReferenceCode == row.ReferenceCode);
-            if (!exists)
-                db.PricingOrders.Add(row);
-        }
-
-        await db.SaveChangesAsync();
-    }
-    catch
-    {
-        /* Sample seed optional; ignore duplicate key races. */
-    }
 
     await AddColumnIfMissingAsync("Users", "Role",
         "ALTER TABLE `Users` ADD COLUMN `Role` varchar(20) NOT NULL DEFAULT 'Customer'");
-
     await db.Database.ExecuteSqlRawAsync(
         "UPDATE `Users` SET `Role` = 'Customer' WHERE `Role` IS NULL OR `Role` = ''");
-
     await AddColumnIfMissingAsync("Users", "MustChangePassword",
         "ALTER TABLE `Users` ADD COLUMN `MustChangePassword` tinyint(1) NOT NULL DEFAULT 0");
     await AddColumnIfMissingAsync("Users", "UserName",
@@ -455,19 +319,36 @@ using (var scope = app.Services.CreateScope())
     await CreateIndexIfMissingAsync("Users", "IX_Users_UserName",
         "CREATE UNIQUE INDEX `IX_Users_UserName` ON `Users` (`UserName`)");
 
-    /* Performance: large-table scans (feed, admin lists, country stats). */
     await CreateIndexIfMissingAsync("Events", "IX_Events_UserId_CreatedAt",
         "CREATE INDEX `IX_Events_UserId_CreatedAt` ON `Events` (`UserId`, `CreatedAt`)");
     await CreateIndexIfMissingAsync("Events", "IX_Events_IsPublished_CreatedAt",
         "CREATE INDEX `IX_Events_IsPublished_CreatedAt` ON `Events` (`IsPublished`, `CreatedAt`)");
     await CreateIndexIfMissingAsync("Events", "IX_Events_DisplayValidityEndDate",
         "CREATE INDEX `IX_Events_DisplayValidityEndDate` ON `Events` (`DisplayValidityEndDate`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_Feed",
+        "CREATE INDEX `IX_Events_Feed` ON `Events` (`IsPublished`, `Visibility`, `DisplayValidityEndDate`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_Type_Published_Created",
+        "CREATE INDEX `IX_Events_Type_Published_Created` ON `Events` (`EventType`, `IsPublished`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_Country",
+        "CREATE INDEX `IX_Events_Country` ON `Events` (`Country`)");
     await CreateIndexIfMissingAsync("Wishes", "IX_Wishes_CreatedAt",
         "CREATE INDEX `IX_Wishes_CreatedAt` ON `Wishes` (`CreatedAt`)");
     await CreateIndexIfMissingAsync("Wishes", "IX_Wishes_EventId",
         "CREATE INDEX `IX_Wishes_EventId` ON `Wishes` (`EventId`)");
+    await CreateIndexIfMissingAsync("Wishes", "IX_Wishes_EventId_CreatedAt",
+        "CREATE INDEX `IX_Wishes_EventId_CreatedAt` ON `Wishes` (`EventId`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("EventInvites", "IX_EventInvites_InvitedEmail",
+        "CREATE INDEX `IX_EventInvites_InvitedEmail` ON `EventInvites` (`InvitedEmail`)");
+    await CreateIndexIfMissingAsync("PendingEvents", "IX_PendingEvents_UserId",
+        "CREATE INDEX `IX_PendingEvents_UserId` ON `PendingEvents` (`UserId`)");
+    await CreateIndexIfMissingAsync("PendingEvents", "IX_PendingEvents_AwaitingOffline",
+        "CREATE INDEX `IX_PendingEvents_AwaitingOffline` ON `PendingEvents` (`AwaitingOfflineApproval`, `CreatedAt`)");
     await CreateIndexIfMissingAsync("PricingOrders", "IX_PricingOrders_Status_CreatedAt",
         "CREATE INDEX `IX_PricingOrders_Status_CreatedAt` ON `PricingOrders` (`Status`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("PricingOrders", "IX_PricingOrders_StripeSessionId",
+        "CREATE INDEX `IX_PricingOrders_StripeSessionId` ON `PricingOrders` (`StripeSessionId`)");
+    await CreateIndexIfMissingAsync("AdminNotifications", "IX_AdminNotifications_IsRead_CreatedAt",
+        "CREATE INDEX `IX_AdminNotifications_IsRead_CreatedAt` ON `AdminNotifications` (`IsRead`, `CreatedAt`)");
 
     await AddColumnIfMissingAsync("Events", "PaymentReceived",
         "ALTER TABLE `Events` ADD COLUMN `PaymentReceived` tinyint(1) NOT NULL DEFAULT 0");
@@ -550,266 +431,29 @@ using (var scope = app.Services.CreateScope())
     }
     catch { }
 
-    var testEmail = "test@example.com";
-    var testUser = await db.Users.FirstOrDefaultAsync(u => u.Email == testEmail);
-    if (testUser == null)
+    if (app.Environment.IsDevelopment())
     {
-        testUser = new LifeEventsHub.Api.Models.User
+        var testEmail = "test@example.com";
+        var testUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == testEmail);
+        if (testUser == null)
         {
-            Email = testEmail,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
-            DisplayName = "Test User",
-            ProfileVisibility = "Public",
-            CreatedAt = DateTime.UtcNow,
-            Role = "Admin"
-        };
-        db.Users.Add(testUser);
-        await db.SaveChangesAsync();
-    }
-    else if (testUser.Role != "Admin")
-    {
-        testUser.Role = "Admin";
-        await db.SaveChangesAsync();
-    }
-
-    // Seed public feed with at least 30 demo events (user requested feed items, not wishes).
-    var existingFeedSampleCount = await db.Events.CountAsync(e => e.CreatedBy == "Memora Showcase");
-    var eventsNeeded = Math.Max(0, 30 - existingFeedSampleCount);
-    if (eventsNeeded > 0)
-    {
-        var titles = new[]
-        {
-            "Aadhya's 7th Birthday Celebration", "Silver Jubilee Anniversary Tribute", "In Loving Memory of Mr. Rajan",
-            "Twins Birthday Garden Party", "25 Years of Togetherness", "Remembering Dr. Meenakshi",
-            "Little Arjun Turns 5", "Ruby Wedding Anniversary", "Memorial Service for Captain Suresh",
-            "Nila's Birthday Evening", "Anniversary Blessings for Priya & Karthik", "A Life Well Lived: Mrs. Shanti",
-            "Surya's 18th Birthday", "Golden Memories Anniversary", "Tribute to Mr. Kumaran",
-            "Anya's Birthday Bash", "Family Anniversary Celebration", "In Memory of Teacher Lakshmi",
-            "Diya's Birthday Milestone", "Wedding Anniversary Gathering", "Honoring the Legacy of Mr. Arun",
-            "Rishi's Birthday Weekend", "Sacred Anniversary Ceremony", "Remembering Beloved Grandmother",
-            "Kavin's Birthday Fest", "Pearl Anniversary Joy", "A Tribute to Mr. Nadarajah",
-            "Meera's Birthday Brunch", "Anniversary of Love and Gratitude", "Celebrating the Life of Mrs. Devika"
-        };
-
-        var descriptions = new[]
-        {
-            "A joyful gathering with family and friends filled with gratitude, laughter, and heartfelt wishes.",
-            "Commemorating a meaningful milestone with blessings, memories, and warm messages from loved ones.",
-            "A respectful remembrance page to honor a cherished life, stories, and condolences.",
-            "Celebrating another wonderful year with bright moments, photos, and kind words.",
-            "Marking years of companionship and love with a graceful digital keepsake.",
-            "A memorial dedicated to treasured memories and the enduring impact of a beloved soul."
-        };
-
-        var countries = new[] { "India", "Sri Lanka", "Malaysia", "Singapore", "United Kingdom", "Canada" };
-        var locations = new[]
-        {
-            "Chennai", "Colombo", "Kuala Lumpur", "Singapore", "London", "Toronto"
-        };
-        var eventTypes = new[] { "Birthday", "Puberty Ceremony", "Wedding", "Anniversary", "Obituary", "Remembrance", "Other" };
-        var birthdayImages = new[]
-        {
-            "https://images.pexels.com/photos/1857157/pexels-photo-1857157.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/3171837/pexels-photo-3171837.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/587741/pexels-photo-587741.jpeg?auto=compress&cs=tinysrgb&w=1600"
-        };
-        var pubertyImages = new[]
-        {
-            "https://images.pexels.com/photos/3171837/pexels-photo-3171837.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/3184418/pexels-photo-3184418.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/2253870/pexels-photo-2253870.jpeg?auto=compress&cs=tinysrgb&w=1600"
-        };
-        var weddingImages = new[]
-        {
-            "https://images.pexels.com/photos/2253870/pexels-photo-2253870.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/949590/pexels-photo-949590.jpeg?auto=compress&cs=tinysrgb&w=1600"
-        };
-        var anniversaryImages = new[]
-        {
-            "https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/2253870/pexels-photo-2253870.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/949590/pexels-photo-949590.jpeg?auto=compress&cs=tinysrgb&w=1600"
-        };
-        var obituaryImages = new[]
-        {
-            "https://images.pexels.com/photos/889839/pexels-photo-889839.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/267967/pexels-photo-267967.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/33109/fall-autumn-red-season.jpg?auto=compress&cs=tinysrgb&w=1600"
-        };
-        var otherImages = new[]
-        {
-            "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg?auto=compress&cs=tinysrgb&w=1600",
-            "https://images.pexels.com/photos/433452/pexels-photo-433452.jpeg?auto=compress&cs=tinysrgb&w=1600"
-        };
-        var now = DateTime.UtcNow;
-        var eventsToAdd = new List<LifeEventsHub.Api.Models.Event>();
-
-        for (var i = 0; i < eventsNeeded; i++)
-        {
-            var idx = (existingFeedSampleCount + i) % 30;
-            var type = eventTypes[idx % eventTypes.Length];
-            var eventDate = now.AddDays(-(idx % 90));
-
-            DateTime? birthDate = null;
-            DateTime? deathDate = null;
-            DateTime? weddingDate = null;
-            if (type == "Obituary" || type == "Remembrance")
+            db.Users.Add(new LifeEventsHub.Api.Models.User
             {
-                deathDate = eventDate;
-                birthDate = eventDate.AddYears(-68);
-            }
-            else if (type == "Anniversary" || type == "Wedding")
-            {
-                weddingDate = eventDate.AddYears(-12);
-            }
-
-            string mainImageUrl;
-            string galleryJson;
-            if (type == "Birthday")
-            {
-                mainImageUrl = birthdayImages[idx % birthdayImages.Length];
-                galleryJson = $"[\"{birthdayImages[(idx + 1) % birthdayImages.Length]}\",\"{birthdayImages[(idx + 2) % birthdayImages.Length]}\"]";
-            }
-            else if (type == "Puberty Ceremony")
-            {
-                mainImageUrl = pubertyImages[idx % pubertyImages.Length];
-                galleryJson = $"[\"{pubertyImages[(idx + 1) % pubertyImages.Length]}\",\"{pubertyImages[(idx + 2) % pubertyImages.Length]}\"]";
-            }
-            else if (type == "Wedding")
-            {
-                mainImageUrl = weddingImages[idx % weddingImages.Length];
-                galleryJson = $"[\"{weddingImages[(idx + 1) % weddingImages.Length]}\",\"{weddingImages[(idx + 2) % weddingImages.Length]}\"]";
-            }
-            else if (type == "Anniversary")
-            {
-                mainImageUrl = anniversaryImages[idx % anniversaryImages.Length];
-                galleryJson = $"[\"{anniversaryImages[(idx + 1) % anniversaryImages.Length]}\",\"{anniversaryImages[(idx + 2) % anniversaryImages.Length]}\"]";
-            }
-            else if (type == "Obituary" || type == "Remembrance")
-            {
-                mainImageUrl = obituaryImages[idx % obituaryImages.Length];
-                galleryJson = $"[\"{obituaryImages[(idx + 1) % obituaryImages.Length]}\",\"{obituaryImages[(idx + 2) % obituaryImages.Length]}\"]";
-            }
-            else
-            {
-                mainImageUrl = otherImages[idx % otherImages.Length];
-                galleryJson = $"[\"{otherImages[(idx + 1) % otherImages.Length]}\",\"{otherImages[(idx + 2) % otherImages.Length]}\"]";
-            }
-
-            eventsToAdd.Add(new LifeEventsHub.Api.Models.Event
-            {
-                Title = titles[idx],
-                Description = descriptions[idx % descriptions.Length],
-                EventType = type,
-                EventDate = eventDate,
-                BirthDate = birthDate,
-                DeathDate = deathDate,
-                WeddingDate = weddingDate,
-                Location = locations[idx % locations.Length],
-                Country = countries[idx % countries.Length],
-                CurrencyCode = "USD",
-                AmountGBP = 0,
-                AmountPaid = 0,
-                ExchangeRateUsed = 1,
-                MainImageUrl = mainImageUrl,
-                GalleryUrls = galleryJson,
-                CreatedBy = "Memora Showcase",
-                UserId = testUser.Id,
-                CreatedAt = now.AddMinutes(-(idx + 1) * 7),
-                IsPublished = true,
-                Visibility = "Public",
-                DisplayDays = 365,
-                DisplayValidityEndDate = now.AddDays(365),
-                PaymentReceived = true
+                Email = testEmail,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
+                DisplayName = "Test User",
+                ProfileVisibility = "Public",
+                CreatedAt = DateTime.UtcNow,
+                Role = "Admin"
             });
+            await db.SaveChangesAsync();
         }
-
-        db.Events.AddRange(eventsToAdd);
-        await db.SaveChangesAsync();
-    }
-
-    // Keep existing showcase events aligned with type-relevant images.
-    var birthdayImagesUpdate = new[]
-    {
-        "https://images.pexels.com/photos/1857157/pexels-photo-1857157.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/3171837/pexels-photo-3171837.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/587741/pexels-photo-587741.jpeg?auto=compress&cs=tinysrgb&w=1600"
-    };
-    var pubertyImagesUpdate = new[]
-    {
-        "https://images.pexels.com/photos/3171837/pexels-photo-3171837.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/3184418/pexels-photo-3184418.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/2253870/pexels-photo-2253870.jpeg?auto=compress&cs=tinysrgb&w=1600"
-    };
-    var weddingImagesUpdate = new[]
-    {
-        "https://images.pexels.com/photos/2253870/pexels-photo-2253870.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/949590/pexels-photo-949590.jpeg?auto=compress&cs=tinysrgb&w=1600"
-    };
-    var anniversaryImagesUpdate = new[]
-    {
-        "https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/2253870/pexels-photo-2253870.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/949590/pexels-photo-949590.jpeg?auto=compress&cs=tinysrgb&w=1600"
-    };
-    var obituaryImagesUpdate = new[]
-    {
-        "https://images.pexels.com/photos/889839/pexels-photo-889839.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/267967/pexels-photo-267967.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/33109/fall-autumn-red-season.jpg?auto=compress&cs=tinysrgb&w=1600"
-    };
-    var otherImagesUpdate = new[]
-    {
-        "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg?auto=compress&cs=tinysrgb&w=1600",
-        "https://images.pexels.com/photos/433452/pexels-photo-433452.jpeg?auto=compress&cs=tinysrgb&w=1600"
-    };
-
-    var showcaseEvents = await db.Events
-        .Where(e => e.CreatedBy == "Memora Showcase")
-        .OrderBy(e => e.Id)
-        .ToListAsync();
-
-    for (var i = 0; i < showcaseEvents.Count; i++)
-    {
-        var ev = showcaseEvents[i];
-        if (ev.EventType == "Birthday")
+        else if (testUser.Role != "Admin")
         {
-            ev.MainImageUrl = birthdayImagesUpdate[i % birthdayImagesUpdate.Length];
-            ev.GalleryUrls = $"[\"{birthdayImagesUpdate[(i + 1) % birthdayImagesUpdate.Length]}\",\"{birthdayImagesUpdate[(i + 2) % birthdayImagesUpdate.Length]}\"]";
-        }
-        else if (ev.EventType == "Puberty Ceremony")
-        {
-            ev.MainImageUrl = pubertyImagesUpdate[i % pubertyImagesUpdate.Length];
-            ev.GalleryUrls = $"[\"{pubertyImagesUpdate[(i + 1) % pubertyImagesUpdate.Length]}\",\"{pubertyImagesUpdate[(i + 2) % pubertyImagesUpdate.Length]}\"]";
-        }
-        else if (ev.EventType == "Wedding")
-        {
-            ev.MainImageUrl = weddingImagesUpdate[i % weddingImagesUpdate.Length];
-            ev.GalleryUrls = $"[\"{weddingImagesUpdate[(i + 1) % weddingImagesUpdate.Length]}\",\"{weddingImagesUpdate[(i + 2) % weddingImagesUpdate.Length]}\"]";
-        }
-        else if (ev.EventType == "Anniversary")
-        {
-            ev.MainImageUrl = anniversaryImagesUpdate[i % anniversaryImagesUpdate.Length];
-            ev.GalleryUrls = $"[\"{anniversaryImagesUpdate[(i + 1) % anniversaryImagesUpdate.Length]}\",\"{anniversaryImagesUpdate[(i + 2) % anniversaryImagesUpdate.Length]}\"]";
-        }
-        else if (ev.EventType == "Obituary" || ev.EventType == "Funeral" || ev.EventType == "Remembrance")
-        {
-            ev.MainImageUrl = obituaryImagesUpdate[i % obituaryImagesUpdate.Length];
-            ev.GalleryUrls = $"[\"{obituaryImagesUpdate[(i + 1) % obituaryImagesUpdate.Length]}\",\"{obituaryImagesUpdate[(i + 2) % obituaryImagesUpdate.Length]}\"]";
-        }
-        else
-        {
-            ev.MainImageUrl = otherImagesUpdate[i % otherImagesUpdate.Length];
-            ev.GalleryUrls = $"[\"{otherImagesUpdate[(i + 1) % otherImagesUpdate.Length]}\",\"{otherImagesUpdate[(i + 2) % otherImagesUpdate.Length]}\"]";
+            await db.Users.Where(u => u.Id == testUser.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.Role, "Admin"));
         }
     }
-
-    if (showcaseEvents.Count > 0)
-        await db.SaveChangesAsync();
 
     var notifications = scope.ServiceProvider.GetRequiredService<AdminNotificationService>();
     await notifications.CleanupStaleNotificationsAsync();
