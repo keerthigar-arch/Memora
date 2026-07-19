@@ -57,6 +57,17 @@ export interface EventManageStatsDto {
   customerCount: number;
 }
 
+export interface AdminPaymentEventDto {
+  id: number;
+  title: string;
+  eventType: string;
+  eventDate: string;
+  displayDays: number;
+  amountDue: number;
+  createdAt: string;
+  mainImageUrl?: string | null;
+}
+
 export interface CustomerDraftListDto {
   id: number;
   title: string;
@@ -68,6 +79,9 @@ export interface CustomerDraftListDto {
   paymentMethod?: string | null;
   createdAt: string;
   mainImageUrl?: string | null;
+  offlineSubmittedAt?: string | null;
+  ownerDisplayName?: string | null;
+  ownerEmail?: string | null;
 }
 
 export interface CustomerDraftDetailDto {
@@ -240,6 +254,14 @@ export class ApiService {
 
   setEventPublished(id: number, published: boolean): Observable<void> {
     return this.http.patch<void>(`${API}/events/${id}/published`, { published });
+  }
+
+  getAdminPaymentPendingEvents(): Observable<AdminPaymentEventDto[]> {
+    return this.http.get<AdminPaymentEventDto[]>(`${API}/events/admin/payment-pending`);
+  }
+
+  markAdminEventPaymentReceived(id: number): Observable<void> {
+    return this.http.patch<void>(`${API}/events/${id}/payment-received`, {});
   }
 
   getDisplayOptions(): Observable<{ days: number; price: number; label: string }[]> {

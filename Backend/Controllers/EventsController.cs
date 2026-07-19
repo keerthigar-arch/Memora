@@ -105,13 +105,15 @@ public class EventsController : ControllerBase
         {
             query = _db.Events.AsNoTracking()
                 .Where(e => e.IsPublished
+                    && e.PaymentReceived
                     && e.Visibility == "Public"
                     && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now));
         }
         else
         {
             query = _db.Events.AsNoTracking()
-                .Where(e => e.IsPublished && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now) && (
+                .Where(e => e.IsPublished && e.PaymentReceived &&
+                    (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now) && (
                     e.Visibility == "Public" ||
                     e.UserId == userId ||
                     (e.Visibility == "InviteOnly" && !string.IsNullOrEmpty(userEmail) &&
@@ -457,7 +459,8 @@ public class EventsController : ControllerBase
                 d.AwaitingOfflineApproval,
                 d.PaymentMethod,
                 d.CreatedAt,
-                main
+                main,
+                d.OfflineSubmittedAt
             );
         }).ToList();
 
@@ -526,6 +529,72 @@ public class EventsController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("admin/payment-pending")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<IReadOnlyList<AdminPaymentEventDto>>> GetAdminPaymentPending(
+        CancellationToken cancellationToken)
+    {
+        var events = await _db.Events
+            .AsNoTracking()
+            .Where(e => !e.PaymentReceived && (e.User == null || e.User.Role == "Admin"))
+            .OrderByDescending(e => e.CreatedAt)
+            .Select(e => new
+            {
+                e.Id,
+                e.Title,
+                e.EventType,
+                e.EventDate,
+                e.DisplayDays,
+                e.CreatedAt,
+                e.MainImageUrl
+            })
+            .ToListAsync(cancellationToken);
+
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
+        var result = events.Select(e =>
+        {
+            var option = _pricing.GetOption(e.DisplayDays ?? 30);
+            return new AdminPaymentEventDto(
+                e.Id,
+                e.Title,
+                e.EventType,
+                e.EventDate,
+                e.DisplayDays ?? 30,
+                option?.Price ?? 0,
+                e.CreatedAt,
+                FileStorageService.NormalizeUrl(e.MainImageUrl, baseUrl));
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPatch("{id:int}/payment-received")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> MarkPaymentReceived(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var ev = await _db.Events
+            .Include(e => e.User)
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        if (ev == null)
+            return NotFound();
+        if (ev.User != null && ev.User.Role != "Admin")
+            return BadRequest(new { message = "Customer offline payments must be approved from their review page." });
+
+        var option = _pricing.GetOption(ev.DisplayDays ?? 30);
+        if (option == null)
+            return BadRequest(new { message = "The event has an invalid display plan." });
+
+        ev.PaymentReceived = true;
+        ev.AmountPaid = option.Price;
+        ev.IsPublished = true;
+        ev.DisplayValidityEndDate = DateTime.UtcNow.AddDays(option.Days);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
     [HttpGet("stats/count-by-country")]
     [Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = "CountryStats")]
     public async Task<ActionResult<List<CountryCountDto>>> GetCountryStats()
@@ -534,6 +603,7 @@ public class EventsController : ControllerBase
         var stats = await _db.Events
             .AsNoTracking()
             .Where(e => e.IsPublished
+                && e.PaymentReceived
                 && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now)
                 && e.Visibility == "Public"
                 && e.Country != null && e.Country != "")
@@ -559,6 +629,7 @@ public class EventsController : ControllerBase
                 ev => ev.Id,
                 (w, ev) => new { w, ev })
             .Where(x => x.ev.IsPublished
+                && x.ev.PaymentReceived
                 && (x.ev.DisplayValidityEndDate == null || x.ev.DisplayValidityEndDate > now)
                 && x.ev.Visibility == "Public")
             .OrderByDescending(x => x.w.CreatedAt)
@@ -609,7 +680,8 @@ public class EventsController : ControllerBase
             .AsNoTracking()
             .Include(e => e.Wishes)
             .Include(e => e.Invites)
-            .FirstOrDefaultAsync(e => e.Id == id && e.IsPublished && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now));
+            .FirstOrDefaultAsync(e => e.Id == id && e.IsPublished && e.PaymentReceived &&
+                (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now));
 
         if (ev == null)
             return NotFound();
@@ -777,7 +849,7 @@ public class EventsController : ControllerBase
             GalleryUrls = null,
             CreatedBy = createdBy,
             UserId = userId,
-            IsPublished = true,
+            IsPublished = dto.PaymentReceived,
             Visibility = dto.Visibility ?? "Public",
             DisplayDays = dto.DisplayDays,
             DisplayValidityEndDate = validityEnd,

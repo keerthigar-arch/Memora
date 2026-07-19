@@ -36,6 +36,9 @@ export interface CustomerDraftListDto {
   paymentMethod?: string | null;
   createdAt: string;
   mainImageUrl?: string | null;
+  offlineSubmittedAt?: string | null;
+  ownerDisplayName?: string | null;
+  ownerEmail?: string | null;
 }
 
 export interface EventListDto {

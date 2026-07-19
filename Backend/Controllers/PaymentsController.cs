@@ -325,11 +325,27 @@ public class PaymentsController : ControllerBase
             .OrderByDescending(d => d.OfflineSubmittedAt ?? d.CreatedAt)
             .ToListAsync(ct);
 
+        var userIds = drafts
+            .Where(d => d.UserId.HasValue)
+            .Select(d => d.UserId!.Value)
+            .Distinct()
+            .ToList();
+        var owners = userIds.Count == 0
+            ? new Dictionary<int, (string DisplayName, string Email)>()
+            : await _db.Users.AsNoTracking()
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => (u.DisplayName, u.Email), ct);
+
         var items = drafts.Select(d =>
         {
-            var main = d.MainImagePath;
-            if (!string.IsNullOrEmpty(main) && main.StartsWith('/') && !main.StartsWith("//", StringComparison.Ordinal))
-                main = baseUrl + main;
+            string? ownerName = null;
+            string? ownerEmail = null;
+            if (d.UserId.HasValue && owners.TryGetValue(d.UserId.Value, out var owner))
+            {
+                ownerName = owner.DisplayName;
+                ownerEmail = owner.Email;
+            }
+
             return new CustomerDraftListDto(
                 d.Id,
                 d.Title,
@@ -340,7 +356,10 @@ public class PaymentsController : ControllerBase
                 d.AwaitingOfflineApproval,
                 d.PaymentMethod,
                 d.CreatedAt,
-                main
+                FileStorageService.NormalizeUrl(d.MainImagePath, baseUrl),
+                d.OfflineSubmittedAt,
+                ownerName,
+                ownerEmail
             );
         }).ToList();
 

@@ -1,18 +1,24 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
+import {
+  AdminPaymentEventDto,
+  ApiService,
+  CustomerDraftListDto,
+  PricingOrderAdminDto
+} from '../../services/api.service';
 
 @Component({
   selector: 'app-pricing-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <section class="page-head">
       <div class="container">
-        <h1>Pricing payments</h1>
-        <p class="page-lead">Review pricing orders, payment channels, and direct transfer confirmations.</p>
+        <h1>Payments</h1>
+        <p class="page-lead">All event and pricing payments in one place.</p>
       </div>
     </section>
 
@@ -51,7 +57,7 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
               <option value="">All statuses</option>
               <option value="pending_payment">Awaiting payment</option>
               <option value="direct_open">Reference issued</option>
-              <option value="paid_card">Paid (card)</option>
+              <option value="paid_card">Paid</option>
               <option value="paid_direct">Paid (direct)</option>
             </select>
           </label>
@@ -101,13 +107,13 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
         </div>
       </div>
 
-      @if (loading()) {
+      @if (loading() || offlineLoading() || adminPaymentsLoading()) {
         <div class="loading"><div class="spinner"></div><p>Loading…</p></div>
-      } @else if (error()) {
-        <div class="banner err">{{ error() }}</div>
-      } @else if (rows().length === 0) {
+      } @else if (error() || offlineError() || adminPaymentsError()) {
+        <div class="banner err">{{ error() || offlineError() || adminPaymentsError() }}</div>
+      } @else if (rows().length === 0 && offlineDrafts().length === 0 && adminPaymentEvents().length === 0) {
         <div class="empty">
-          <p class="empty-title">No orders found</p>
+          <p class="empty-title">No payments found</p>
           <p class="muted empty-sub">Try adjusting filters or check again later.</p>
         </div>
       } @else {
@@ -115,40 +121,76 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
           <table class="pay-table">
             <thead>
               <tr>
-                <th>Reference</th>
-                <th>Channel</th>
+                <th>Payment</th>
+                <th>Source</th>
                 <th>Status</th>
                 <th>Customer</th>
-                <th>Contact</th>
-                <th>Package</th>
-                <th class="th-num">Price</th>
-                <th class="th-date">Created</th>
-                <th>Direct confirmation</th>
+                <th>Details</th>
+                <th class="th-num">Amount</th>
+                <th class="th-date">Date</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              @for (row of rows(); track row.id) {
-                <tr>
-                  <td class="mono ref-cell">{{ row.referenceCode || '—' }}</td>
-                  <td>
-                    <span class="ch-badge" [class.ch-direct]="isDirect(row)" [class.ch-card]="isCard(row)">{{
-                      row.paymentChannel
-                    }}</span>
-                  </td>
-                  <td><span class="pill">{{ statusLabel(row) }}</span></td>
-                  <td class="name-cell">{{ row.customerName }}</td>
+              @for (d of offlineDrafts(); track 'offline-' + d.id) {
+                <tr class="row-offline">
+                  <td class="name-cell">{{ d.title }}</td>
+                  <td><span class="source-badge source-offline">Customer event</span></td>
+                  <td><span class="pill">Awaiting approval</span></td>
                   <td class="contact-cell">
+                    <div>{{ d.ownerDisplayName || '—' }}</div>
+                    @if (d.ownerEmail) {
+                      <div class="muted">{{ d.ownerEmail }}</div>
+                    }
+                  </td>
+                  <td>{{ d.eventType }} · {{ d.displayDays }} days</td>
+                  <td class="num-cell">{{ formatUsd(d.amountPaid) }} <span class="cur">USD</span></td>
+                  <td class="date-cell muted">{{ (d.offlineSubmittedAt || d.createdAt) | date: 'medium' }}</td>
+                  <td><a [routerLink]="['/pending-event', d.id]" class="btn btn-primary btn-sm">Review</a></td>
+                </tr>
+              }
+
+              @for (event of adminPaymentEvents(); track 'admin-' + event.id) {
+                <tr class="row-admin">
+                  <td class="name-cell">{{ event.title }}</td>
+                  <td><span class="source-badge source-admin">Admin event</span></td>
+                  <td><span class="pill">Awaiting payment</span></td>
+                  <td class="muted">Admin</td>
+                  <td>{{ event.eventType }} · {{ event.displayDays }} days</td>
+                  <td class="num-cell">{{ formatUsd(event.amountDue) }} <span class="cur">USD</span></td>
+                  <td class="date-cell muted">{{ event.createdAt | date: 'medium' }}</td>
+                  <td>
+                    <label class="check-wrap">
+                      <input
+                        type="checkbox"
+                        [checked]="false"
+                        [disabled]="adminPaymentSavingId() === event.id"
+                        (change)="markAdminPaymentReceived(event, $any($event.target).checked)"
+                      />
+                      <span>{{ adminPaymentSavingId() === event.id ? 'Saving…' : 'Received' }}</span>
+                    </label>
+                  </td>
+                </tr>
+              }
+
+              @for (row of rows(); track row.id) {
+                <tr [class.row-card]="isCard(row)" [class.row-direct]="isDirect(row)">
+                  <td class="mono ref-cell">{{ row.referenceCode || 'Pricing order' }}</td>
+                  <td><span class="source-badge" [class.source-direct]="isDirect(row)" [class.source-card]="isCard(row)">
+                    {{ isCard(row) ? 'Card' : 'Direct transfer' }}
+                  </span></td>
+                  <td><span class="pill">{{ statusLabel(row) }}</span></td>
+                  <td class="contact-cell">
+                    <div class="name-cell">{{ row.customerName }}</div>
                     <div>{{ row.customerEmail }}</div>
                     <div class="muted">{{ row.customerPhone }}</div>
                   </td>
                   <td class="pkg-cell">
-                    <span class="muted">{{ row.category }}</span>
-                    <span class="dot">·</span>
-                    {{ row.country }}
+                    {{ row.category }} · {{ row.country }}
                     <div class="pkg-line">{{ row.packageDayLabel }}</div>
                   </td>
                   <td class="num-cell">{{ row.amountDisplay }} <span class="cur">{{ row.currencyCode }}</span></td>
-                  <td class="date-cell muted">{{ row.createdAt | date: 'mediumDate' }}</td>
+                  <td class="date-cell muted">{{ row.createdAt | date: 'medium' }}</td>
                   <td class="direct-cell">
                     @if (isDirect(row)) {
                       <label class="check-wrap">
@@ -175,7 +217,7 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
 
         <div class="pager-bar">
           <div class="pager-meta muted">
-            Showing {{ rangeLabel() }} of {{ total() }} orders
+            Pricing orders: {{ rangeLabel() }} of {{ total() }}
           </div>
           <div class="pager-btns">
             <button type="button" class="btn btn-ghost btn-sm" [disabled]="page() <= 1" (click)="goPage(page() - 1)">
@@ -216,6 +258,46 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
       }
       .panel-wrap {
         padding-bottom: 2.5rem;
+      }
+      .section-block {
+        margin-bottom: 2rem;
+      }
+      .section-head {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.35rem;
+      }
+      .section-head h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--primary-dark);
+      }
+      .section-lead {
+        margin: 0 0 0.85rem;
+        font-size: 0.84rem;
+        color: var(--text-muted);
+      }
+      .count-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        background: #eef2f0;
+        color: #52635c;
+      }
+      .count-pill.has-items {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .empty-sm {
+        padding: 1.25rem 1rem;
+      }
+      .loading-sm {
+        padding: 1rem;
       }
       .filters-card {
         margin-bottom: 1.25rem;
@@ -437,6 +519,26 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
       .pay-table tbody tr:hover {
         background: rgba(26, 95, 74, 0.07);
       }
+      .pay-table tbody tr.row-offline {
+        background: #eff6ff;
+        border-left: 4px solid #3b82f6;
+      }
+      .pay-table tbody tr.row-admin {
+        background: #fffbeb;
+        border-left: 4px solid #f59e0b;
+      }
+      .pay-table tbody tr.row-card {
+        background: #f0fdf4;
+        border-left: 4px solid #22c55e;
+      }
+      .pay-table tbody tr.row-direct {
+        background: #faf5ff;
+        border-left: 4px solid #a855f7;
+      }
+      .pay-table tbody tr.row-offline:hover { background: #dbeafe; }
+      .pay-table tbody tr.row-admin:hover { background: #fef3c7; }
+      .pay-table tbody tr.row-card:hover { background: #dcfce7; }
+      .pay-table tbody tr.row-direct:hover { background: #f3e8ff; }
       .mono {
         font-family: ui-monospace, 'Cascadia Code', monospace;
         font-weight: 600;
@@ -461,7 +563,7 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
         background: rgba(26, 95, 74, 0.12);
         color: var(--primary-dark);
       }
-      .ch-badge {
+      .source-badge {
         display: inline-block;
         padding: 0.2rem 0.5rem;
         border-radius: 6px;
@@ -469,13 +571,21 @@ import { ApiService, PricingOrderAdminDto } from '../../services/api.service';
         font-weight: 700;
         letter-spacing: 0.02em;
       }
-      .ch-direct {
-        background: rgba(59, 130, 246, 0.15);
-        color: #1d4ed8;
+      .source-offline {
+        background: #dbeafe;
+        color: #1e40af;
       }
-      .ch-card {
-        background: rgba(139, 92, 246, 0.15);
-        color: #6d28d9;
+      .source-admin {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .source-card {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .source-direct {
+        background: #f3e8ff;
+        color: #6b21a8;
       }
       .name-cell {
         font-weight: 600;
@@ -562,6 +672,15 @@ export class PricingPaymentsComponent implements OnInit {
   error = signal('');
   savingId = signal<number | null>(null);
 
+  offlineDrafts = signal<CustomerDraftListDto[]>([]);
+  offlineLoading = signal(true);
+  offlineError = signal('');
+
+  adminPaymentEvents = signal<AdminPaymentEventDto[]>([]);
+  adminPaymentsLoading = signal(true);
+  adminPaymentsError = signal('');
+  adminPaymentSavingId = signal<number | null>(null);
+
   filterSearch = '';
   filterChannel = '';
   filterStatus = '';
@@ -573,7 +692,66 @@ export class PricingPaymentsComponent implements OnInit {
   constructor(private readonly api: ApiService) {}
 
   ngOnInit(): void {
+    this.loadOffline();
+    this.loadAdminPaymentEvents();
     this.load();
+  }
+
+  formatUsd(amount: number): string {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(amount || 0);
+  }
+
+  loadOffline(): void {
+    this.offlineLoading.set(true);
+    this.offlineError.set('');
+    this.api.getPendingOfflineApprovals().subscribe({
+      next: (items) => {
+        this.offlineDrafts.set(items ?? []);
+        this.offlineLoading.set(false);
+      },
+      error: (err) => {
+        this.offlineError.set(this.loadErrorMessage(err));
+        this.offlineDrafts.set([]);
+        this.offlineLoading.set(false);
+      }
+    });
+  }
+
+  loadAdminPaymentEvents(): void {
+    this.adminPaymentsLoading.set(true);
+    this.adminPaymentsError.set('');
+    this.api.getAdminPaymentPendingEvents().subscribe({
+      next: (events) => {
+        this.adminPaymentEvents.set(events ?? []);
+        this.adminPaymentsLoading.set(false);
+      },
+      error: (err) => {
+        this.adminPaymentsError.set(this.loadErrorMessage(err));
+        this.adminPaymentEvents.set([]);
+        this.adminPaymentsLoading.set(false);
+      }
+    });
+  }
+
+  markAdminPaymentReceived(event: AdminPaymentEventDto, checked: boolean): void {
+    if (!checked || this.adminPaymentSavingId() !== null) return;
+
+    this.adminPaymentSavingId.set(event.id);
+    this.adminPaymentsError.set('');
+    this.api.markAdminEventPaymentReceived(event.id).subscribe({
+      next: () => {
+        this.adminPaymentEvents.update((events) => events.filter((item) => item.id !== event.id));
+        this.adminPaymentSavingId.set(null);
+      },
+      error: (err) => {
+        this.adminPaymentsError.set(this.loadErrorMessage(err));
+        this.adminPaymentSavingId.set(null);
+      }
+    });
   }
 
   onChannelChange(): void {
@@ -770,7 +948,7 @@ export class PricingPaymentsComponent implements OnInit {
 
   statusLabel(row: PricingOrderAdminDto): string {
     if (row.paymentChannel?.toLowerCase() === 'card') {
-      return 'Paid (card)';
+      return 'Paid';
     }
     const s = (row.status || '').toLowerCase();
     if (s === 'direct_open') return 'Reference issued';

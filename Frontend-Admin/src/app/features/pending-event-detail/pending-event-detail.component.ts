@@ -12,7 +12,7 @@ import { NotificationService } from '../../services/notification.service';
   template: `
     <section class="detail-hero">
       <div class="container hero-inner">
-        <a routerLink="/events" class="back-link">← Back to events</a>
+        <a routerLink="/payments" class="back-link">← Back to payments</a>
         @if (draft()) {
           <span class="status-pill">Awaiting offline approval</span>
           <h1>{{ draft()!.title }}</h1>

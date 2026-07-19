@@ -46,6 +46,17 @@ public record EventManageStatsDto(int AdminCount, int CustomerCount);
 
 public record SetPublishedDto(bool Published);
 
+public record AdminPaymentEventDto(
+    int Id,
+    string Title,
+    string EventType,
+    DateTime EventDate,
+    int DisplayDays,
+    decimal AmountDue,
+    DateTime CreatedAt,
+    string? MainImageUrl
+);
+
 public record EventDetailDto(
     int Id,
     string Title,
@@ -90,7 +101,10 @@ public record CustomerDraftListDto(
     bool AwaitingOfflineApproval,
     string? PaymentMethod,
     DateTime CreatedAt,
-    string? MainImageUrl
+    string? MainImageUrl,
+    DateTime? OfflineSubmittedAt = null,
+    string? OwnerDisplayName = null,
+    string? OwnerEmail = null
 );
 
 public record CustomerDraftDetailDto(
