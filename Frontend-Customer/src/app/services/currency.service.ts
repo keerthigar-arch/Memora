@@ -179,40 +179,45 @@ const NO_DECIMAL_CURRENCIES = new Set([
   'SOS','NGN','KPW'
 ]);
 
+/** Platform pricing is USD-only regardless of event country. */
+export const USD_CURRENCY: CurrencyInfo = {
+  code: 'USD',
+  symbol: '$',
+  name: 'US Dollar',
+  rateFromUSD: 1.0,
+};
+
 @Injectable({ providedIn: 'root' })
 export class CurrencyService {
 
   /**
-   * Look up currency by full country name.
-   * Must exactly match the <option value="..."> in your dropdown.
-   * e.g. 'Sri Lanka' → LKR, 'USA' → USD, 'United Kingdom' → GBP
+   * Always returns USD — all countries use dollar pricing.
    */
-  getCurrencyForCountry(countryName: string): CurrencyInfo | null {
-    return COUNTRY_CURRENCY_MAP[countryName] ?? null;
+  getCurrencyForCountry(_countryName: string): CurrencyInfo | null {
+    return USD_CURRENCY;
   }
 
   /**
-   * Convert a USD price to the local currency.
-   * e.g. $0.99 × 305 = Rs301.95 for Sri Lanka
+   * Convert a USD price to the local currency (no-op: always USD).
    */
-  convertFromUSD(usdPrice: number, currency: CurrencyInfo): number {
-    return usdPrice * currency.rateFromUSD;
+  convertFromUSD(usdPrice: number, _currency: CurrencyInfo): number {
+    return usdPrice;
   }
 
   /**
-   * Format an amount with the correct symbol and decimal places.
-   * e.g. Rs301.95  |  $0.99  |  ¥148  |  £0.78
+   * Format an amount in USD.
+   * e.g. $0.99  |  $300.00
    */
-  formatPrice(amount: number, currency: CurrencyInfo): string {
+  formatPrice(amount: number, currency: CurrencyInfo = USD_CURRENCY): string {
     const decimals = NO_DECIMAL_CURRENCIES.has(currency.code) ? 0 : 2;
-    return `${currency.symbol}${amount.toFixed(decimals)}`;
+    return `$${amount.toFixed(decimals)}`;
   }
 
   /**
-   * Format a per-day label.
-   * e.g. Rs301.95/day
+   * Format a per-day label in USD.
+   * e.g. $10.00/day
    */
-  formatPricePerDay(totalAmount: number, days: number, currency: CurrencyInfo): string {
+  formatPricePerDay(totalAmount: number, days: number, currency: CurrencyInfo = USD_CURRENCY): string {
     const perDay = days > 0 ? totalAmount / days : 0;
     return `${this.formatPrice(perDay, currency)}/day`;
   }

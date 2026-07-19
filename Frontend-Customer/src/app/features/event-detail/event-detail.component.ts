@@ -68,6 +68,17 @@ import { environment } from '../../../environments/environment';
             </div>
           }
 
+          @if (videoUrls().length) {
+            <div class="gallery videos">
+              <h3>Videos</h3>
+              <div class="video-grid">
+                @for (url of videoUrls(); track url) {
+                  <video [src]="url" controls preload="metadata" class="video-item"></video>
+                }
+              </div>
+            </div>
+          }
+
           <section class="wishes">
             <div class="wishes-header">
               <h3>{{ getWishesSectionTitle() }} ({{ event()!.wishes.length }})</h3>
@@ -178,6 +189,16 @@ import { environment } from '../../../environments/environment';
       transition: transform 0.2s ease;
       &:hover { transform: scale(1.02); }
     }
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.75rem;
+    }
+    .video-item {
+      width: 100%;
+      border-radius: var(--radius);
+      background: #000;
+    }
 
     .wishes {
       background: white;
@@ -244,6 +265,7 @@ export class EventDetailComponent implements OnInit {
   id = 0;
 
   galleryUrls = signal<string[]>([]);
+  videoUrls = signal<string[]>([]);
 
   constructor(
     private route: ActivatedRoute,
@@ -260,6 +282,10 @@ export class EventDetailComponent implements OnInit {
           const urls = ev.galleryUrls ? JSON.parse(ev.galleryUrls) : [];
           this.galleryUrls.set(Array.isArray(urls) ? urls : []);
         } catch { this.galleryUrls.set([]); }
+        try {
+          const vids = ev.videoUrls ? JSON.parse(ev.videoUrls) : [];
+          this.videoUrls.set(Array.isArray(vids) ? vids : []);
+        } catch { this.videoUrls.set([]); }
         this.loading.set(false);
       },
       error: () => {

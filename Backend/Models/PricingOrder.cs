@@ -37,7 +37,7 @@ public class PricingOrder
     public string WordLimitDisplay { get; set; } = "";
 
     [MaxLength(16)]
-    public string CurrencyCode { get; set; } = "LKR";
+    public string CurrencyCode { get; set; } = "USD";
 
     [MaxLength(160)]
     public string CustomerName { get; set; } = "";

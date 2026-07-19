@@ -77,6 +77,7 @@ export interface EventDetailDto {
   country?: string;
   mainImageUrl?: string;
   galleryUrls?: string;
+  videoUrls?: string;
   createdBy: string;
   createdAt: string;
   wishes: WishDto[];

@@ -200,13 +200,15 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <p class="form-section-hint">{{ 'myEvents.sectionMediaHint' | t }}</p>
             </div>
             <div class="form-group">
-              <label>{{ 'myEvents.mainImage' | t }}</label>
+              <label>{{ 'myEvents.mainImage' | t }} *</label>
               <label class="file-drop">
                 <span class="file-drop-text">{{ 'myEvents.fileDropMain' | t }}</span>
                 <input type="file" accept="image/*" (change)="onMainImage($event)" />
               </label>
               @if (mainImagePreview()) {
                 <img [src]="mainImagePreview()!" alt="" class="preview-img" />
+              } @else {
+                <div class="validation-error"><small>{{ 'myEvents.mainImageRequired' | t }}</small></div>
               }
             </div>
             <div class="form-group">
@@ -215,6 +217,19 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 <span class="file-drop-text">{{ 'myEvents.fileDropGallery' | t }}</span>
                 <input type="file" accept="image/*" multiple (change)="onGallery($event)" />
               </label>
+              @if (galleryImages.length > 0) {
+                <p class="form-hint">{{ galleryImages.length }} / 8</p>
+              }
+            </div>
+            <div class="form-group">
+              <label>{{ 'myEvents.videos' | t }}</label>
+              <label class="file-drop file-drop-secondary">
+                <span class="file-drop-text">{{ 'myEvents.fileDropVideos' | t }}</span>
+                <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple (change)="onVideos($event)" />
+              </label>
+              @if (videos.length > 0) {
+                <p class="form-hint">{{ videos.length }} / 3</p>
+              }
             </div>
           </section>
 
@@ -524,6 +539,7 @@ export class CreateMyEventComponent implements OnInit {
   invitedEmails = '';
   mainImage: File | null = null;
   galleryImages: File[] = [];
+  videos: File[] = [];
   selectedCurrency: CurrencyInfo | null = null;
 
   displayOptions = signal<{ days: number; price: number; label: string }[]>([]);
@@ -575,11 +591,17 @@ export class CreateMyEventComponent implements OnInit {
       this.mainImagePreview.set(null);
       return;
     }
+    if (!file.type.startsWith('image/')) {
+      this.error.set('Main image must be an image file (jpg, png, gif, webp).');
+      input.value = '';
+      return;
+    }
     if (file.size > 5 * 1024 * 1024) {
       this.error.set('Main image must be 5 MB or smaller.');
       input.value = '';
       return;
     }
+    this.error.set('');
     this.mainImage = file;
     const reader = new FileReader();
     reader.onload = () => this.mainImagePreview.set(reader.result as string);
@@ -587,8 +609,55 @@ export class CreateMyEventComponent implements OnInit {
   }
 
   onGallery(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    this.galleryImages = input.files ? Array.from(input.files) : [];
+    const files = Array.from((ev.target as HTMLInputElement).files || []);
+    const validFiles: File[] = [];
+    let hasInvalid = false;
+
+    for (const file of files) {
+      if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+        hasInvalid = true;
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length > 8) {
+      this.error.set('Maximum 8 gallery images allowed. Extra files were skipped.');
+      validFiles.length = 8;
+    } else if (hasInvalid) {
+      this.error.set('Some files were skipped (invalid type or size > 5MB).');
+    } else {
+      this.error.set('');
+    }
+
+    this.galleryImages = validFiles;
+  }
+
+  onVideos(ev: Event): void {
+    const files = Array.from((ev.target as HTMLInputElement).files || []);
+    const allowed = ['.mp4', '.webm', '.mov'];
+    const validFiles: File[] = [];
+    let hasInvalid = false;
+
+    for (const file of files) {
+      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+      if (!allowed.includes(ext) || file.size > 100 * 1024 * 1024) {
+        hasInvalid = true;
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length > 3) {
+      this.error.set('Maximum 3 videos allowed. Extra files were skipped.');
+      validFiles.length = 3;
+    } else if (hasInvalid) {
+      this.error.set('Some videos were skipped (only MP4/WEBM/MOV up to 100MB).');
+    } else {
+      this.error.set('');
+    }
+
+    this.videos = validFiles;
   }
 
   isFormValid(): boolean {
@@ -599,6 +668,7 @@ export class CreateMyEventComponent implements OnInit {
     }
     if ((this.eventType === 'Wedding' || this.eventType === 'Anniversary') && !this.weddingDate) return false;
     if (this.visibility === 'InviteOnly' && !this.invitedEmails.trim()) return false;
+    if (!this.mainImage) return false;
     return true;
   }
 
@@ -616,6 +686,7 @@ export class CreateMyEventComponent implements OnInit {
     fd.append('eventDate', this.eventDate);
     fd.append('location', this.location.trim());
     fd.append('country', this.country);
+    fd.append('currency', 'USD');
     fd.append('visibility', this.visibility);
     fd.append('displayDays', String(this.displayDays));
     fd.append('paymentReceived', 'false');
@@ -633,6 +704,7 @@ export class CreateMyEventComponent implements OnInit {
     if (user) fd.append('createdBy', user.displayName);
     if (this.mainImage) fd.append('mainImage', this.mainImage);
     this.galleryImages.forEach((f) => fd.append('galleryImages', f));
+    this.videos.forEach((f) => fd.append('videos', f));
 
     const plan = this.displayOptions().find((p) => p.days === this.displayDays) ?? this.displayOptions()[0];
 

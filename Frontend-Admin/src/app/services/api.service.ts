@@ -83,6 +83,7 @@ export interface CustomerDraftDetailDto {
   country?: string | null;
   mainImageUrl?: string | null;
   galleryUrlsJson?: string | null;
+  videoUrlsJson?: string | null;
   createdBy: string;
   visibility: string;
   displayDays: number;
@@ -116,6 +117,7 @@ export interface EventDetailDto {
   country?: string;
   mainImageUrl?: string;
   galleryUrls?: string;
+  videoUrls?: string;
   createdBy: string;
   createdAt: string;
   wishes: WishDto[];

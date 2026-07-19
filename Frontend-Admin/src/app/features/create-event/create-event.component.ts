@@ -8,6 +8,7 @@ import { ApiService } from '../../services/api.service';
 import { EventStatsService } from '../../services/event-stats.service';
 import { AuthService } from '../../services/auth.service';
 import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
+import { MEMORA_DISPLAY_PLANS } from '../../constants/display-plans';
 
 @Component({
   selector: 'app-create-event',
@@ -452,26 +453,42 @@ import { CurrencyService, CurrencyInfo } from '../../services/currency.service';
 
         <section class="form-section form-section-media" aria-labelledby="sec-media">
           <div class="form-section-head">
-            <h2 id="sec-media" class="form-section-title">Imagery</h2>
-            <p class="form-section-hint">A strong cover image helps the card stand out in the feed.</p>
+            <h2 id="sec-media" class="form-section-title">Media</h2>
+            <p class="form-section-hint">A strong cover image helps the card stand out in the feed. Videos are shown only on the event detail page.</p>
           </div>
         <div class="form-group">
-          <label>Main image</label>
+          <label>Main image *</label>
           <label class="file-drop">
-            <span class="file-drop-text">Drop an image or click to upload · PNG or JPG, max 5MB</span>
+            <span class="file-drop-text">Drop an image or click to upload · JPG, PNG, GIF or WEBP, max 5MB</span>
             <input type="file" accept="image/*" (change)="onMainImageChange($event)" />
           </label>
           @if (mainImagePreview()) {
             <img [src]="mainImagePreview()" alt="Cover preview" class="preview-img" />
+          } @else {
+            <div class="validation-error"><small>Main image is required.</small></div>
           }
         </div>
 
         <div class="form-group">
           <label>Gallery (optional)</label>
           <label class="file-drop file-drop-secondary">
-            <span class="file-drop-text">Add more photos (multiple)</span>
+            <span class="file-drop-text">Add more photos · up to 8 images, max 5MB each</span>
             <input type="file" accept="image/*" multiple (change)="onGalleryChange($event)" />
           </label>
+          @if (galleryImages.length > 0) {
+            <p class="form-hint">{{ galleryImages.length }} image(s) selected</p>
+          }
+        </div>
+
+        <div class="form-group">
+          <label>Videos (optional)</label>
+          <label class="file-drop file-drop-secondary">
+            <span class="file-drop-text">Add videos · up to 3 files, MP4 / WEBM / MOV, max 100MB each</span>
+            <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple (change)="onVideosChange($event)" />
+          </label>
+          @if (videos.length > 0) {
+            <p class="form-hint">{{ videos.length }} video(s) selected</p>
+          }
         </div>
 
         </section>
@@ -982,21 +999,24 @@ export class CreateEventComponent implements OnInit {
   paymentReceived = false;
   mainImage:     File | null = null;
   galleryImages: File[]      = [];
+  videos:        File[]      = [];
 
   // ?????? Lifecycle ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
   ngOnInit(): void {
     this.api.getDisplayOptions().subscribe({
       next: (opts) => {
-        this.displayOptions.set(opts);
+        this.displayOptions.set(opts.length > 0 ? opts : MEMORA_DISPLAY_PLANS);
         // Default to first option (usually shortest / cheapest)
-        if (opts.length > 0) {
-          this.displayDays = opts[0].days;
+        if (this.displayOptions().length > 0) {
+          this.displayDays = this.displayOptions()[0].days;
         }
         // Manual change detection for OnPush strategy
         this.cdr.markForCheck();
       },
       error: (err) => {
-        this.error.set('Failed to load display options. Please refresh.');
+        this.displayOptions.set(MEMORA_DISPLAY_PLANS);
+        this.displayDays = MEMORA_DISPLAY_PLANS[0].days;
+        this.error.set('');
         console.error('Display options error:', err);
         this.cdr.markForCheck();
       }
@@ -1058,12 +1078,47 @@ export class CreateEventComponent implements OnInit {
       validFiles.push(file);
     }
 
-    if (hasInvalid) {
+    if (validFiles.length > 8) {
+      this.error.set('Maximum 8 gallery images allowed. Extra files were skipped.');
+      validFiles.length = 8;
+      this.cdr.markForCheck();
+    } else if (hasInvalid) {
       this.error.set('Some files were skipped (invalid type or size > 5MB).');
       this.cdr.markForCheck();
     }
 
     this.galleryImages = validFiles;
+  }
+
+  onVideosChange(e: Event): void {
+    const files = Array.from((e.target as HTMLInputElement).files || []);
+    const allowed = ['.mp4', '.webm', '.mov'];
+    const validFiles: File[] = [];
+    let hasInvalid = false;
+
+    for (const file of files) {
+      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+      if (!allowed.includes(ext)) {
+        hasInvalid = true;
+        continue;
+      }
+      if (file.size > 100 * 1024 * 1024) {
+        hasInvalid = true;
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length > 3) {
+      this.error.set('Maximum 3 videos allowed. Extra files were skipped.');
+      validFiles.length = 3;
+      this.cdr.markForCheck();
+    } else if (hasInvalid) {
+      this.error.set('Some videos were skipped (only MP4/WEBM/MOV up to 100MB).');
+      this.cdr.markForCheck();
+    }
+
+    this.videos = validFiles;
   }
 
   // ?????? Visibility change ??? clear emails when not InviteOnly ??????????????????????????????????????????????????????
@@ -1115,6 +1170,8 @@ export class CreateEventComponent implements OnInit {
     }
     // Guest name length
     if (!this.auth.isLoggedIn() && this.createdBy && this.createdBy.length > 100) return false;
+    // Main image is required by the backend
+    if (!this.mainImage) return false;
     // Display days must be a valid option
     const validDays = this.displayOptions().map(o => o.days);
     return validDays.length > 0 && validDays.includes(this.displayDays);
@@ -1141,7 +1198,7 @@ export class CreateEventComponent implements OnInit {
 
     if (this.location)    formData.append('location', this.location);
     if (this.country)     formData.append('country',  this.country);
-    if (this.currencyCode) formData.append('currency', this.currencyCode);
+    formData.append('currency', 'USD');
 
     if (this.eventType === 'Obituary' || this.eventType === 'Remembrance') {
       if (this.birthDate) formData.append('birthDate', this.birthDate);
@@ -1162,6 +1219,7 @@ export class CreateEventComponent implements OnInit {
 
     if (this.mainImage) formData.append('mainImage', this.mainImage);
     this.galleryImages.forEach(f => formData.append('galleryImages', f));
+    this.videos.forEach(f => formData.append('videos', f));
 
     this.api.createEvent(formData).subscribe({
       next: () => {

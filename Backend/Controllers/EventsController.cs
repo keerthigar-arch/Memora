@@ -18,12 +18,69 @@ public class EventsController : ControllerBase
     private readonly JwtService _jwt;
     private readonly PricingService _pricing;
 
+    // Media rules: main image required (<=5MB image), gallery optional (<=8 images, 5MB each),
+    // videos optional (<=3 files, mp4/webm/mov, 100MB each). Files live on disk; DB stores paths only.
+    private const int MaxGalleryImages = 8;
+    private const int MaxVideos = 3;
+    private const long MaxImageBytes = 5L * 1024 * 1024;
+    private const long MaxVideoBytes = 100L * 1024 * 1024;
+    private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+    private static readonly string[] VideoExtensions = { ".mp4", ".webm", ".mov" };
+
+    /// <summary>Upper bound for multipart uploads: 1 main + 8 gallery + 3 videos plus headroom.</summary>
+    public const long MaxUploadRequestBytes = 400L * 1024 * 1024;
+
     public EventsController(AppDbContext db, FileStorageService fileStorage, JwtService jwt, PricingService pricing)
     {
         _db = db;
         _fileStorage = fileStorage;
         _jwt = jwt;
         _pricing = pricing;
+    }
+
+    private static bool HasExtension(IFormFile file, string[] allowed)
+    {
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        return allowed.Contains(ext);
+    }
+
+    /// <summary>Returns an error message when the uploaded media violates limits, otherwise null.</summary>
+    private static string? ValidateEventMedia(IFormFile? mainImage, IEnumerable<IFormFile>? gallery, IEnumerable<IFormFile>? videos, bool mainImageRequired)
+    {
+        if (mainImageRequired && (mainImage == null || mainImage.Length == 0))
+            return "Main image is required.";
+
+        if (mainImage != null && mainImage.Length > 0)
+        {
+            if (!HasExtension(mainImage, ImageExtensions))
+                return "Main image must be an image file (jpg, jpeg, png, gif, webp).";
+            if (mainImage.Length > MaxImageBytes)
+                return "Main image must be 5 MB or smaller.";
+        }
+
+        var galleryList = gallery?.Where(f => f.Length > 0).ToList() ?? new List<IFormFile>();
+        if (galleryList.Count > MaxGalleryImages)
+            return $"Maximum {MaxGalleryImages} gallery images allowed.";
+        foreach (var img in galleryList)
+        {
+            if (!HasExtension(img, ImageExtensions))
+                return "Gallery files must be images (jpg, jpeg, png, gif, webp).";
+            if (img.Length > MaxImageBytes)
+                return "Each gallery image must be 5 MB or smaller.";
+        }
+
+        var videoList = videos?.Where(f => f.Length > 0).ToList() ?? new List<IFormFile>();
+        if (videoList.Count > MaxVideos)
+            return $"Maximum {MaxVideos} videos allowed.";
+        foreach (var vid in videoList)
+        {
+            if (!HasExtension(vid, VideoExtensions))
+                return "Videos must be mp4, webm, or mov files.";
+            if (vid.Length > MaxVideoBytes)
+                return "Each video must be 100 MB or smaller.";
+        }
+
+        return null;
     }
 
     [HttpGet]
@@ -81,6 +138,7 @@ public class EventsController : ControllerBase
             query = query.Where(e => e.EventDate.Date <= toDt.Date);
 
         var total = await query.CountAsync();
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
         var items = await query
             .OrderByDescending(e => e.CreatedAt)
             .Skip((page - 1) * pageSize)
@@ -103,6 +161,11 @@ public class EventsController : ControllerBase
                 e.Visibility
             ))
             .ToListAsync();
+
+        items = items.Select(e => e with
+        {
+            MainImageUrl = FileStorageService.NormalizeUrl(e.MainImageUrl, baseUrl)
+        }).ToList();
 
         return Ok(new PagedResult<EventListDto>(items, total, page, pageSize));
     }
@@ -158,6 +221,7 @@ public class EventsController : ControllerBase
             query = query.Where(e => e.EventDate.Date <= toDt.Date);
 
         var total = await query.CountAsync();
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
         var items = await query
             .OrderByDescending(e => e.CreatedAt)
             .Skip((page - 1) * pageSize)
@@ -185,6 +249,11 @@ public class EventsController : ControllerBase
                 null
             ))
             .ToListAsync();
+
+        items = items.Select(e => e with
+        {
+            MainImageUrl = FileStorageService.NormalizeUrl(e.MainImageUrl, baseUrl)
+        }).ToList();
 
         return Ok(new PagedResult<AdminEventListDto>(items, total, page, pageSize));
     }
@@ -311,6 +380,7 @@ public class EventsController : ControllerBase
         }
 
         var total = await query.CountAsync();
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
         var items = await query
             .OrderByDescending(x => x.Event.CreatedAt)
             .Skip((page - 1) * pageSize)
@@ -338,6 +408,11 @@ public class EventsController : ControllerBase
                 x.User != null ? x.User.DisplayName : null
             ))
             .ToListAsync();
+
+        items = items.Select(e => e with
+        {
+            MainImageUrl = FileStorageService.NormalizeUrl(e.MainImageUrl, baseUrl)
+        }).ToList();
 
         return Ok(new PagedResult<AdminEventListDto>(items, total, page, pageSize));
     }
@@ -395,9 +470,7 @@ public class EventsController : ControllerBase
         if (ev == null) return NotFound();
 
         var baseUrl = _fileStorage.GetBaseUrl(Request);
-        var mainImage = ev.MainImageUrl != null && ev.MainImageUrl.StartsWith('/') && !ev.MainImageUrl.StartsWith("//", StringComparison.Ordinal)
-            ? baseUrl + ev.MainImageUrl
-            : ev.MainImageUrl;
+        var mainImage = FileStorageService.NormalizeUrl(ev.MainImageUrl, baseUrl);
 
         var invitedEmailsList = ev.Visibility == "InviteOnly"
             ? ev.Invites.Select(i => i.InvitedEmail).ToList()
@@ -415,7 +488,8 @@ public class EventsController : ControllerBase
             ev.Location,
             ev.Country,
             mainImage,
-            ev.GalleryUrls,
+            FileStorageService.NormalizeJsonArrayUrls(ev.GalleryUrls, baseUrl),
+            FileStorageService.NormalizeJsonArrayUrls(ev.VideoUrls, baseUrl),
             ev.CreatedBy,
             ev.CreatedAt,
             ev.Wishes.OrderByDescending(w => w.CreatedAt).Select(w => new WishDto(w.Id, w.SenderName, w.Message, w.MediaUrl, w.CreatedAt)).ToList(),
@@ -546,9 +620,7 @@ public class EventsController : ControllerBase
             return NotFound();
 
         var baseUrl = _fileStorage.GetBaseUrl(Request);
-        var mainImage = ev.MainImageUrl != null && ev.MainImageUrl.StartsWith('/') && !ev.MainImageUrl.StartsWith("//", StringComparison.Ordinal)
-            ? baseUrl + ev.MainImageUrl
-            : ev.MainImageUrl;
+        var mainImage = FileStorageService.NormalizeUrl(ev.MainImageUrl, baseUrl);
 
         return Ok(new EventDetailDto(
             ev.Id,
@@ -562,7 +634,8 @@ public class EventsController : ControllerBase
             ev.Location,
             ev.Country,
             mainImage,
-            ev.GalleryUrls,
+            FileStorageService.NormalizeJsonArrayUrls(ev.GalleryUrls, baseUrl),
+            FileStorageService.NormalizeJsonArrayUrls(ev.VideoUrls, baseUrl),
             ev.CreatedBy,
             ev.CreatedAt,
             ev.Wishes.OrderByDescending(w => w.CreatedAt).Select(w => new WishDto(w.Id, w.SenderName, w.Message, w.MediaUrl, w.CreatedAt)).ToList(),
@@ -576,11 +649,17 @@ public class EventsController : ControllerBase
     /// <summary>Save event as draft before payment. Returns draftId for payment flow.</summary>
     [HttpPost("save-draft")]
     [Authorize(Roles = "Admin,Customer")]
+    [RequestSizeLimit(MaxUploadRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadRequestBytes)]
     public async Task<ActionResult<SaveDraftResultDto>> SaveDraft([FromForm] CreateEventFormDto dto)
     {
         var option = _pricing.GetOption(dto.DisplayDays);
         if (option == null)
             return BadRequest(new { message = "Invalid display duration. Choose 1 month (30 days), 3 months (90 days), 6 months (180 days), or 12 months (365 days)." });
+
+        var mediaError = ValidateEventMedia(dto.MainImage, dto.GalleryImages, dto.Videos, mainImageRequired: true);
+        if (mediaError != null)
+            return BadRequest(new { message = mediaError });
 
         var userId = _jwt.GetUserIdFromClaims(User);
         var user = userId.HasValue ? await _db.Users.FindAsync(userId.Value) : null;
@@ -612,20 +691,33 @@ public class EventsController : ControllerBase
         _db.PendingEvents.Add(draft);
         await _db.SaveChangesAsync();
 
-        string? mainImagePath = null;
-        if (dto.MainImage != null)
+        var mainImagePath = await _fileStorage.SaveFileAsync(dto.MainImage!, folderUserId, draft.Id);
+        if (mainImagePath == null)
         {
-            mainImagePath = await _fileStorage.SaveFileAsync(dto.MainImage, folderUserId, draft.Id);
+            _db.PendingEvents.Remove(draft);
+            await _db.SaveChangesAsync();
+            return BadRequest(new { message = "Main image could not be saved. Use jpg, jpeg, png, gif, or webp up to 5 MB." });
         }
 
         var galleryPaths = new List<string>();
         if (dto.GalleryImages != null)
         {
-            foreach (var img in dto.GalleryImages)
+            foreach (var img in dto.GalleryImages.Take(MaxGalleryImages))
             {
                 var url = await _fileStorage.SaveFileAsync(img, folderUserId, draft.Id);
                 if (url != null)
                     galleryPaths.Add(url);
+            }
+        }
+
+        var videoPaths = new List<string>();
+        if (dto.Videos != null)
+        {
+            foreach (var vid in dto.Videos.Take(MaxVideos))
+            {
+                var url = await _fileStorage.SaveVideoFileAsync(vid, draft.Id);
+                if (url != null)
+                    videoPaths.Add(url);
             }
         }
 
@@ -634,6 +726,7 @@ public class EventsController : ControllerBase
         {
             draftRow.MainImagePath = mainImagePath;
             draftRow.GalleryPathsJson = galleryPaths.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(galleryPaths) : null;
+            draftRow.VideoPathsJson = videoPaths.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(videoPaths) : null;
             await _db.SaveChangesAsync();
         }
 
@@ -643,11 +736,17 @@ public class EventsController : ControllerBase
     /// <summary>Direct create for admin portal (no payment flow).</summary>
     [HttpPost]
     [Authorize(Roles = "Admin")]
+    [RequestSizeLimit(MaxUploadRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadRequestBytes)]
     public async Task<ActionResult<EventDetailDto>> CreateEvent([FromForm] CreateEventFormDto dto, CancellationToken cancellationToken)
     {
         var option = _pricing.GetOption(dto.DisplayDays);
         if (option == null)
             return BadRequest(new { message = "Invalid display duration. Choose 1 month (30 days), 3 months (90 days), 6 months (180 days), or 12 months (365 days)." });
+
+        var mediaError = ValidateEventMedia(dto.MainImage, dto.GalleryImages, dto.Videos, mainImageRequired: true);
+        if (mediaError != null)
+            return BadRequest(new { message = mediaError });
 
         var userId = _jwt.GetUserIdFromClaims(User);
         var user = userId.HasValue ? await _db.Users.FindAsync(new object[] { userId.Value }, cancellationToken) : null;
@@ -684,24 +783,40 @@ public class EventsController : ControllerBase
         _db.Events.Add(ev);
         await _db.SaveChangesAsync(cancellationToken);
 
-        if (dto.MainImage != null)
+        // DB stores relative paths only; responses normalize with the base URL.
+        var mainPath = await _fileStorage.SaveFileAsync(dto.MainImage!, userId ?? 0, ev.Id);
+        if (mainPath == null)
         {
-            var url = await _fileStorage.SaveFileAsync(dto.MainImage, userId ?? 0, ev.Id);
-            if (url != null)
-                ev.MainImageUrl = baseUrl + url;
+            _db.Events.Remove(ev);
+            await _db.SaveChangesAsync(cancellationToken);
+            return BadRequest(new { message = "Main image could not be saved. Use jpg, jpeg, png, gif, or webp up to 5 MB." });
         }
+        ev.MainImageUrl = mainPath;
 
         if (dto.GalleryImages != null)
         {
             var list = new List<string>();
-            foreach (var img in dto.GalleryImages)
+            foreach (var img in dto.GalleryImages.Take(MaxGalleryImages))
             {
                 var url = await _fileStorage.SaveFileAsync(img, userId ?? 0, ev.Id);
                 if (url != null)
-                    list.Add(baseUrl + url);
+                    list.Add(url);
             }
             if (list.Count > 0)
                 ev.GalleryUrls = System.Text.Json.JsonSerializer.Serialize(list);
+        }
+
+        if (dto.Videos != null)
+        {
+            var list = new List<string>();
+            foreach (var vid in dto.Videos.Take(MaxVideos))
+            {
+                var url = await _fileStorage.SaveVideoFileAsync(vid, ev.Id);
+                if (url != null)
+                    list.Add(url);
+            }
+            if (list.Count > 0)
+                ev.VideoUrls = System.Text.Json.JsonSerializer.Serialize(list);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -736,8 +851,9 @@ public class EventsController : ControllerBase
             ev.WeddingDate,
             ev.Location,
             ev.Country,
-            ev.MainImageUrl,
-            ev.GalleryUrls,
+            FileStorageService.NormalizeUrl(ev.MainImageUrl, baseUrl),
+            FileStorageService.NormalizeJsonArrayUrls(ev.GalleryUrls, baseUrl),
+            FileStorageService.NormalizeJsonArrayUrls(ev.VideoUrls, baseUrl),
             ev.CreatedBy,
             ev.CreatedAt,
             new List<WishDto>(),
@@ -750,6 +866,8 @@ public class EventsController : ControllerBase
 
     [HttpPut("{id:int}")]
     [Authorize(Roles = "Admin")]
+    [RequestSizeLimit(MaxUploadRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadRequestBytes)]
     public async Task<ActionResult<EventDetailDto>> UpdateEvent(int id, [FromForm] UpdateEventFormDto dto)
     {
         var ev = await _db.Events.FindAsync(id);
@@ -759,6 +877,10 @@ public class EventsController : ControllerBase
         var userId = _jwt.GetUserIdFromClaims(User);
         if (userId == null) return Unauthorized();
 
+        var mediaError = ValidateEventMedia(dto.MainImage, dto.GalleryImages, dto.Videos, mainImageRequired: false);
+        if (mediaError != null)
+            return BadRequest(new { message = mediaError });
+
         var storageUserId = ev.UserId ?? userId.Value;
         var baseUrl = _fileStorage.GetBaseUrl(Request);
         string? mainImageUrl = ev.MainImageUrl;
@@ -766,21 +888,35 @@ public class EventsController : ControllerBase
         {
             var url = await _fileStorage.SaveFileAsync(dto.MainImage, storageUserId, id);
             if (url != null)
-                mainImageUrl = baseUrl + url;
+                mainImageUrl = url;
         }
 
         var galleryUrls = ev.GalleryUrls;
         if (dto.GalleryImages != null && dto.GalleryImages.Any())
         {
             var list = new List<string>();
-            foreach (var img in dto.GalleryImages)
+            foreach (var img in dto.GalleryImages.Take(MaxGalleryImages))
             {
                 var url = await _fileStorage.SaveFileAsync(img, storageUserId, id);
                 if (url != null)
-                    list.Add(baseUrl + url);
+                    list.Add(url);
             }
             if (list.Count > 0)
                 galleryUrls = System.Text.Json.JsonSerializer.Serialize(list);
+        }
+
+        var videoUrls = ev.VideoUrls;
+        if (dto.Videos != null && dto.Videos.Any())
+        {
+            var list = new List<string>();
+            foreach (var vid in dto.Videos.Take(MaxVideos))
+            {
+                var url = await _fileStorage.SaveVideoFileAsync(vid, id);
+                if (url != null)
+                    list.Add(url);
+            }
+            if (list.Count > 0)
+                videoUrls = System.Text.Json.JsonSerializer.Serialize(list);
         }
 
         ev.Title = dto.Title ?? ev.Title;
@@ -794,6 +930,7 @@ public class EventsController : ControllerBase
         ev.Country = dto.Country ?? ev.Country;
         ev.MainImageUrl = mainImageUrl;
         ev.GalleryUrls = galleryUrls;
+        ev.VideoUrls = videoUrls;
         ev.Visibility = dto.Visibility ?? ev.Visibility;
         if (dto.PaymentReceived.HasValue)
             ev.PaymentReceived = dto.PaymentReceived.Value;
@@ -824,9 +961,7 @@ public class EventsController : ControllerBase
             ? await _db.EventInvites.Where(i => i.EventId == id).Select(i => i.InvitedEmail).ToListAsync()
             : new List<string>();
 
-        var mainImg = ev.MainImageUrl != null && ev.MainImageUrl.StartsWith('/') && !ev.MainImageUrl.StartsWith("//", StringComparison.Ordinal)
-            ? baseUrl + ev.MainImageUrl
-            : ev.MainImageUrl;
+        var mainImg = FileStorageService.NormalizeUrl(ev.MainImageUrl, baseUrl);
         var wishes = await _db.Wishes.Where(w => w.EventId == id).OrderByDescending(w => w.CreatedAt)
             .Select(w => new WishDto(w.Id, w.SenderName, w.Message, w.MediaUrl, w.CreatedAt)).ToListAsync();
 
@@ -842,7 +977,8 @@ public class EventsController : ControllerBase
             ev.Location,
             ev.Country,
             mainImg,
-            ev.GalleryUrls,
+            FileStorageService.NormalizeJsonArrayUrls(ev.GalleryUrls, baseUrl),
+            FileStorageService.NormalizeJsonArrayUrls(ev.VideoUrls, baseUrl),
             ev.CreatedBy,
             ev.CreatedAt,
             wishes,
@@ -886,6 +1022,7 @@ public class CreateEventFormDto
     public bool PaymentReceived { get; set; }
     public IFormFile? MainImage { get; set; }
     public IEnumerable<IFormFile>? GalleryImages { get; set; }
+    public IEnumerable<IFormFile>? Videos { get; set; }
 }
 
 public class UpdateEventFormDto
@@ -905,6 +1042,7 @@ public class UpdateEventFormDto
     public bool? PaymentReceived { get; set; }
     public IFormFile? MainImage { get; set; }
     public IEnumerable<IFormFile>? GalleryImages { get; set; }
+    public IEnumerable<IFormFile>? Videos { get; set; }
 }
 
 public record CountryCountDto(string Country, int Count);

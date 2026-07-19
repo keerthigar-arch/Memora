@@ -20,6 +20,7 @@ public class PendingEvent
     public string? Country { get; set; }
     public string? MainImagePath { get; set; }
     public string? GalleryPathsJson { get; set; }
+    public string? VideoPathsJson { get; set; }
     public string CreatedBy { get; set; } = string.Empty;
     public string Visibility { get; set; } = "Public";
     public string? InvitedEmails { get; set; }

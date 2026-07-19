@@ -367,32 +367,6 @@ export class PaymentComponent {
   expiryDisplay  = '';
   showBack   = false;
 
-  // ── Currency map ─────────────────────────────────────────
-  /** Extend this map with as many countries/currencies as you need.
-   *  The keys match whatever value your create-event page passes as &currency= */
-  private readonly CURRENCY_MAP: Record<string, { symbol: string; code: string }> = {
-    USD: { symbol: '$',   code: 'USD' },
-    GBP: { symbol: '£',   code: 'GBP' },
-    EUR: { symbol: '€',   code: 'EUR' },
-    LKR: { symbol: 'Rs',  code: 'LKR' },
-    INR: { symbol: '₹',   code: 'INR' },
-    AUD: { symbol: 'A$',  code: 'AUD' },
-    CAD: { symbol: 'C$',  code: 'CAD' },
-    JPY: { symbol: '¥',   code: 'JPY' },
-    CNY: { symbol: '¥',   code: 'CNY' },
-    SGD: { symbol: 'S$',  code: 'SGD' },
-    MYR: { symbol: 'RM',  code: 'MYR' },
-    AED: { symbol: 'د.إ', code: 'AED' },
-    SAR: { symbol: '﷼',   code: 'SAR' },
-    NZD: { symbol: 'NZ$', code: 'NZD' },
-    ZAR: { symbol: 'R',   code: 'ZAR' },
-    BDT: { symbol: '৳',   code: 'BDT' },
-    PKR: { symbol: '₨',   code: 'PKR' },
-    NGN: { symbol: '₦',   code: 'NGN' },
-    BRL: { symbol: 'R$',  code: 'BRL' },
-    MXN: { symbol: 'MX$', code: 'MXN' },
-  };
-
   constructor() {
     const snap = this.route.snapshot;
     const id   = snap.paramMap.get('draftId');
@@ -401,28 +375,19 @@ export class PaymentComponent {
     const days  = snap.queryParamMap.get('days');
     const p     = snap.queryParamMap.get('price');
     const lbl   = snap.queryParamMap.get('label');
-    const cur   = snap.queryParamMap.get('currency') || 'USD';
-    const sym   = snap.queryParamMap.get('symbol')   || '$';
-    const rate  = snap.queryParamMap.get('rate')     || '1';
 
     this.label.set(lbl || (days ? `${days} days` : ''));
     this.price.set(p ? parseFloat(p) : 0);
 
-    // Resolve currency code + symbol from map, fallback to query params
-    const mapped = this.CURRENCY_MAP[cur.toUpperCase()];
-    this.currencyCode.set(mapped?.code   ?? cur.toUpperCase());
-    this.currencySymbol.set(mapped?.symbol ?? sym);
-    this.exchangeRate.set(parseFloat(rate) || 1);
+    // Platform is USD-only
+    this.currencyCode.set('USD');
+    this.currencySymbol.set('$');
+    this.exchangeRate.set(1);
   }
 
-  // ── Computed converted price ──────────────────────────────
+  // ── Computed price (USD) ──────────────────────────────
   convertedPrice(): string {
-    const raw = this.price() * this.exchangeRate();
-    // JPY, KRW, etc. have no decimal places
-    const noDecimal = ['JPY', 'KRW', 'VND', 'IDR'];
-    return noDecimal.includes(this.currencyCode())
-      ? Math.round(raw).toString()
-      : raw.toFixed(2);
+    return this.price().toFixed(2);
   }
 
   // ── Card number formatting ────────────────────────────────

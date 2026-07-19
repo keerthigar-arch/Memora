@@ -33,10 +33,10 @@ public class Event
 
 
      [Required]
-        public string CurrencyCode { get; set; } = string.Empty;  // e.g., LKR, GBP
+        public string CurrencyCode { get; set; } = "USD";  // USD-only
 
-        public decimal AmountGBP { get; set; }       // Always stored in GBP
-        public decimal AmountPaid { get; set; }      // In selected currency
+        public decimal AmountGBP { get; set; }       // Legacy field (unused)
+        public decimal AmountPaid { get; set; }      // Amount in USD
         public decimal ExchangeRateUsed { get; set; }// Rate at time of payment
 
 
@@ -44,6 +44,8 @@ public class Event
     public string? MainImageUrl { get; set; }
 
     public string? GalleryUrls { get; set; } // JSON array of image URLs
+
+    public string? VideoUrls { get; set; } // JSON array of video URLs (paths only; files live on disk)
 
     [Required]
     [MaxLength(200)]

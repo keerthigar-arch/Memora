@@ -175,6 +175,7 @@ public class PaymentsController : ControllerBase
         var draftId = draft.Id;
         var draftMainPath = draft.MainImagePath;
         var draftGalleryJson = draft.GalleryPathsJson;
+        var draftVideoJson = draft.VideoPathsJson;
         var invitedEmailsRaw = draft.InvitedEmails;
         var uid = draft.UserId ?? 0;
 
@@ -211,23 +212,10 @@ public class PaymentsController : ControllerBase
 
         _fileStorage.MoveDraftFolderToEventId(uid, draftId, ev.Id);
 
-        var mainRel = FileStorageService.RewriteMediaPathAfterPublish(draftMainPath, uid, draftId, ev.Id);
-        ev.MainImageUrl = mainRel == null
-            ? null
-            : (mainRel.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? mainRel : baseUrl + mainRel);
-
-        if (!string.IsNullOrEmpty(draftGalleryJson))
-        {
-            var rewritten = FileStorageService.RewriteGalleryJsonAfterPublish(draftGalleryJson, uid, draftId, ev.Id);
-            var paths = System.Text.Json.JsonSerializer.Deserialize<string[]>(rewritten ?? "[]") ?? Array.Empty<string>();
-            var galleryUrls = new List<string>();
-            foreach (var p in paths)
-            {
-                if (!string.IsNullOrEmpty(p))
-                    galleryUrls.Add(p.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? p : baseUrl + p);
-            }
-            ev.GalleryUrls = galleryUrls.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(galleryUrls) : null;
-        }
+        // DB stores relative paths only; responses normalize with the base URL.
+        ev.MainImageUrl = FileStorageService.RewriteMediaPathAfterPublish(draftMainPath, uid, draftId, ev.Id);
+        ev.GalleryUrls = FileStorageService.RewriteGalleryJsonAfterPublish(draftGalleryJson, uid, draftId, ev.Id);
+        ev.VideoUrls = FileStorageService.RewriteGalleryJsonAfterPublish(draftVideoJson, uid, draftId, ev.Id);
 
         await _db.SaveChangesAsync(ct);
 
@@ -263,8 +251,9 @@ public class PaymentsController : ControllerBase
             ev.WeddingDate,
             ev.Location,
             ev.Country,
-            ev.MainImageUrl,
-            ev.GalleryUrls,
+            FileStorageService.NormalizeUrl(ev.MainImageUrl, baseUrl),
+            FileStorageService.NormalizeJsonArrayUrls(ev.GalleryUrls, baseUrl),
+            FileStorageService.NormalizeJsonArrayUrls(ev.VideoUrls, baseUrl),
             ev.CreatedBy,
             ev.CreatedAt,
             new List<WishDto>(),
@@ -373,9 +362,7 @@ public class PaymentsController : ControllerBase
             : null;
 
         var baseUrl = _fileStorage.GetBaseUrl(Request);
-        var main = draft.MainImagePath;
-        if (!string.IsNullOrEmpty(main) && main.StartsWith('/') && !main.StartsWith("//", StringComparison.Ordinal))
-            main = baseUrl + main;
+        var main = FileStorageService.NormalizeUrl(draft.MainImagePath, baseUrl);
 
         return Ok(new CustomerDraftDetailDto(
             draft.Id,
@@ -389,7 +376,8 @@ public class PaymentsController : ControllerBase
             draft.Location,
             draft.Country,
             main,
-            draft.GalleryPathsJson,
+            FileStorageService.NormalizeJsonArrayUrls(draft.GalleryPathsJson, baseUrl),
+            FileStorageService.NormalizeJsonArrayUrls(draft.VideoPathsJson, baseUrl),
             draft.CreatedBy,
             draft.Visibility,
             draft.DisplayDays,

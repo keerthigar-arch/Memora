@@ -13,6 +13,10 @@ public class FileStorageService
     private readonly string[] _allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
     private const int MaxFileSize = 5 * 1024 * 1024; // 5MB
 
+    // Videos kept separate from images: never allow video extensions in image slots.
+    private static readonly string[] AllowedVideoExtensions = { ".mp4", ".webm", ".mov" };
+    private const long MaxVideoFileSize = 100L * 1024 * 1024; // 100MB
+
     /// <summary>Second path segment for profile photos (not tied to an event).</summary>
     public const string ProfileFolderSegment = "profile";
 
@@ -82,6 +86,31 @@ public class FileStorageService
 
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (!_allowedExtensions.Contains(ext))
+            return null;
+
+        var folder = Path.Combine(_eventRootPath, serialNumber.ToString());
+        Directory.CreateDirectory(folder);
+
+        var fileName = $"{Guid.NewGuid()}{ext}";
+        var filePath = Path.Combine(folder, fileName);
+
+        await using var stream = new FileStream(filePath, FileMode.Create);
+        await file.CopyToAsync(stream);
+
+        return $"{EventMediaRequestPath}/{serialNumber}/{fileName}";
+    }
+
+    /// <summary>
+    /// Saves an event video under <c>Desktop/Memora/Event/{serialNumber}/{guid}{ext}</c>.
+    /// Allowed: mp4 / webm / mov, up to 100MB. Returns relative URL or null if rejected.
+    /// </summary>
+    public async Task<string?> SaveVideoFileAsync(IFormFile file, int serialNumber)
+    {
+        if (file == null || file.Length == 0 || file.Length > MaxVideoFileSize)
+            return null;
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!AllowedVideoExtensions.Contains(ext))
             return null;
 
         var folder = Path.Combine(_eventRootPath, serialNumber.ToString());
@@ -269,5 +298,38 @@ public class FileStorageService
     public string GetBaseUrl(HttpRequest request)
     {
         return $"{request.Scheme}://{request.Host}";
+    }
+
+    /// <summary>
+    /// DB stores relative media paths (e.g. <c>/media/event/5/x.mp4</c>).
+    /// This prefixes them with the API base URL for responses; absolute URLs pass through unchanged.
+    /// </summary>
+    public static string? NormalizeUrl(string? pathOrUrl, string baseUrl)
+    {
+        if (string.IsNullOrEmpty(pathOrUrl))
+            return pathOrUrl;
+        return pathOrUrl.StartsWith('/') && !pathOrUrl.StartsWith("//", StringComparison.Ordinal)
+            ? baseUrl + pathOrUrl
+            : pathOrUrl;
+    }
+
+    /// <summary>Normalizes every entry of a JSON string-array of media paths for API responses.</summary>
+    public static string? NormalizeJsonArrayUrls(string? json, string baseUrl)
+    {
+        if (string.IsNullOrEmpty(json))
+            return json;
+        try
+        {
+            var paths = System.Text.Json.JsonSerializer.Deserialize<string[]>(json);
+            if (paths == null)
+                return json;
+            for (var i = 0; i < paths.Length; i++)
+                paths[i] = NormalizeUrl(paths[i], baseUrl) ?? paths[i];
+            return System.Text.Json.JsonSerializer.Serialize(paths);
+        }
+        catch
+        {
+            return json;
+        }
     }
 }

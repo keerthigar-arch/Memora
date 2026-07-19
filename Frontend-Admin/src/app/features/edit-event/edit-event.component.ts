@@ -116,7 +116,7 @@ import { EventStatsService } from '../../services/event-stats.service';
           }
 
           <div class="form-group">
-            <label>Main Image (leave empty to keep current)</label>
+            <label>Main Image (leave empty to keep current) · JPG, PNG, GIF or WEBP, max 5MB</label>
             <input type="file" accept="image/*" (change)="onMainImageChange($event)" />
             @if (mainImagePreview()) {
               <img [src]="mainImagePreview()" alt="Preview" class="preview-img" />
@@ -124,8 +124,19 @@ import { EventStatsService } from '../../services/event-stats.service';
           </div>
 
           <div class="form-group">
-            <label>Gallery Images (optional, replaces current)</label>
+            <label>Gallery Images (optional, replaces current) · up to 8 images, max 5MB each</label>
             <input type="file" accept="image/*" multiple (change)="onGalleryChange($event)" />
+            @if (galleryImages.length > 0) {
+              <p class="form-hint">{{ galleryImages.length }} image(s) selected</p>
+            }
+          </div>
+
+          <div class="form-group">
+            <label>Videos (optional, replaces current) · up to 3 files, MP4 / WEBM / MOV, max 100MB each</label>
+            <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple (change)="onVideosChange($event)" />
+            @if (videos.length > 0) {
+              <p class="form-hint">{{ videos.length }} video(s) selected</p>
+            }
           </div>
 
           @if (error()) {
@@ -192,6 +203,7 @@ export class EditEventComponent implements OnInit {
   country = '';
   mainImage: File | null = null;
   galleryImages: File[] = [];
+  videos: File[] = [];
   mainImagePreview = signal<string | null>(null);
   event = signal<{ id: number; eventType: string; birthDate?: string; deathDate?: string; weddingDate?: string; visibility?: string; invitedEmails?: string[] } | null>(null);
   loading = signal(true);
@@ -234,6 +246,17 @@ export class EditEventComponent implements OnInit {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        this.error.set('Main image must be an image file.');
+        input.value = '';
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        this.error.set('Main image must be 5 MB or smaller.');
+        input.value = '';
+        return;
+      }
+      this.error.set('');
       this.mainImage = file;
       const reader = new FileReader();
       reader.onload = () => this.mainImagePreview.set(reader.result as string);
@@ -242,8 +265,55 @@ export class EditEventComponent implements OnInit {
   }
 
   onGalleryChange(e: Event) {
-    const input = e.target as HTMLInputElement;
-    this.galleryImages = Array.from(input.files || []);
+    const files = Array.from((e.target as HTMLInputElement).files || []);
+    const validFiles: File[] = [];
+    let hasInvalid = false;
+
+    for (const file of files) {
+      if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+        hasInvalid = true;
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length > 8) {
+      this.error.set('Maximum 8 gallery images allowed. Extra files were skipped.');
+      validFiles.length = 8;
+    } else if (hasInvalid) {
+      this.error.set('Some files were skipped (invalid type or size > 5MB).');
+    } else {
+      this.error.set('');
+    }
+
+    this.galleryImages = validFiles;
+  }
+
+  onVideosChange(e: Event) {
+    const files = Array.from((e.target as HTMLInputElement).files || []);
+    const allowed = ['.mp4', '.webm', '.mov'];
+    const validFiles: File[] = [];
+    let hasInvalid = false;
+
+    for (const file of files) {
+      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+      if (!allowed.includes(ext) || file.size > 100 * 1024 * 1024) {
+        hasInvalid = true;
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length > 3) {
+      this.error.set('Maximum 3 videos allowed. Extra files were skipped.');
+      validFiles.length = 3;
+    } else if (hasInvalid) {
+      this.error.set('Some videos were skipped (only MP4/WEBM/MOV up to 100MB).');
+    } else {
+      this.error.set('');
+    }
+
+    this.videos = validFiles;
   }
 
   onVisibilityChange(v: string) {
@@ -297,6 +367,7 @@ export class EditEventComponent implements OnInit {
     formData.append('country', this.country);
     if (this.mainImage) formData.append('mainImage', this.mainImage);
     this.galleryImages.forEach(f => formData.append('galleryImages', f));
+    this.videos.forEach(f => formData.append('videos', f));
 
     this.api.updateEvent(this.id, formData).subscribe({
       next: () => {
