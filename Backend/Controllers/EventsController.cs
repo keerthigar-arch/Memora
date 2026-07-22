@@ -17,6 +17,7 @@ public class EventsController : ControllerBase
     private readonly FileStorageService _fileStorage;
     private readonly JwtService _jwt;
     private readonly PricingService _pricing;
+    private readonly EventInviteEmailService _inviteEmail;
 
     // Media rules: main image required (<=5MB image), gallery optional (<=8 images, 5MB each),
     // videos optional (<=3 files, mp4/webm/mov, 100MB each). Files live on disk; DB stores paths only.
@@ -30,12 +31,18 @@ public class EventsController : ControllerBase
     /// <summary>Upper bound for multipart uploads: 1 main + 8 gallery + 3 videos plus headroom.</summary>
     public const long MaxUploadRequestBytes = 400L * 1024 * 1024;
 
-    public EventsController(AppDbContext db, FileStorageService fileStorage, JwtService jwt, PricingService pricing)
+    public EventsController(
+        AppDbContext db,
+        FileStorageService fileStorage,
+        JwtService jwt,
+        PricingService pricing,
+        EventInviteEmailService inviteEmail)
     {
         _db = db;
         _fileStorage = fileStorage;
         _jwt = jwt;
         _pricing = pricing;
+        _inviteEmail = inviteEmail;
     }
 
     private static bool HasExtension(IFormFile file, string[] allowed)
@@ -516,16 +523,30 @@ public class EventsController : ControllerBase
 
     [HttpPatch("{id:int}/published")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> SetPublished(int id, [FromBody] SetPublishedDto dto)
+    public async Task<IActionResult> SetPublished(int id, [FromBody] SetPublishedDto dto, CancellationToken cancellationToken)
     {
         var userId = _jwt.GetUserIdFromClaims(User);
         if (userId == null) return Unauthorized();
 
-        var ev = await _db.Events.FindAsync(id);
+        var ev = await _db.Events
+            .Include(e => e.Invites)
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         if (ev == null) return NotFound();
 
+        var wasPublished = ev.IsPublished;
         ev.IsPublished = dto.Published;
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (!wasPublished && ev.IsPublished && ev.Visibility == "InviteOnly" && ev.Invites.Count > 0)
+        {
+            await _inviteEmail.SendInvitesAsync(
+                ev.Id,
+                ev.Title,
+                ev.CreatedBy,
+                ev.Invites.Select(i => i.InvitedEmail),
+                cancellationToken);
+        }
+
         return NoContent();
     }
 
@@ -576,6 +597,7 @@ public class EventsController : ControllerBase
     {
         var ev = await _db.Events
             .Include(e => e.User)
+            .Include(e => e.Invites)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         if (ev == null)
             return NotFound();
@@ -586,11 +608,22 @@ public class EventsController : ControllerBase
         if (option == null)
             return BadRequest(new { message = "The event has an invalid display plan." });
 
+        var wasPublished = ev.IsPublished;
         ev.PaymentReceived = true;
         ev.AmountPaid = option.Price;
         ev.IsPublished = true;
         ev.DisplayValidityEndDate = DateTime.UtcNow.AddDays(option.Days);
         await _db.SaveChangesAsync(cancellationToken);
+
+        if (!wasPublished && ev.Visibility == "InviteOnly" && ev.Invites.Count > 0)
+        {
+            await _inviteEmail.SendInvitesAsync(
+                ev.Id,
+                ev.Title,
+                ev.CreatedBy,
+                ev.Invites.Select(i => i.InvitedEmail),
+                cancellationToken);
+        }
 
         return NoContent();
     }
@@ -914,6 +947,12 @@ public class EventsController : ControllerBase
                 _db.EventInvites.Add(new EventInvite { EventId = ev.Id, InvitedEmail = email });
             }
             await _db.SaveChangesAsync(cancellationToken);
+
+            if (ev.IsPublished && emails.Count > 0)
+            {
+                await _inviteEmail.SendInvitesAsync(
+                    ev.Id, ev.Title, ev.CreatedBy, emails, cancellationToken);
+            }
         }
 
         var invitedEmailsList = ev.Visibility == "InviteOnly"
@@ -1021,6 +1060,9 @@ public class EventsController : ControllerBase
         if (ev.Visibility == "InviteOnly" && dto.InvitedEmails != null)
         {
             var existingInvites = await _db.EventInvites.Where(i => i.EventId == id).ToListAsync();
+            var previousEmails = existingInvites
+                .Select(i => i.InvitedEmail.Trim().ToLowerInvariant())
+                .ToHashSet();
             _db.EventInvites.RemoveRange(existingInvites);
 
             var emails = dto.InvitedEmails.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -1033,9 +1075,22 @@ public class EventsController : ControllerBase
                 if (string.IsNullOrEmpty(email)) continue;
                 _db.EventInvites.Add(new EventInvite { EventId = id, InvitedEmail = email });
             }
-        }
 
-        await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync();
+
+            if (ev.IsPublished)
+            {
+                var newlyInvited = emails.Where(e => !previousEmails.Contains(e)).ToList();
+                if (newlyInvited.Count > 0)
+                {
+                    await _inviteEmail.SendInvitesAsync(ev.Id, ev.Title, ev.CreatedBy, newlyInvited);
+                }
+            }
+        }
+        else
+        {
+            await _db.SaveChangesAsync();
+        }
 
         var invitedEmailsList = ev.Visibility == "InviteOnly"
             ? await _db.EventInvites.Where(i => i.EventId == id).Select(i => i.InvitedEmail).ToListAsync()

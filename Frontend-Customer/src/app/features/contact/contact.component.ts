@@ -76,7 +76,7 @@ type ContactItem = {
               <h2>{{ 'contact.formTitle' | t }}</h2>
               <p>{{ 'contact.formSub' | t }}</p>
             </div>
-            <form #contactForm="ngForm" (ngSubmit)="submit(contactForm)" class="contact-form">
+            <form #contactForm="ngForm" (ngSubmit)="submit(contactForm)" class="contact-form" novalidate>
               <div class="form-grid">
                 <div class="field">
                   <label for="name">{{ 'contact.name' | t }} <span class="req">{{ 'contact.required' | t }}</span></label>
@@ -85,11 +85,18 @@ type ContactItem = {
                     type="text"
                     [(ngModel)]="name"
                     name="name"
+                    #nameCtrl="ngModel"
                     required
                     minlength="2"
                     [placeholder]="'contact.placeholder.name' | t"
                     class="inp"
+                    [class.inp-invalid]="submitted() && nameCtrl.invalid"
                   />
+                  @if (submitted() && nameCtrl.errors?.['required']) {
+                    <p class="field-error">{{ 'contact.error.nameRequired' | t }}</p>
+                  } @else if (submitted() && nameCtrl.errors?.['minlength']) {
+                    <p class="field-error">{{ 'contact.error.nameMin' | t }}</p>
+                  }
                 </div>
                 <div class="field">
                   <label for="email">{{ 'contact.email' | t }} <span class="req">{{ 'contact.required' | t }}</span></label>
@@ -98,10 +105,18 @@ type ContactItem = {
                     type="email"
                     [(ngModel)]="email"
                     name="email"
+                    #emailCtrl="ngModel"
                     required
+                    email
                     [placeholder]="'contact.placeholder.email' | t"
                     class="inp"
+                    [class.inp-invalid]="submitted() && emailCtrl.invalid"
                   />
+                  @if (submitted() && emailCtrl.errors?.['required']) {
+                    <p class="field-error">{{ 'contact.error.emailRequired' | t }}</p>
+                  } @else if (submitted() && emailCtrl.errors?.['email']) {
+                    <p class="field-error">{{ 'contact.error.emailInvalid' | t }}</p>
+                  }
                 </div>
               </div>
               <div class="field">
@@ -122,12 +137,19 @@ type ContactItem = {
                   id="message"
                   [(ngModel)]="message"
                   name="message"
+                  #messageCtrl="ngModel"
                   rows="5"
                   required
                   minlength="10"
                   [placeholder]="'contact.placeholder.message' | t"
                   class="inp ta"
+                  [class.inp-invalid]="submitted() && messageCtrl.invalid"
                 ></textarea>
+                @if (submitted() && messageCtrl.errors?.['required']) {
+                  <p class="field-error">{{ 'contact.error.messageRequired' | t }}</p>
+                } @else if (submitted() && messageCtrl.errors?.['minlength']) {
+                  <p class="field-error">{{ 'contact.error.messageMin' | t }}</p>
+                }
               </div>
               @if (success()) {
                 <div class="banner ok" role="status">{{ 'contact.success' | t }}</div>
@@ -538,6 +560,20 @@ type ContactItem = {
       box-shadow: 0 0 0 3px rgba(26, 95, 74, 0.12);
       background: #fff;
     }
+    .inp-invalid {
+      border-color: #dc6b6b;
+      background: #fffbfb;
+    }
+    .inp-invalid:focus {
+      border-color: #c24141;
+      box-shadow: 0 0 0 3px rgba(194, 65, 65, 0.12);
+    }
+    .field-error {
+      margin: 0.4rem 0 0;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: #b91c1c;
+    }
     .ta {
       resize: vertical;
       min-height: 120px;
@@ -673,6 +709,7 @@ export class ContactComponent {
   sending = signal(false);
   success = signal(false);
   error = signal('');
+  submitted = signal(false);
 
   constructor(
     private api: ApiService,
@@ -685,17 +722,21 @@ export class ContactComponent {
   }
 
   submit(form: NgForm): void {
-    if (form.invalid) {
-      this.error.set(this.lang.t('contact.fillRequired'));
-      return;
-    }
-    this.sending.set(true);
+    this.submitted.set(true);
     this.success.set(false);
     this.error.set('');
+
+    if (form.invalid) {
+      form.control.markAllAsTouched();
+      return;
+    }
+
+    this.sending.set(true);
     this.api.submitContact(this.name, this.email, this.subject, this.message).subscribe({
       next: () => {
         this.sending.set(false);
         this.success.set(true);
+        this.submitted.set(false);
         form.resetForm();
       },
       error: (err) => {

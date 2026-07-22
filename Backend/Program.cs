@@ -61,12 +61,22 @@ var connStr = builder.Configuration.GetConnectionString("DefaultConnection")
 var connBuilder = new MySqlConnectionStringBuilder(connStr);
 var database = connBuilder.Database;
 connBuilder.Database = "";
-using (var conn = new MySqlConnection(connBuilder.ConnectionString))
+try
 {
+    using var conn = new MySqlConnection(connBuilder.ConnectionString);
     await conn.OpenAsync();
     using var cmd = conn.CreateCommand();
     cmd.CommandText = $"CREATE DATABASE IF NOT EXISTS `{database}`";
     await cmd.ExecuteNonQueryAsync();
+}
+catch (MySqlException ex)
+{
+    throw new InvalidOperationException(
+        $"Cannot connect to MySQL at '{connBuilder.Server}' as user '{connBuilder.UserID}'. " +
+        "Start MySQL (XAMPP/MySQL service), confirm port 3306 is open, then retry. " +
+        $"Current connection uses Password={(string.IsNullOrEmpty(connBuilder.Password) ? "(empty)" : "****")}. " +
+        $"Original error: {ex.Message}",
+        ex);
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -74,6 +84,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<FileStorageService>();
 builder.Services.AddScoped<LifeEventsHub.Api.Services.IEmailService, LifeEventsHub.Api.Services.EmailService>();
+builder.Services.AddScoped<LifeEventsHub.Api.Services.EventInviteEmailService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddSingleton<PricingService>();
 builder.Services.AddSingleton<StripeService>();

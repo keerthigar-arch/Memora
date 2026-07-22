@@ -21,6 +21,7 @@ public class PaymentsController : ControllerBase
     private readonly StripeService _stripe;
     private readonly PricingOrderService _pricingOrders;
     private readonly AdminNotificationService _notifications;
+    private readonly EventInviteEmailService _inviteEmail;
 
     public PaymentsController(
         AppDbContext db,
@@ -29,7 +30,8 @@ public class PaymentsController : ControllerBase
         PricingService pricing,
         StripeService stripe,
         PricingOrderService pricingOrders,
-        AdminNotificationService notifications)
+        AdminNotificationService notifications,
+        EventInviteEmailService inviteEmail)
     {
         _db = db;
         _fileStorage = fileStorage;
@@ -38,6 +40,7 @@ public class PaymentsController : ControllerBase
         _stripe = stripe;
         _pricingOrders = pricingOrders;
         _notifications = notifications;
+        _inviteEmail = inviteEmail;
     }
 
     [HttpGet("display-options")]
@@ -232,6 +235,11 @@ public class PaymentsController : ControllerBase
                 _db.EventInvites.Add(new EventInvite { EventId = ev.Id, InvitedEmail = email });
             }
             await _db.SaveChangesAsync(ct);
+
+            if (emails.Count > 0)
+            {
+                await _inviteEmail.SendInvitesAsync(ev.Id, ev.Title, ev.CreatedBy, emails, ct);
+            }
         }
 
         var invitedEmailsList = ev.Visibility == "InviteOnly"

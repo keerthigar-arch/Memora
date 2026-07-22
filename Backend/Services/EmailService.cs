@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Text.RegularExpressions;
+using LifeEventsHub.Api.Templates;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -19,7 +20,12 @@ public class EmailService : IEmailService
         _env = env;
     }
 
-    public async Task SendHtmlEmailAsync(string toAddress, string subject, string htmlBody, CancellationToken cancellationToken = default)
+    public async Task SendHtmlEmailAsync(
+        string toAddress,
+        string subject,
+        string htmlBody,
+        CancellationToken cancellationToken = default,
+        string? replyToAddress = null)
     {
         // Development-only: no SMTP, no credentials — log full message so forgot-password etc. can be tested locally.
         if (_env.IsDevelopment() && _config.GetValue("Smtp:DevLogOnly", false))
@@ -32,13 +38,21 @@ public class EmailService : IEmailService
         var host = _config["Smtp:Host"]?.Trim();
         var from = _config["Smtp:From"]?.Trim();
         if (string.IsNullOrEmpty(from))
+            from = _config["Smtp:User"]?.Trim();
+        if (string.IsNullOrEmpty(from))
             from = "noreply@lifeevents.local";
 
+        var fromName = _config["Smtp:FromName"]?.Trim();
+        if (string.IsNullOrEmpty(fromName))
+            fromName = "Memora";
+
         var message = new MimeMessage();
-        message.From.Add(MailboxAddress.Parse(from));
+        message.From.Add(new MailboxAddress(fromName, from));
         message.To.Add(MailboxAddress.Parse(toAddress));
+        if (!string.IsNullOrWhiteSpace(replyToAddress))
+            message.ReplyTo.Add(MailboxAddress.Parse(replyToAddress.Trim()));
         message.Subject = subject;
-        message.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
+        message.Body = BuildBody(htmlBody);
 
         if (string.IsNullOrEmpty(host))
         {
@@ -98,6 +112,35 @@ public class EmailService : IEmailService
 
         await client.SendAsync(message, cancellationToken);
         await client.DisconnectAsync(true, cancellationToken);
+        _logger.LogInformation("Email sent to {To} with subject {Subject}", toAddress, subject);
+    }
+
+    private MimeEntity BuildBody(string htmlBody)
+    {
+        var builder = new BodyBuilder { HtmlBody = htmlBody };
+        var logoPath = ResolveLogoPath();
+        if (logoPath != null)
+        {
+            var image = builder.LinkedResources.Add(logoPath);
+            image.ContentId = EmailTemplateLayout.LogoContentId;
+            image.ContentDisposition = new ContentDisposition(ContentDisposition.Inline);
+        }
+        else
+        {
+            _logger.LogWarning("Memora email logo not found; emails will send without the logo image.");
+        }
+
+        return builder.ToMessageBody();
+    }
+
+    private string? ResolveLogoPath()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(_env.ContentRootPath, "Assets", "email", "memora-logo.png"),
+            Path.Combine(AppContext.BaseDirectory, "Assets", "email", "memora-logo.png")
+        };
+        return candidates.FirstOrDefault(File.Exists);
     }
 
     private void LogDevModeEmail(string toAddress, string subject, string htmlBody)
