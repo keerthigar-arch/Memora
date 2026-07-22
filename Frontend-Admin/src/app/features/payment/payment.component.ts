@@ -156,6 +156,9 @@ import { environment } from '../../../environments/environment';
           >
             {{ paying() ? 'Processing...' : 'Pay ' + currencySymbol() + convertedPrice() }}
           </button>
+          <button type="button" class="btn btn-outline sample-fill" (click)="fillSampleCard()" [disabled]="paying()">
+            Fill sample card
+          </button>
           <a routerLink="/create-event" class="btn btn-outline">Cancel</a>
         </div>
 
@@ -335,10 +338,12 @@ import { environment } from '../../../environments/environment';
     /* ── Actions ── */
     .payment-actions {
       display: flex;
+      flex-wrap: wrap;
       gap: 1rem;
       margin-top: 2rem;
     }
-    .payment-actions .btn { flex: 1; }
+    .payment-actions .btn { flex: 1; min-width: 140px; }
+    .payment-actions .sample-fill { flex: 1 1 100%; }
   `]
 })
 export class PaymentComponent {
@@ -429,6 +434,15 @@ export class PaymentComponent {
   }
 
   // ── Validation ───────────────────────────────────────────
+  fillSampleCard(): void {
+    this.cardName = 'Jane Demo';
+    this.cardNumber = '4242424242424242';
+    this.expiryDisplay = '12/28';
+    this.cvv = '123';
+    this.fieldError.set('');
+    this.error.set('');
+  }
+
   private validateCard(): boolean {
     this.fieldError.set('');
     if (!this.cardName.trim()) {
@@ -494,28 +508,8 @@ export class PaymentComponent {
     }
     if (!this.validateCard()) return;
 
-    this.paying.set(true);
-    this.error.set('');
-    this.api.createCheckoutSession(this.draftId).subscribe({
-      next: (res) => {
-        this.paying.set(false);
-        if (res.url) {
-          window.location.href = res.url;
-        } else {
-          this.error.set('No payment URL received.');
-        }
-      },
-      error: (err) => {
-        console.error('Checkout error:', err);
-        const msg = this.extractApiError(err);
-        if (this.shouldStripeFallbackToMock(msg)) {
-          this.payWithMock();
-          return;
-        }
-        this.error.set(msg || 'Payment failed. Please try again.');
-        this.paying.set(false);
-      }
-    });
+    // Demo card checkout until Stripe keys are configured.
+    this.payWithMock();
   }
 
   payWithMock() {

@@ -24,6 +24,6 @@ public static class PasswordResetEmailTemplate
             </p>
             """;
 
-        return EmailTemplateLayout.Wrap("Reset your password", body, forCustomer ? null : "Admin");
+        return EmailTemplateLayout.Wrap("Reset your password", body);
     }
 }
