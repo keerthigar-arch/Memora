@@ -33,6 +33,7 @@ export interface CustomerDraftListDto {
   displayDays: number;
   amountPaid: number;
   awaitingOfflineApproval: boolean;
+  paymentReceived?: boolean;
   paymentMethod?: string | null;
   createdAt: string;
   mainImageUrl?: string | null;
@@ -238,26 +239,15 @@ export class ApiService {
     return this.http.post<EventDetailDto>(`${API}/payments/verify-session`, { sessionId });
   }
 
-  confirmPaymentMock(draftId: number): Observable<EventDetailDto> {
-  return this.http.post<EventDetailDto>(
-    `${API}/payments/confirm-mock`, 
-    { draftId },                          // 👈 camelCase matches C# record ConfirmPaymentRequest(int DraftId)
-    {
-      headers: { 'Content-Type': 'application/json' }
-    }
-  );
-}
+  confirmPaymentMock(draftId: number): Observable<EventDetailDto & { awaitingApproval?: boolean; message?: string }> {
+    return this.http.post<EventDetailDto & { awaitingApproval?: boolean; message?: string }>(
+      `${API}/payments/confirm-mock`,
+      { draftId }
+    );
+  }
 
   createEvent(formData: FormData): Observable<EventDetailDto> {
     return this.http.post<EventDetailDto>(`${API}/events`, formData);
-  }
-
-  updateEvent(id: number, formData: FormData): Observable<EventDetailDto> {
-    return this.http.put<EventDetailDto>(`${API}/events/${id}`, formData);
-  }
-
-  deleteEvent(id: number): Observable<void> {
-    return this.http.delete<void>(`${API}/events/${id}`);
   }
 
   addWish(eventId: number, senderName: string, message: string, mediaUrl?: string): Observable<WishDto> {

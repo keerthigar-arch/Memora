@@ -174,16 +174,16 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
       'Your event stays hidden from the public feed until payment is complete and confirmed. Choose the option that works best for you.',
     'myEvents.paymentHowItWorks': 'How payment works',
     'myEvents.paymentInstrCard':
-      'Card payment: enter your card details on the next screen (demo mode for now). After payment, your event is published automatically on the feed.',
+      'Card payment: enter card details on the next screen. After you pay, an admin must confirm payment and publish before the event appears on the feed.',
     'myEvents.paymentInstrOffline':
       'Offline payment: pay in cash or transfer to our bank account and send us the payment slip. Your event remains hidden until an admin confirms payment and publishes it.',
     'myEvents.paymentInstrAlt':
       'You can also send your event details to us by email or WhatsApp — we can create the event for you. Until payment is received, it will stay hidden from the feed.',
     'myEvents.cardPay': 'Card payment',
-    'myEvents.cardPaySub': 'Enter card details and pay — event publishes when payment succeeds.',
+    'myEvents.cardPaySub': 'Enter card details — admin confirms before the event goes live.',
     'myEvents.cardFormTitle': 'Pay by card',
     'myEvents.cardFormLede':
-      'Enter card details below. Use “Fill sample card” for demo data. Stripe will be connected later.',
+      'Enter card details below. Use “Fill sample card” for demo data. After payment, an admin must confirm before the event goes live.',
     'myEvents.fillSampleCard': 'Fill sample card',
     'myEvents.cardName': 'Name on card',
     'myEvents.cardNamePh': 'e.g. Jane Demo',
@@ -197,6 +197,8 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.paying': 'Processing…',
     'myEvents.payAmount': 'Pay {{amount}} USD',
     'myEvents.backToMethods': 'Back to payment methods',
+    'myEvents.cardSubmitSuccess':
+      'Card payment submitted. Your event will appear on the feed after an admin confirms payment and publishes it.',
     'myEvents.cardPayFailed': 'Payment failed. Please try again.',
     'myEvents.offlinePay': 'Offline payment',
     'myEvents.offlinePaySub':
@@ -534,7 +536,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.cardPaySub': 'அட்டை விவரங்களை உள்ளிட்டு செலுத்துங்கள் — வெற்றியானால் நிகழ்வு வெளியிடப்படும்.',
     'myEvents.cardFormTitle': 'அட்டையால் செலுத்துங்கள்',
     'myEvents.cardFormLede':
-      'கீழே அட்டை விவரங்களை உள்ளிடவும். டெமோவுக்கு “மாதிரி அட்டையை நிரப்பு” பயன்படுத்தவும். Stripe பின்னர் இணைக்கப்படும்.',
+      'கீழே அட்டை விவரங்களை உள்ளிடவும். டெமோவுக்கு “மாதிரி அட்டையை நிரப்பு” பயன்படுத்தவும். நிர்வாகி உறுதிப்படுத்திய பிறகு நிகழ்வு வெளியிடப்படும்.',
     'myEvents.fillSampleCard': 'மாதிரி அட்டையை நிரப்பு',
     'myEvents.cardName': 'அட்டையில் உள்ள பெயர்',
     'myEvents.cardNamePh': 'எ.கா. Jane Demo',
@@ -548,6 +550,8 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.paying': 'செயலாக்குகிறது…',
     'myEvents.payAmount': '{{amount}} USD செலுத்து',
     'myEvents.backToMethods': 'கட்டண முறைகளுக்குத் திரும்பு',
+    'myEvents.cardSubmitSuccess':
+      'அட்டை கட்டணம் சமர்ப்பிக்கப்பட்டது. நிர்வாகி உறுதிப்படுத்தி வெளியிட்ட பிறகு ஊட்டத்தில் தோன்றும்.',
     'myEvents.cardPayFailed': 'கட்டணம் தோல்வி. மீண்டும் முயற்சிக்கவும்.',
     'myEvents.offlinePay': 'ஆஃப்லைன் கட்டணம்',
     'myEvents.offlinePaySub':

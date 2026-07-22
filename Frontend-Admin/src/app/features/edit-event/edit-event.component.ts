@@ -12,8 +12,8 @@ import { EventStatsService } from '../../services/event-stats.service';
   template: `
     <section class="create-hero">
       <div class="container">
-        <h1>Edit Event</h1>
-        <p>Update your memory record.</p>
+        <h1>{{ isDraft() ? 'Edit pending event' : 'Edit Event' }}</h1>
+        <p>{{ isDraft() ? 'Update this customer event before publishing.' : 'Update your memory record.' }}</p>
       </div>
     </section>
 
@@ -21,8 +21,8 @@ import { EventStatsService } from '../../services/event-stats.service';
       <div class="container" style="text-align:center;padding:4rem;"><div class="spinner"></div><p>Loading...</p></div>
     } @else if (!event()) {
       <div class="container" style="text-align:center;padding:4rem;">
-        <p>Event not found.</p>
-        <a routerLink="/events" class="btn btn-primary">Back to events</a>
+        <p>{{ isDraft() ? 'Draft not found. It may already be published.' : 'Event not found.' }}</p>
+        <a [routerLink]="isDraft() ? '/payments' : '/events'" class="btn btn-primary">Back</a>
       </div>
     } @else {
       <div class="container form-container">
@@ -147,7 +147,7 @@ import { EventStatsService } from '../../services/event-stats.service';
             <button type="submit" class="btn btn-primary btn-lg" [disabled]="saving()">
               {{ saving() ? 'Saving...' : 'Save Changes' }}
             </button>
-            <a routerLink="/events" class="btn btn-outline">Cancel</a>
+            <a [routerLink]="cancelLink()" class="btn btn-outline">Cancel</a>
           </div>
         </form>
       </div>
@@ -190,6 +190,8 @@ import { EventStatsService } from '../../services/event-stats.service';
 })
 export class EditEventComponent implements OnInit {
   id = 0;
+  draftId = 0;
+  isDraft = signal(false);
   title = '';
   description = '';
   eventType = '';
@@ -217,8 +219,21 @@ export class EditEventComponent implements OnInit {
     private stats: EventStatsService
   ) {}
 
+  cancelLink(): string {
+    return this.isDraft() ? `/pending-event/${this.draftId}` : '/events';
+  }
+
   ngOnInit() {
+    const draftParam = this.route.snapshot.paramMap.get('draftId');
+    if (draftParam) {
+      this.draftId = Number(draftParam);
+      this.isDraft.set(true);
+      this.loadDraft();
+      return;
+    }
+
     this.id = Number(this.route.snapshot.paramMap.get('id'));
+    this.isDraft.set(false);
     this.api.getEventForAdmin(this.id).subscribe({
       next: (ev) => {
         this.event.set(ev);
@@ -233,6 +248,41 @@ export class EditEventComponent implements OnInit {
         this.invitedEmails = (ev.invitedEmails ?? []).join(', ');
         this.location = ev.location ?? '';
         this.country = ev.country ?? '';
+        this.loading.set(false);
+      },
+      error: () => {
+        this.event.set(null);
+        this.loading.set(false);
+      }
+    });
+  }
+
+  private loadDraft() {
+    this.api.getOfflineDraftDetail(this.draftId).subscribe({
+      next: (d) => {
+        this.event.set({
+          id: d.id,
+          eventType: d.eventType,
+          birthDate: d.birthDate ?? undefined,
+          deathDate: d.deathDate ?? undefined,
+          weddingDate: d.weddingDate ?? undefined,
+          visibility: d.visibility,
+          invitedEmails: d.invitedEmails
+            ? d.invitedEmails.split(',').map((x) => x.trim()).filter(Boolean)
+            : undefined
+        });
+        this.title = d.title;
+        this.description = d.description;
+        this.eventType = d.eventType === 'Funeral' ? 'Obituary' : d.eventType;
+        this.eventDate = d.eventDate?.split('T')[0] ?? '';
+        this.birthDate = d.birthDate?.split('T')[0] ?? '';
+        this.deathDate = d.deathDate?.split('T')[0] ?? '';
+        this.weddingDate = d.weddingDate?.split('T')[0] ?? '';
+        this.visibility = d.visibility ?? 'Public';
+        this.invitedEmails = d.invitedEmails ?? '';
+        this.location = d.location ?? '';
+        this.country = d.country ?? '';
+        if (d.mainImageUrl) this.mainImagePreview.set(d.mainImageUrl);
         this.loading.set(false);
       },
       error: () => {
@@ -369,11 +419,15 @@ export class EditEventComponent implements OnInit {
     this.galleryImages.forEach(f => formData.append('galleryImages', f));
     this.videos.forEach(f => formData.append('videos', f));
 
-    this.api.updateEvent(this.id, formData).subscribe({
+    const save$ = this.isDraft()
+      ? this.api.updateDraft(this.draftId, formData)
+      : this.api.updateEvent(this.id, formData);
+
+    save$.subscribe({
       next: () => {
         this.stats.loadFromApi();
         this.saving.set(false);
-        this.router.navigate(['/events']);
+        this.router.navigate(this.isDraft() ? ['/pending-event', this.draftId] : ['/events']);
       },
       error: (err) => {
         this.error.set(err.error?.message || 'Failed to update event.');

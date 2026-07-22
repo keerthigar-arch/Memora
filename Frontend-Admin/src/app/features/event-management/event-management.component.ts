@@ -596,6 +596,11 @@ export class EventManagementComponent implements OnInit {
   }
 
   togglePublished(ev: AdminEventListDto, published: boolean) {
+    if (published && ev.paymentReceived !== true) {
+      alert('Payment is not received. Mark payment received before publishing this event.');
+      return;
+    }
+
     this.busyId.set(ev.id);
     this.api.setEventPublished(ev.id, published).subscribe({
       next: () => {
@@ -605,9 +610,14 @@ export class EventManagementComponent implements OnInit {
         this.busyId.set(null);
         this.stats.loadFromApi();
       },
-      error: () => {
+      error: (err) => {
         this.busyId.set(null);
-        alert('Could not update visibility. Try again.');
+        const msg =
+          err?.error?.message ||
+          (published && ev.paymentReceived !== true
+            ? 'Payment is not received. Mark payment received before publishing this event.'
+            : 'Could not update visibility. Try again.');
+        alert(msg);
       }
     });
   }

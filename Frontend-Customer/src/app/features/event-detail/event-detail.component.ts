@@ -1,9 +1,8 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService, EventDetailDto } from '../../services/api.service';
-import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-event-detail',
@@ -82,12 +81,6 @@ import { environment } from '../../../environments/environment';
           <section class="wishes">
             <div class="wishes-header">
               <h3>{{ getWishesSectionTitle() }} ({{ event()!.wishes.length }})</h3>
-              @if (event()!.isOwner) {
-                <div class="event-actions">
-                  <a [href]="organizerEditUrl(event()!.id)" target="_blank" rel="noopener" class="btn btn-outline btn-sm">Edit</a>
-                  <button type="button" class="btn btn-outline btn-sm btn-danger" (click)="confirmDelete()">Delete</button>
-                </div>
-              }
             </div>
 
             <form class="wish-form" (ngSubmit)="submitWish()">
@@ -215,10 +208,6 @@ import { environment } from '../../../environments/environment';
       margin-bottom: 1.5rem;
     }
     .wishes-header h3 { margin: 0; }
-    .event-actions { display: flex; gap: 0.5rem; }
-    .btn-sm { padding: 0.5rem 1rem; font-size: 0.875rem; }
-    .btn-danger { color: #c53030; border-color: #c53030; }
-    .btn-danger:hover { background: #c53030; color: white; }
     .wish-media-preview { max-width: 120px; max-height: 90px; border-radius: var(--radius); object-fit: cover; }
     .file-label {
       display: inline-block;
@@ -269,7 +258,6 @@ export class EventDetailComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private router: Router,
     private api: ApiService
   ) {}
 
@@ -382,20 +370,7 @@ export class EventDetailComponent implements OnInit {
     }
   }
 
-  confirmDelete() {
-    if (confirm('Are you sure you want to delete this event? This cannot be undone.')) {
-      this.api.deleteEvent(this.id).subscribe({
-        next: () => this.router.navigate(['/']),
-        error: () => alert('Failed to delete event.')
-      });
-    }
-  }
-
   openImage(url: string) {
     window.open(url, '_blank');
-  }
-
-  organizerEditUrl(eventId: number): string {
-    return `${environment.adminPortalUrl}/event/${eventId}/edit`;
   }
 }

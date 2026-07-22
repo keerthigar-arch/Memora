@@ -99,6 +99,7 @@ public record CustomerDraftListDto(
     int DisplayDays,
     decimal AmountPaid,
     bool AwaitingOfflineApproval,
+    bool PaymentReceived,
     string? PaymentMethod,
     DateTime CreatedAt,
     string? MainImageUrl,
@@ -126,11 +127,13 @@ public record CustomerDraftDetailDto(
     int DisplayDays,
     decimal AmountPaid,
     bool AwaitingOfflineApproval,
+    bool PaymentReceived,
     string? PaymentMethod,
     DateTime CreatedAt,
     DateTime? OfflineSubmittedAt,
     string? OwnerDisplayName,
-    string? OwnerEmail
+    string? OwnerEmail,
+    string? InvitedEmails = null
 );
 
 public record RecentWishSidebarDto(

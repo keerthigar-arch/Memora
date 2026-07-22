@@ -76,6 +76,7 @@ export interface CustomerDraftListDto {
   displayDays: number;
   amountPaid: number;
   awaitingOfflineApproval: boolean;
+  paymentReceived: boolean;
   paymentMethod?: string | null;
   createdAt: string;
   mainImageUrl?: string | null;
@@ -103,11 +104,13 @@ export interface CustomerDraftDetailDto {
   displayDays: number;
   amountPaid: number;
   awaitingOfflineApproval: boolean;
+  paymentReceived: boolean;
   paymentMethod?: string | null;
   createdAt: string;
   offlineSubmittedAt?: string | null;
   ownerDisplayName?: string | null;
   ownerEmail?: string | null;
+  invitedEmails?: string | null;
 }
 
 export interface WishDto {
@@ -288,6 +291,10 @@ export class ApiService {
     return this.http.get<CustomerDraftDetailDto>(`${API}/payments/offline-draft/${draftId}`);
   }
 
+  markOfflinePaymentReceived(draftId: number): Observable<void> {
+    return this.http.post<void>(`${API}/payments/mark-offline-received/${draftId}`, {});
+  }
+
   approveOfflineDraft(draftId: number): Observable<EventDetailDto> {
     return this.http.post<EventDetailDto>(`${API}/payments/approve-offline/${draftId}`, {});
   }
@@ -308,6 +315,14 @@ export class ApiService {
 
   updateEvent(id: number, formData: FormData): Observable<EventDetailDto> {
     return this.http.put<EventDetailDto>(`${API}/events/${id}`, formData);
+  }
+
+  updateDraft(draftId: number, formData: FormData): Observable<CustomerDraftDetailDto> {
+    return this.http.put<CustomerDraftDetailDto>(`${API}/events/drafts/${draftId}`, formData);
+  }
+
+  deleteDraft(draftId: number): Observable<void> {
+    return this.http.delete<void>(`${API}/events/drafts/${draftId}`);
   }
 
   deleteEvent(id: number): Observable<void> {

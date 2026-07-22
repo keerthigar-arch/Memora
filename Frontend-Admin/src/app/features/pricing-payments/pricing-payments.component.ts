@@ -135,8 +135,14 @@ import {
               @for (d of offlineDrafts(); track 'offline-' + d.id) {
                 <tr class="row-offline">
                   <td class="name-cell">{{ d.title }}</td>
-                  <td><span class="source-badge source-offline">Customer event</span></td>
-                  <td><span class="pill">Awaiting approval</span></td>
+                  <td>
+                    <span class="source-badge" [class.source-offline]="!isCardDraft(d)" [class.source-card]="isCardDraft(d)">
+                      {{ isCardDraft(d) ? 'Customer card' : 'Customer offline' }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="pill">{{ isCardDraft(d) ? 'Awaiting confirmation' : 'Awaiting payment' }}</span>
+                  </td>
                   <td class="contact-cell">
                     <div>{{ d.ownerDisplayName || '—' }}</div>
                     @if (d.ownerEmail) {
@@ -146,7 +152,22 @@ import {
                   <td>{{ d.eventType }} · {{ d.displayDays }} days</td>
                   <td class="num-cell">{{ formatUsd(d.amountPaid) }} <span class="cur">USD</span></td>
                   <td class="date-cell muted">{{ (d.offlineSubmittedAt || d.createdAt) | date: 'medium' }}</td>
-                  <td><a [routerLink]="['/pending-event', d.id]" class="btn btn-primary btn-sm">Review</a></td>
+                  <td>
+                    <div class="action-stack">
+                      <label class="check-wrap">
+                        <input
+                          type="checkbox"
+                          [checked]="!!d.paymentReceived"
+                          [disabled]="!!d.paymentReceived || customerDraftSavingId() === d.id"
+                          (change)="markCustomerDraftReceived(d, $any($event.target).checked)"
+                        />
+                        <span>{{ customerDraftSavingId() === d.id ? 'Saving…' : 'Received' }}</span>
+                      </label>
+                      <a [routerLink]="['/pending-event', d.id]" class="btn btn-outline btn-sm">
+                        {{ d.paymentReceived ? 'Publish' : 'Review' }}
+                      </a>
+                    </div>
+                  </td>
                 </tr>
               }
 
@@ -636,6 +657,12 @@ import {
         height: 1rem;
         accent-color: var(--primary);
       }
+      .action-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.45rem;
+      }
       .pager-bar {
         display: flex;
         flex-wrap: wrap;
@@ -680,6 +707,7 @@ export class PricingPaymentsComponent implements OnInit {
   adminPaymentsLoading = signal(true);
   adminPaymentsError = signal('');
   adminPaymentSavingId = signal<number | null>(null);
+  customerDraftSavingId = signal<number | null>(null);
 
   filterSearch = '';
   filterChannel = '';
@@ -695,6 +723,32 @@ export class PricingPaymentsComponent implements OnInit {
     this.loadOffline();
     this.loadAdminPaymentEvents();
     this.load();
+  }
+
+  isCardDraft(d: CustomerDraftListDto): boolean {
+    return (d.paymentMethod || '').toLowerCase() === 'card';
+  }
+
+  markCustomerDraftReceived(draft: CustomerDraftListDto, checked: boolean): void {
+    if (!checked || draft.paymentReceived || this.customerDraftSavingId() !== null) return;
+    if (!confirm(`Mark payment received for "${draft.title}"? You can publish it after marking.`)) {
+      return;
+    }
+
+    this.customerDraftSavingId.set(draft.id);
+    this.offlineError.set('');
+    this.api.markOfflinePaymentReceived(draft.id).subscribe({
+      next: () => {
+        this.offlineDrafts.update((items) =>
+          items.map((item) => (item.id === draft.id ? { ...item, paymentReceived: true } : item))
+        );
+        this.customerDraftSavingId.set(null);
+      },
+      error: (err) => {
+        this.offlineError.set(this.loadErrorMessage(err));
+        this.customerDraftSavingId.set(null);
+      }
+    });
   }
 
   formatUsd(amount: number): string {

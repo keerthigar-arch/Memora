@@ -14,7 +14,11 @@ import { NotificationService } from '../../services/notification.service';
       <div class="container hero-inner">
         <a routerLink="/payments" class="back-link">← Back to payments</a>
         @if (draft()) {
-          <span class="status-pill">Awaiting offline approval</span>
+          <span class="status-pill">
+            {{ draft()!.paymentReceived
+              ? 'Payment received — ready to publish'
+              : (draft()!.paymentMethod === 'Card' ? 'Awaiting card confirmation' : 'Awaiting offline payment') }}
+          </span>
           <h1>{{ draft()!.title }}</h1>
           <p class="hero-meta">
             Submitted by {{ draft()!.ownerDisplayName || draft()!.createdBy }}
@@ -42,7 +46,7 @@ import { NotificationService } from '../../services/notification.service';
           <div class="detail-body">
             <div class="badges">
               <span class="type-badge">{{ draft()!.eventType }}</span>
-              <span class="pay-badge">Offline payment</span>
+              <span class="pay-badge">{{ draft()!.paymentMethod === 'Card' ? 'Card payment' : 'Offline payment' }}</span>
             </div>
             <p class="description">{{ draft()!.description }}</p>
 
@@ -76,16 +80,42 @@ import { NotificationService } from '../../services/notification.service';
         <aside class="detail-aside card">
           <h2>Review &amp; publish</h2>
           <p class="aside-copy">
-            This customer event was submitted with offline payment. Approve to publish it on the public feed.
+            @if (draft()!.paymentReceived) {
+              Payment is marked received. Publish to make this event visible on the public feed.
+            } @else if (draft()!.paymentMethod === 'Card') {
+              Confirm card payment and publish in one step, or mark Received on Payments first.
+            } @else {
+              Confirm offline payment and publish in one step, or mark Received on Payments first.
+            }
           </p>
           @if (draft()!.awaitingOfflineApproval) {
+            <a
+              [routerLink]="['/pending-event', draft()!.id, 'edit']"
+              class="btn btn-outline btn-block"
+            >
+              Edit event
+            </a>
             <button
               type="button"
               class="btn btn-primary btn-block"
-              (click)="approve()"
+              (click)="publish()"
               [disabled]="busy()"
             >
-              {{ busy() ? 'Publishing…' : 'Approve & publish' }}
+              @if (busy()) {
+                Publishing…
+              } @else if (draft()!.paymentReceived) {
+                Publish to feed
+              } @else {
+                Confirm payment &amp; publish
+              }
+            </button>
+            <button
+              type="button"
+              class="btn btn-danger btn-block"
+              (click)="deleteDraft()"
+              [disabled]="busy()"
+            >
+              Delete draft
             </button>
           } @else {
             <p class="aside-note">This draft is no longer awaiting approval.</p>
@@ -221,7 +251,16 @@ import { NotificationService } from '../../services/notification.service';
         line-height: 1.45;
         color: #5a6f68;
       }
-      .btn-block { width: 100%; }
+      .btn-block { width: 100%; margin-bottom: 0.65rem; }
+      .btn-block:last-child { margin-bottom: 0; }
+      .btn-danger {
+        background: #fff;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+      }
+      .btn-danger:hover:not(:disabled) {
+        background: #fef2f2;
+      }
       .spinner {
         width: 44px;
         height: 44px;
@@ -300,20 +339,62 @@ export class PendingEventDetailComponent implements OnInit {
     }).format(amount);
   }
 
-  approve() {
+  publish() {
     const d = this.draft();
-    if (!d || !confirm(`Approve "${d.title}" and publish to the feed?`)) return;
+    if (!d) return;
+
+    const needsConfirmPayment = !d.paymentReceived;
+    const message = needsConfirmPayment
+      ? `Confirm payment received and publish "${d.title}" to the feed?`
+      : `Publish "${d.title}" to the feed?`;
+    if (!confirm(message)) return;
+
     this.busy.set(true);
-    this.api.approveOfflineDraft(d.id).subscribe({
-      next: (ev) => {
+
+    const finishOk = () => {
+      this.busy.set(false);
+      this.stats.loadFromApi();
+      this.notifications.loadUnreadCount().subscribe({ error: () => {} });
+      this.router.navigate(['/payments']);
+    };
+    const finishErr = (err: { error?: { message?: string } }) => {
+      this.busy.set(false);
+      alert(
+        err?.error?.message ||
+          (needsConfirmPayment
+            ? 'Could not confirm payment and publish.'
+            : 'Could not publish event.')
+      );
+    };
+
+    if (needsConfirmPayment) {
+      this.api.markOfflinePaymentReceived(d.id).subscribe({
+        next: () => {
+          this.api.approveOfflineDraft(d.id).subscribe({ next: finishOk, error: finishErr });
+        },
+        error: finishErr
+      });
+      return;
+    }
+
+    this.api.approveOfflineDraft(d.id).subscribe({ next: finishOk, error: finishErr });
+  }
+
+  deleteDraft() {
+    const d = this.draft();
+    if (!d) return;
+    if (!confirm(`Delete draft "${d.title}"? This cannot be undone.`)) return;
+    this.busy.set(true);
+    this.api.deleteDraft(d.id).subscribe({
+      next: () => {
         this.busy.set(false);
         this.stats.loadFromApi();
         this.notifications.loadUnreadCount().subscribe({ error: () => {} });
-        this.router.navigate(['/event', ev.id, 'edit']);
+        this.router.navigate(['/payments']);
       },
       error: (err) => {
         this.busy.set(false);
-        alert(err.error?.message || 'Could not approve event.');
+        alert(err?.error?.message || 'Could not delete draft.');
       }
     });
   }

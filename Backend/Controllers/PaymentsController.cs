@@ -165,7 +165,60 @@ public class PaymentsController : ControllerBase
         if (draft.UserId.HasValue && draft.UserId != userId && !User.IsInRole("Admin"))
             return Forbid();
 
+        return await CompleteCardPaymentForDraftAsync(draft, ct);
+    }
+
+    /// <summary>
+    /// Customer card payment queues the draft for admin Payments (mark/publish).
+    /// Admin-owned drafts publish immediately after card confirmation.
+    /// </summary>
+    private async Task<ActionResult<EventDetailDto>> CompleteCardPaymentForDraftAsync(
+        PendingEvent draft,
+        CancellationToken ct)
+    {
         draft.PaymentMethod = "Card";
+
+        var ownerIsCustomer = false;
+        if (draft.UserId.HasValue)
+        {
+            var owner = await _db.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == draft.UserId.Value, ct);
+            ownerIsCustomer = owner != null && string.Equals(owner.Role, "Customer", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (ownerIsCustomer)
+        {
+            // Queue for admin: mark Received, then publish separately.
+            draft.PaymentReceived = false;
+            draft.AwaitingOfflineApproval = true;
+            draft.OfflineSubmittedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+            await _notifications.NotifyCustomerOfflineSubmittedAsync(draft, ct);
+            // Customer must wait for admin mark/publish — no live event yet.
+            return Ok(new EventDetailDto(
+                0,
+                draft.Title,
+                draft.Description,
+                draft.EventType,
+                draft.EventDate,
+                draft.BirthDate,
+                draft.DeathDate,
+                draft.WeddingDate,
+                draft.Location,
+                draft.Country,
+                null,
+                null,
+                null,
+                draft.CreatedBy,
+                draft.CreatedAt,
+                new List<WishDto>(),
+                draft.Visibility,
+                true,
+                false,
+                null
+            ));
+        }
+
         draft.PaymentReceived = true;
         return await PublishDraftAsync(draft, ct);
     }
@@ -275,22 +328,31 @@ public class PaymentsController : ControllerBase
     /// <summary>Mock payment confirmation. Use when Stripe is not configured (e.g. local dev).</summary>
     [HttpPost("confirm-mock")]
     [Authorize(Roles = "Admin,Customer")]
-    public async Task<ActionResult<EventDetailDto>> ConfirmMock([FromBody] ConfirmPaymentRequest request)
+    public async Task<IActionResult> ConfirmMock([FromBody] ConfirmPaymentRequest request, CancellationToken ct)
     {
         if (request.DraftId <= 0)
             return BadRequest(new { message = "Invalid draft ID." });
 
-        var draft = await _db.PendingEvents.FindAsync(request.DraftId);
+        var draft = await _db.PendingEvents.FindAsync(new object[] { request.DraftId }, ct);
         if (draft == null)
             return NotFound(new { message = "Draft not found or expired." });
 
         var userId = _jwt.GetUserIdFromClaims(User);
-        if (draft.UserId.HasValue && draft.UserId != userId)
+        if (draft.UserId.HasValue && draft.UserId != userId && !User.IsInRole("Admin"))
             return Forbid();
 
-        draft.PaymentMethod = "Card";
-        draft.PaymentReceived = true;
-        return await PublishDraftAsync(draft, default);
+        var result = await CompleteCardPaymentForDraftAsync(draft, ct);
+        if (result.Result is OkObjectResult ok && ok.Value is EventDetailDto ev && ev.Id == 0)
+        {
+            return Ok(new
+            {
+                awaitingApproval = true,
+                draftId = draft.Id,
+                message = "Card payment submitted. An admin will confirm payment and publish your event."
+            });
+        }
+
+        return result.Result ?? Ok(result.Value);
     }
 
     /// <summary>Customer submits offline payment — draft awaits admin approval before feed publish.</summary>
@@ -313,6 +375,7 @@ public class PaymentsController : ControllerBase
             return Ok(new { message = "Already submitted for approval.", draftId = draft.Id });
 
         draft.PaymentMethod = "Offline";
+        draft.PaymentReceived = false;
         draft.AwaitingOfflineApproval = true;
         draft.OfflineSubmittedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
@@ -362,6 +425,7 @@ public class PaymentsController : ControllerBase
                 d.DisplayDays,
                 d.AmountPaid,
                 d.AwaitingOfflineApproval,
+                d.PaymentReceived,
                 d.PaymentMethod,
                 d.CreatedAt,
                 FileStorageService.NormalizeUrl(d.MainImagePath, baseUrl),
@@ -410,15 +474,35 @@ public class PaymentsController : ControllerBase
             draft.DisplayDays,
             draft.AmountPaid,
             draft.AwaitingOfflineApproval,
+            draft.PaymentReceived,
             draft.PaymentMethod,
             draft.CreatedAt,
             draft.OfflineSubmittedAt,
             owner?.DisplayName,
-            owner?.Email
+            owner?.Email,
+            draft.InvitedEmails
         ));
     }
 
-    /// <summary>Admin approves offline payment and publishes event to the feed.</summary>
+    /// <summary>Admin marks customer draft payment as received (does not publish).</summary>
+    [HttpPost("mark-offline-received/{draftId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> MarkOfflinePaymentReceived(int draftId, CancellationToken ct)
+    {
+        var draft = await _db.PendingEvents.FindAsync(new object[] { draftId }, ct);
+        if (draft == null)
+            return NotFound(new { message = "Draft not found." });
+        if (!draft.AwaitingOfflineApproval)
+            return BadRequest(new { message = "This draft is not awaiting payment confirmation." });
+
+        draft.PaymentReceived = true;
+        if (string.IsNullOrWhiteSpace(draft.PaymentMethod))
+            draft.PaymentMethod = "Offline";
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>Admin publishes a customer draft only after payment is marked received.</summary>
     [HttpPost("approve-offline/{draftId:int}")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<EventDetailDto>> ApproveOfflineDraft(int draftId, CancellationToken ct)
@@ -428,9 +512,16 @@ public class PaymentsController : ControllerBase
             return NotFound(new { message = "Draft not found." });
         if (!draft.AwaitingOfflineApproval)
             return BadRequest(new { message = "This draft is not awaiting offline approval." });
+        if (!draft.PaymentReceived)
+        {
+            return BadRequest(new
+            {
+                message = "Payment is not received. Mark payment received before publishing this event."
+            });
+        }
 
-        draft.PaymentReceived = true;
-        draft.PaymentMethod = "Offline";
+        if (string.IsNullOrWhiteSpace(draft.PaymentMethod))
+            draft.PaymentMethod = "Offline";
         return await PublishDraftAsync(draft, ct);
     }
 }

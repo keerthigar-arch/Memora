@@ -457,9 +457,17 @@ export class MyEventPaymentComponent implements OnInit {
     this.busy.set(true);
     this.error.set('');
     this.api.confirmPaymentMock(this.draftId).subscribe({
-      next: (ev) => {
+      next: (res) => {
         this.busy.set(false);
-        void this.router.navigate(['/event', ev.id]);
+        if (res.awaitingApproval || res.id === 0) {
+          this.message.set(
+            res.message || this.i18n.t('myEvents.cardSubmitSuccess')
+          );
+          this.step.set('choose');
+          setTimeout(() => void this.router.navigate(['/my-events']), 2200);
+          return;
+        }
+        void this.router.navigate(['/event', res.id]);
       },
       error: (e) => {
         this.busy.set(false);

@@ -464,6 +464,7 @@ public class EventsController : ControllerBase
                 d.DisplayDays,
                 d.AmountPaid,
                 d.AwaitingOfflineApproval,
+                d.PaymentReceived,
                 d.PaymentMethod,
                 d.CreatedAt,
                 main,
@@ -532,6 +533,14 @@ public class EventsController : ControllerBase
             .Include(e => e.Invites)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         if (ev == null) return NotFound();
+
+        if (dto.Published && !ev.PaymentReceived)
+        {
+            return BadRequest(new
+            {
+                message = "Payment is not received. Mark payment received before publishing this event."
+            });
+        }
 
         var wasPublished = ev.IsPublished;
         ev.IsPublished = dto.Published;
@@ -1057,6 +1066,14 @@ public class EventsController : ControllerBase
         if (dto.IsPublished.HasValue)
             ev.IsPublished = dto.IsPublished.Value;
 
+        if (ev.IsPublished && !ev.PaymentReceived)
+        {
+            return BadRequest(new
+            {
+                message = "Payment is not received. Mark payment received before publishing this event."
+            });
+        }
+
         if (ev.Visibility == "InviteOnly" && dto.InvitedEmails != null)
         {
             var existingInvites = await _db.EventInvites.Where(i => i.EventId == id).ToListAsync();
@@ -1133,6 +1150,129 @@ public class EventsController : ControllerBase
             return NotFound();
 
         _db.Events.Remove(ev);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    /// <summary>Admin edits a customer pending draft before publish.</summary>
+    [HttpPut("drafts/{draftId:int}")]
+    [Authorize(Roles = "Admin")]
+    [RequestSizeLimit(MaxUploadRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadRequestBytes)]
+    public async Task<ActionResult<CustomerDraftDetailDto>> UpdateDraft(int draftId, [FromForm] UpdateEventFormDto dto)
+    {
+        var draft = await _db.PendingEvents.FindAsync(draftId);
+        if (draft == null)
+            return NotFound(new { message = "Draft not found or already published." });
+
+        var mediaError = ValidateEventMedia(dto.MainImage, dto.GalleryImages, dto.Videos, mainImageRequired: false);
+        if (mediaError != null)
+            return BadRequest(new { message = mediaError });
+
+        var storageUserId = draft.UserId ?? _jwt.GetUserIdFromClaims(User) ?? 0;
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
+
+        if (dto.MainImage != null)
+        {
+            var url = await _fileStorage.SaveFileAsync(dto.MainImage, storageUserId, draftId);
+            if (url != null)
+                draft.MainImagePath = url;
+        }
+
+        if (dto.GalleryImages != null && dto.GalleryImages.Any())
+        {
+            var list = new List<string>();
+            foreach (var img in dto.GalleryImages.Take(MaxGalleryImages))
+            {
+                var url = await _fileStorage.SaveFileAsync(img, storageUserId, draftId);
+                if (url != null)
+                    list.Add(url);
+            }
+            if (list.Count > 0)
+                draft.GalleryPathsJson = System.Text.Json.JsonSerializer.Serialize(list);
+        }
+
+        if (dto.Videos != null && dto.Videos.Any())
+        {
+            var list = new List<string>();
+            foreach (var vid in dto.Videos.Take(MaxVideos))
+            {
+                var url = await _fileStorage.SaveVideoFileAsync(vid, draftId);
+                if (url != null)
+                    list.Add(url);
+            }
+            if (list.Count > 0)
+                draft.VideoPathsJson = System.Text.Json.JsonSerializer.Serialize(list);
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Title))
+            draft.Title = dto.Title;
+        if (!string.IsNullOrWhiteSpace(dto.Description))
+            draft.Description = dto.Description;
+        if (!string.IsNullOrWhiteSpace(dto.EventType))
+            draft.EventType = dto.EventType;
+        if (dto.EventDate.HasValue)
+            draft.EventDate = dto.EventDate.Value;
+        if (dto.BirthDate.HasValue)
+            draft.BirthDate = dto.BirthDate;
+        if (dto.DeathDate.HasValue)
+            draft.DeathDate = dto.DeathDate;
+        if (dto.WeddingDate.HasValue)
+            draft.WeddingDate = dto.WeddingDate;
+        if (dto.Location != null)
+            draft.Location = dto.Location;
+        if (dto.Country != null)
+            draft.Country = dto.Country;
+        if (!string.IsNullOrWhiteSpace(dto.Visibility))
+            draft.Visibility = dto.Visibility;
+        if (dto.InvitedEmails != null)
+            draft.InvitedEmails = dto.InvitedEmails;
+
+        await _db.SaveChangesAsync();
+
+        var owner = draft.UserId.HasValue
+            ? await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == draft.UserId.Value)
+            : null;
+
+        return Ok(new CustomerDraftDetailDto(
+            draft.Id,
+            draft.Title,
+            draft.Description,
+            draft.EventType,
+            draft.EventDate,
+            draft.BirthDate,
+            draft.DeathDate,
+            draft.WeddingDate,
+            draft.Location,
+            draft.Country,
+            FileStorageService.NormalizeUrl(draft.MainImagePath, baseUrl),
+            FileStorageService.NormalizeJsonArrayUrls(draft.GalleryPathsJson, baseUrl),
+            FileStorageService.NormalizeJsonArrayUrls(draft.VideoPathsJson, baseUrl),
+            draft.CreatedBy,
+            draft.Visibility,
+            draft.DisplayDays,
+            draft.AmountPaid,
+            draft.AwaitingOfflineApproval,
+            draft.PaymentReceived,
+            draft.PaymentMethod,
+            draft.CreatedAt,
+            draft.OfflineSubmittedAt,
+            owner?.DisplayName,
+            owner?.Email,
+            draft.InvitedEmails
+        ));
+    }
+
+    /// <summary>Admin deletes a customer pending draft before publish.</summary>
+    [HttpDelete("drafts/{draftId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteDraft(int draftId)
+    {
+        var draft = await _db.PendingEvents.FindAsync(draftId);
+        if (draft == null)
+            return NotFound(new { message = "Draft not found or already published." });
+
+        _db.PendingEvents.Remove(draft);
         await _db.SaveChangesAsync();
         return NoContent();
     }
