@@ -2,6 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Observable } from 'rxjs';
 import { ApiService } from '../../services/api.service';
 import { EventStatsService } from '../../services/event-stats.service';
 
@@ -419,7 +420,7 @@ export class EditEventComponent implements OnInit {
     this.galleryImages.forEach(f => formData.append('galleryImages', f));
     this.videos.forEach(f => formData.append('videos', f));
 
-    const save$ = this.isDraft()
+    const save$: Observable<unknown> = this.isDraft()
       ? this.api.updateDraft(this.draftId, formData)
       : this.api.updateEvent(this.id, formData);
 
@@ -429,7 +430,7 @@ export class EditEventComponent implements OnInit {
         this.saving.set(false);
         this.router.navigate(this.isDraft() ? ['/pending-event', this.draftId] : ['/events']);
       },
-      error: (err) => {
+      error: (err: { error?: { message?: string } }) => {
         this.error.set(err.error?.message || 'Failed to update event.');
         this.saving.set(false);
       }
