@@ -52,7 +52,12 @@ import { AuthService } from '../../services/auth.service';
           }
 
           <button type="submit" class="btn btn-primary btn-lg" [disabled]="loading()">
-            {{ loading() ? 'Saving...' : 'Save password and go to login' }}
+            @if (loading()) {
+              <span class="btn-spinner" aria-hidden="true"></span>
+              Saving…
+            } @else {
+              Save password and go to login
+            }
           </button>
           <p class="hint">On the next screen, sign in with the same email or username you used before and the password you just set.</p>
         </form>

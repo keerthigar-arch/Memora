@@ -134,14 +134,25 @@ import { environment } from '../../../environments/environment';
                   <a [routerLink]="['/event', ev.id, 'edit']" class="btn btn-sm btn-primary">Edit</a>
                   @if (ev.isPublished) {
                     <button type="button" class="btn btn-sm btn-outline" (click)="togglePublished(ev, false)" [disabled]="busyId() === ev.id">
+                      @if (busyId() === ev.id && busyAction() === 'toggle') {
+                        <span class="btn-spinner" aria-hidden="true"></span>
+                      }
                       Hide
                     </button>
                   } @else {
                     <button type="button" class="btn btn-sm btn-outline" (click)="togglePublished(ev, true)" [disabled]="busyId() === ev.id">
+                      @if (busyId() === ev.id && busyAction() === 'toggle') {
+                        <span class="btn-spinner" aria-hidden="true"></span>
+                      }
                       Show
                     </button>
                   }
-                  <button type="button" class="btn btn-sm btn-danger" (click)="deleteEvent(ev)" [disabled]="busyId() === ev.id">Delete</button>
+                  <button type="button" class="btn btn-sm btn-danger" (click)="deleteEvent(ev)" [disabled]="busyId() === ev.id">
+                    @if (busyId() === ev.id && busyAction() === 'delete') {
+                      <span class="btn-spinner" aria-hidden="true"></span>
+                    }
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>
@@ -149,7 +160,14 @@ import { environment } from '../../../environments/environment';
         </div>
         @if (hasMore()) {
           <div class="load-more">
-            <button type="button" class="btn btn-outline" (click)="loadMore()" [disabled]="loading()">Load more</button>
+            <button type="button" class="btn btn-outline" (click)="loadMore()" [disabled]="loading()">
+              @if (loading()) {
+                <span class="btn-spinner" aria-hidden="true"></span>
+                Loading…
+              } @else {
+                Load more
+              }
+            </button>
           </div>
         }
       }
@@ -521,6 +539,7 @@ export class EventManagementComponent implements OnInit {
   searchTerm = '';
   pageSize = 12;
   busyId = signal<number | null>(null);
+  busyAction = signal<'toggle' | 'delete' | null>(null);
   sourceTab = signal<'admin' | 'customer'>('admin');
   adminCount = signal(0);
   customerCount = signal(0);
@@ -653,16 +672,19 @@ export class EventManagementComponent implements OnInit {
     }
 
     this.busyId.set(ev.id);
+    this.busyAction.set('toggle');
     this.api.setEventPublished(ev.id, published).subscribe({
       next: () => {
         this.events.update((list) =>
           list.map((e) => (e.id === ev.id ? { ...e, isPublished: published } : e))
         );
         this.busyId.set(null);
+        this.busyAction.set(null);
         this.stats.loadFromApi();
       },
       error: (err) => {
         this.busyId.set(null);
+        this.busyAction.set(null);
         const msg =
           err?.error?.message ||
           (published && ev.paymentReceived !== true
@@ -676,16 +698,19 @@ export class EventManagementComponent implements OnInit {
   deleteEvent(ev: AdminEventListDto) {
     if (!confirm(`Delete "${ev.title}"? This cannot be undone.`)) return;
     this.busyId.set(ev.id);
+    this.busyAction.set('delete');
     this.api.deleteEvent(ev.id).subscribe({
       next: () => {
         this.events.update((list) => list.filter((e) => e.id !== ev.id));
         this.total.update((t) => Math.max(0, t - 1));
         this.busyId.set(null);
+        this.busyAction.set(null);
         this.loadManageStats();
         this.stats.loadFromApi();
       },
       error: () => {
         this.busyId.set(null);
+        this.busyAction.set(null);
         alert('Could not delete event.');
       }
     });

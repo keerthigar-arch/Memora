@@ -37,7 +37,8 @@ const RETURN_STORAGE_KEY = 'memora_pricing_return';
             <a routerLink="/pricing" class="btn-primary">Go to pricing</a>
           </div>
         } @else if (loading()) {
-          <div class="lift-card loading-card" aria-busy="true">
+          <div class="lift-card loading-card loading-state" aria-busy="true">
+            <div class="spinner"></div>
             <p>Loading package details…</p>
           </div>
         } @else if (loadError()) {
@@ -107,11 +108,21 @@ const RETURN_STORAGE_KEY = 'memora_pricing_return';
               <button type="button" class="btn-outline" (click)="goBackPricing()">Cancel</button>
               @if (mode() === 'direct') {
                 <button type="button" class="btn-primary" [disabled]="submitting()" (click)="confirmDirect()">
-                  {{ submitting() ? 'Submitting…' : 'Confirm order' }}
+                  @if (submitting()) {
+                    <span class="btn-spinner" aria-hidden="true"></span>
+                    Submitting…
+                  } @else {
+                    Confirm order
+                  }
                 </button>
               } @else {
                 <button type="button" class="btn-primary" [disabled]="submitting()" (click)="proceedStripe()">
-                  {{ submitting() ? 'Starting checkout…' : 'Proceed to payment' }}
+                  @if (submitting()) {
+                    <span class="btn-spinner" aria-hidden="true"></span>
+                    Starting checkout…
+                  } @else {
+                    Proceed to payment
+                  }
                 </button>
               }
             </div>
@@ -294,6 +305,10 @@ const RETURN_STORAGE_KEY = 'memora_pricing_return';
       .btn-primary {
         background: linear-gradient(145deg, #1a5f4a, #2d8f73);
         color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
       }
       .btn-primary:disabled {
         opacity: 0.55;

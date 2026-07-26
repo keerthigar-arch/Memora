@@ -34,7 +34,12 @@ import { AuthService } from '../../services/auth.service';
           <div class="error-msg">{{ error() }}</div>
         }
         <button type="submit" class="btn btn-primary btn-lg" [disabled]="loading()">
-          {{ loading() ? 'Creating account...' : 'Register' }}
+          @if (loading()) {
+            <span class="btn-spinner" aria-hidden="true"></span>
+            Creating account…
+          } @else {
+            Register
+          }
         </button>
         <p class="auth-link">
           Already have an account?

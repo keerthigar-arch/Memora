@@ -155,7 +155,12 @@ import { environment } from '../../../environments/environment';
             (click)="payNow()"
             [disabled]="paying()"
           >
-            {{ paying() ? 'Processing...' : 'Pay ' + currencySymbol() + convertedPrice() }}
+            @if (paying()) {
+              <span class="btn-spinner" aria-hidden="true"></span>
+              Processing…
+            } @else {
+              Pay {{ currencySymbol() }}{{ convertedPrice() }}
+            }
           </button>
           <button type="button" class="btn btn-outline sample-fill" (click)="fillSampleCard()" [disabled]="paying()">
             Fill sample card

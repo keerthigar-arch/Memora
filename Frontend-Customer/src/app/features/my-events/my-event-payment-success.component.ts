@@ -11,7 +11,10 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   template: `
     <div class="success-page container">
       @if (loading()) {
-        <p>{{ 'myEvents.verifying' | t }}</p>
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>{{ 'myEvents.verifying' | t }}</p>
+        </div>
       } @else if (error()) {
         <h1>{{ 'myEvents.payFailed' | t }}</h1>
         <p class="err">{{ error() }}</p>

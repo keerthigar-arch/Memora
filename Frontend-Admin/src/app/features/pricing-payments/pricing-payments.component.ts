@@ -172,7 +172,14 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                           [disabled]="!!d.paymentReceived || customerDraftSavingId() === d.id"
                           (change)="markCustomerDraftReceived(d, $any($event.target).checked)"
                         />
-                        <span>{{ customerDraftSavingId() === d.id ? 'Saving…' : 'Received' }}</span>
+                        <span class="check-label">
+                          @if (customerDraftSavingId() === d.id) {
+                            <span class="btn-spinner check-spinner" aria-hidden="true"></span>
+                            Saving…
+                          } @else {
+                            Received
+                          }
+                        </span>
                       </label>
                       <a [routerLink]="['/pending-event', d.id]" class="btn btn-outline btn-sm">
                         {{ d.paymentReceived ? 'Publish' : 'Review' }}
@@ -222,7 +229,14 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                         [disabled]="adminPaymentSavingId() === event.id"
                         (change)="markAdminPaymentReceived(event, $any($event.target).checked)"
                       />
-                      <span>{{ adminPaymentSavingId() === event.id ? 'Saving…' : 'Received' }}</span>
+                      <span class="check-label">
+                        @if (adminPaymentSavingId() === event.id) {
+                          <span class="btn-spinner check-spinner" aria-hidden="true"></span>
+                          Saving…
+                        } @else {
+                          Received
+                        }
+                      </span>
                     </label>
                   </td>
                 </tr>
@@ -247,7 +261,14 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                           [disabled]="savingId() === row.id"
                           (change)="onDirectToggle(row, $any($event.target).checked)"
                         />
-                        <span>Received</span>
+                        <span class="check-label">
+                          @if (savingId() === row.id) {
+                            <span class="btn-spinner check-spinner" aria-hidden="true"></span>
+                            Saving…
+                          } @else {
+                            Received
+                          }
+                        </span>
                       </label>
                       @if (row.directManualPaymentMarkedAt) {
                         <div class="muted tiny">{{ row.directManualPaymentMarkedAt | date: 'short' }}</div>
@@ -686,6 +707,17 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
         width: 1rem;
         height: 1rem;
         accent-color: var(--primary);
+      }
+      .check-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .check-spinner {
+        width: 0.85rem;
+        height: 0.85rem;
+        border-color: rgba(26, 95, 74, 0.25);
+        border-top-color: var(--primary);
       }
       .action-stack {
         display: flex;

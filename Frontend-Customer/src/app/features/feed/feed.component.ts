@@ -195,7 +195,10 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
               <div class="sidebar-title-underline" aria-hidden="true"></div>
             </div>
             @if (!recentWishesLoaded()) {
-              <p class="sidebar-muted">{{ 'feed.sidebarLoading' | t }}</p>
+              <div class="sidebar-loading">
+                <div class="spinner spinner-inline"></div>
+                <p class="sidebar-muted">{{ 'feed.sidebarLoading' | t }}</p>
+              </div>
             } @else if (recentWishes().length === 0) {
               <p class="sidebar-muted">{{ 'feed.noWishes' | t }}</p>
             } @else {
@@ -580,6 +583,11 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       font-size: 0.82rem;
       color: #64748b;
       line-height: 1.45;
+    }
+    .sidebar-loading {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
     }
     .feed-main { min-width: 0; }
     .wish-list {

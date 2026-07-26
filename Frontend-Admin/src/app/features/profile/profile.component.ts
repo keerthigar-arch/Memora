@@ -125,7 +125,12 @@ import { AuthService, UserProfile } from '../../services/auth.service';
                     <div class="success-msg">Profile saved successfully.</div>
                   }
                   <button type="submit" class="btn btn-primary btn-block" [disabled]="savingProfile()">
-                    {{ savingProfile() ? 'Saving…' : 'Save profile' }}
+                    @if (savingProfile()) {
+                      <span class="btn-spinner" aria-hidden="true"></span>
+                      Saving…
+                    } @else {
+                      Save profile
+                    }
                   </button>
                 </form>
               </section>
@@ -151,7 +156,12 @@ import { AuthService, UserProfile } from '../../services/auth.service';
                     <div class="success-msg">Password updated successfully.</div>
                   }
                   <button type="submit" class="btn btn-primary btn-block" [disabled]="savingPassword()">
-                    {{ savingPassword() ? 'Saving…' : 'Update password' }}
+                    @if (savingPassword()) {
+                      <span class="btn-spinner" aria-hidden="true"></span>
+                      Saving…
+                    } @else {
+                      Update password
+                    }
                   </button>
                 </form>
               </section>

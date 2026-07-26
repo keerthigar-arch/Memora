@@ -208,7 +208,12 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
                 class="btn btn-primary wish-submit"
                 [disabled]="saving() || !senderName.trim() || !wishMessage.trim()"
               >
-                {{ saving() ? 'Sending…' : getSubmitButtonLabel() }}
+                @if (saving()) {
+                  <span class="btn-spinner" aria-hidden="true"></span>
+                  Sending…
+                } @else {
+                  {{ getSubmitButtonLabel() }}
+                }
               </button>
             </form>
 

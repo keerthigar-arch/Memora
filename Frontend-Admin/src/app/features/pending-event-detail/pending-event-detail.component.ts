@@ -101,7 +101,8 @@ import { NotificationService } from '../../services/notification.service';
               (click)="publish()"
               [disabled]="busy()"
             >
-              @if (busy()) {
+              @if (busyAction() === 'publish') {
+                <span class="btn-spinner" aria-hidden="true"></span>
                 Publishing…
               } @else if (draft()!.paymentReceived) {
                 Publish to feed
@@ -115,7 +116,12 @@ import { NotificationService } from '../../services/notification.service';
               (click)="deleteDraft()"
               [disabled]="busy()"
             >
-              Delete draft
+              @if (busyAction() === 'delete') {
+                <span class="btn-spinner" aria-hidden="true"></span>
+                Deleting…
+              } @else {
+                Delete draft
+              }
             </button>
           } @else {
             <p class="aside-note">This draft is no longer awaiting approval.</p>
@@ -295,6 +301,7 @@ export class PendingEventDetailComponent implements OnInit {
   loading = signal(true);
   error = signal<string | null>(null);
   busy = signal(false);
+  busyAction = signal<'publish' | 'delete' | null>(null);
   private draftId = 0;
 
   constructor(
@@ -362,15 +369,18 @@ export class PendingEventDetailComponent implements OnInit {
     if (!confirm(message)) return;
 
     this.busy.set(true);
+    this.busyAction.set('publish');
 
     const finishOk = () => {
       this.busy.set(false);
+      this.busyAction.set(null);
       this.stats.loadFromApi();
       this.notifications.loadUnreadCount().subscribe({ error: () => {} });
       this.router.navigate(['/payments']);
     };
     const finishErr = (err: { error?: { message?: string } }) => {
       this.busy.set(false);
+      this.busyAction.set(null);
       alert(
         err?.error?.message ||
           (needsConfirmPayment
@@ -397,15 +407,18 @@ export class PendingEventDetailComponent implements OnInit {
     if (!d) return;
     if (!confirm(`Delete draft "${d.title}"? This cannot be undone.`)) return;
     this.busy.set(true);
+    this.busyAction.set('delete');
     this.api.deleteDraft(d.id).subscribe({
       next: () => {
         this.busy.set(false);
+        this.busyAction.set(null);
         this.stats.loadFromApi();
         this.notifications.loadUnreadCount().subscribe({ error: () => {} });
         this.router.navigate(['/payments']);
       },
       error: (err) => {
         this.busy.set(false);
+        this.busyAction.set(null);
         alert(err?.error?.message || 'Could not delete draft.');
       }
     });

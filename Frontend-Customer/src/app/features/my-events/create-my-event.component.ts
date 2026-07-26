@@ -165,7 +165,10 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 <p class="duration-subtitle">{{ 'myEvents.durationSubtitle' | t }}</p>
               </div>
               @if (displayOptions().length === 0) {
-                <p class="form-hint form-hint-loading">{{ 'myEvents.loadingPricing' | t }}</p>
+                <p class="form-hint form-hint-loading">
+                  <span class="spinner spinner-inline" aria-hidden="true"></span>
+                  {{ 'myEvents.loadingPricing' | t }}
+                </p>
               } @else {
                 <div class="display-options">
                   @for (opt of displayOptions(); track opt.days) {
@@ -454,15 +457,16 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .form-section-head { margin-bottom: 1rem; }
     .form-section-title {
       font-family: var(--font-display);
-      font-size: 1.0625rem;
+      font-size: 1.05rem;
       font-weight: 600;
       color: var(--primary-dark);
       margin: 0 0 0.25rem;
+      line-height: 1.25;
     }
     .form-section-hint {
       margin: 0;
       font-size: 0.8125rem;
-      line-height: 1.45;
+      line-height: 1.4;
       color: var(--create-muted);
     }
     .form-row {
@@ -471,13 +475,15 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       gap: 1rem 1.25rem;
     }
     @media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
-    .create-form .form-group { margin-bottom: 1rem; }
-    .create-form .form-group label {
+    .create-form .form-group { margin-bottom: 1.15rem; }
+    .create-form .form-group > label:not(.checkbox-row):not(.display-option-card):not(.media-drop):not(.media-btn) {
       display: block;
-      font-size: 0.8125rem;
+      font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+      font-size: 1.05rem;
       font-weight: 600;
-      color: #3d524b;
-      margin-bottom: 0.4rem;
+      color: var(--primary-dark, #0d3d32);
+      line-height: 1.25;
+      margin-bottom: 0.45rem;
     }
     .create-form input:not([type="file"]),
     .create-form textarea,
@@ -487,7 +493,8 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       border-radius: var(--create-radius-sm);
       border: 1px solid #dce8e3;
       background: #fff;
-      padding: 0.65rem 0.85rem;
+      padding: 0.7rem 0.9rem;
+      font-family: var(--font-body);
       font-size: 0.9375rem;
       color: var(--create-ink);
       transition:
@@ -728,21 +735,27 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       align-items: center;
       justify-content: center;
       min-height: 2rem;
-      padding: 0.35rem 0.85rem;
-      border-radius: 999px;
-      border: 0;
-      font-size: 0.78rem;
-      font-weight: 700;
+      padding: 0.4rem 0.85rem;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      font-family: var(--font-body);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
       cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
     }
     .media-btn-secondary {
-      background: rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.18);
       color: #fff;
     }
+    .media-btn-secondary:hover { background: rgba(255, 255, 255, 0.2); }
     .media-btn-danger {
-      background: #fee2e2;
-      color: #b91c1c;
+      background: rgba(254, 226, 226, 0.95);
+      color: #991b1b;
     }
+    .media-btn-danger:hover { background: #fecaca; }
     .media-thumb-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
@@ -814,6 +827,10 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .character-count.exceed-limit { color: #c53030; font-weight: 600; }
     .form-hint { font-size: 0.8125rem; color: var(--create-muted); margin: 0 0 0.5rem; }
     .form-hint-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
       padding: 1rem;
       text-align: center;
       border-radius: var(--create-radius-sm);
@@ -852,8 +869,16 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .option-amount { font-size: 1.35rem; font-weight: 700; color: var(--create-ink); }
     .option-currency { font-size: 0.75rem; font-weight: 600; color: var(--create-muted); }
     .option-feed { display: block; font-size: 0.75rem; color: var(--create-muted); }
-    .duration-label { font-size: 0.9375rem; font-weight: 600; color: var(--create-ink); display: block; margin-bottom: 0.35rem; }
-    .duration-subtitle { font-size: 0.875rem; color: var(--create-muted); margin: 0; }
+    .duration-label {
+      font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--primary-dark, #0d3d32);
+      line-height: 1.25;
+      display: block;
+      margin-bottom: 0.35rem;
+    }
+    .duration-subtitle { font-size: 0.8125rem; color: var(--create-muted); margin: 0; line-height: 1.45; }
     .invite-section textarea { min-height: 96px; }
     .error-msg {
       background: #fef2f2;
@@ -880,31 +905,49 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       gap: 0.75rem;
     }
     .btn-cancel {
-      min-height: 2.65rem;
-      padding: 0.65rem 1.2rem;
+      min-height: 2.5rem;
+      padding: 0.55rem 1.15rem;
       font-size: 0.875rem;
       font-weight: 600;
-      border-radius: var(--create-radius-sm);
+      letter-spacing: 0.01em;
+      border-radius: 8px;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      background: #fff;
+      color: var(--primary-dark);
+      border: 1px solid rgba(26, 95, 74, 0.28);
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-cancel:hover {
+      background: rgba(26, 95, 74, 0.05);
+      border-color: rgba(26, 95, 74, 0.45);
     }
     .btn-submit {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      min-width: 10rem;
-      padding: 0.7rem 1.35rem;
+      justify-content: center;
+      gap: 0.45rem;
+      min-height: 2.5rem;
+      min-width: 9.5rem;
+      padding: 0.55rem 1.25rem;
       font-size: 0.875rem;
       font-weight: 600;
-      border-radius: var(--create-radius-sm);
+      letter-spacing: 0.01em;
+      border-radius: 8px;
       background: var(--primary);
       color: #fff;
-      border: none;
+      border: 1px solid transparent;
+      box-shadow: 0 1px 2px rgba(13, 61, 50, 0.12);
       cursor: pointer;
+      transition: background-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-submit:hover:not(:disabled) {
+      background: var(--primary-dark);
+      box-shadow: 0 2px 8px rgba(26, 95, 74, 0.2);
+    }
+    .btn-submit:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
     .btn-spinner {
       width: 14px;
       height: 14px;

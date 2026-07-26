@@ -120,7 +120,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     <div class="success-msg">{{ 'profile.saved' | t }}</div>
                   }
                   <button type="submit" class="btn btn-primary btn-block" [disabled]="savingProfile()">
-                    {{ savingProfile() ? ('profile.saving' | t) : ('profile.saveProfile' | t) }}
+                    @if (savingProfile()) {
+                      <span class="btn-spinner" aria-hidden="true"></span>
+                      {{ 'profile.saving' | t }}
+                    } @else {
+                      {{ 'profile.saveProfile' | t }}
+                    }
                   </button>
                 </form>
               </section>
@@ -146,7 +151,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     <div class="success-msg">{{ 'profile.passwordUpdated' | t }}</div>
                   }
                   <button type="submit" class="btn btn-primary btn-block" [disabled]="savingPassword()">
-                    {{ savingPassword() ? ('profile.saving' | t) : ('profile.updatePassword' | t) }}
+                    @if (savingPassword()) {
+                      <span class="btn-spinner" aria-hidden="true"></span>
+                      {{ 'profile.saving' | t }}
+                    } @else {
+                      {{ 'profile.updatePassword' | t }}
+                    }
                   </button>
                 </form>
 
@@ -169,7 +179,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     </div>
                   }
                   <button type="button" class="btn btn-outline btn-block" [disabled]="sendingForgot()" (click)="sendResetEmail()">
-                    {{ sendingForgot() ? ('profile.sendingReset' | t) : ('profile.sendReset' | t) }}
+                    @if (sendingForgot()) {
+                      <span class="btn-spinner" aria-hidden="true"></span>
+                      {{ 'profile.sendingReset' | t }}
+                    } @else {
+                      {{ 'profile.sendReset' | t }}
+                    }
                   </button>
                 </div>
               </section>
@@ -197,7 +212,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     <div class="success-msg">{{ 'profile.privacySaved' | t }}</div>
                   }
                   <button type="submit" class="btn btn-primary btn-block" [disabled]="savingPrivacy()">
-                    {{ savingPrivacy() ? ('profile.saving' | t) : ('profile.savePrivacy' | t) }}
+                    @if (savingPrivacy()) {
+                      <span class="btn-spinner" aria-hidden="true"></span>
+                      {{ 'profile.saving' | t }}
+                    } @else {
+                      {{ 'profile.savePrivacy' | t }}
+                    }
                   </button>
                 </form>
               </section>

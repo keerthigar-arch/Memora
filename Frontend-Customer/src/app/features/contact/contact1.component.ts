@@ -158,7 +158,12 @@ import { ApiService } from '../../services/api.service';
         }
 
         <button type="submit" class="btn btn-primary btn-lg" [disabled]="sending()">
-          {{ sending() ? 'Sending...' : 'Send Message' }}
+          @if (sending()) {
+            <span class="btn-spinner" aria-hidden="true"></span>
+            Sending…
+          } @else {
+            Send Message
+          }
         </button>
 
       </form>

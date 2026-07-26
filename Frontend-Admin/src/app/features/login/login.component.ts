@@ -75,7 +75,12 @@ import { AuthService } from '../../services/auth.service';
           }
 
           <button type="submit" class="btn btn-primary btn-lg" [disabled]="loading()">
-            {{ loading() ? 'Signing in...' : 'Sign In' }}
+            @if (loading()) {
+              <span class="btn-spinner" aria-hidden="true"></span>
+              Signing in…
+            } @else {
+              Sign In
+            }
           </button>
         </form>
       </div>

@@ -90,6 +90,114 @@ public class EventsController : ControllerBase
         return null;
     }
 
+    private static string[] ParseUrlJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return Array.Empty<string>();
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<string[]>(json)
+                ?.Where(x => !string.IsNullOrWhiteSpace(x))
+                .ToArray()
+                ?? Array.Empty<string>();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    /// <summary>Maps absolute media URLs back to the relative paths stored in the DB.</summary>
+    private static string ToStoredMediaPath(string urlOrPath, string baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(urlOrPath))
+            return urlOrPath;
+        var trimmed = urlOrPath.Trim();
+        if (!string.IsNullOrEmpty(baseUrl) &&
+            trimmed.StartsWith(baseUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed[baseUrl.Length..];
+        }
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+            return uri.AbsolutePath;
+        return trimmed;
+    }
+
+    private static List<string> FilterKeptExistingPaths(string? existingJson, string? keepJson, string baseUrl)
+    {
+        var existing = ParseUrlJson(existingJson)
+            .Select(p => ToStoredMediaPath(p, baseUrl))
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToList();
+        var existingSet = existing.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return ParseUrlJson(keepJson)
+            .Select(p => ToStoredMediaPath(p, baseUrl))
+            .Where(p => !string.IsNullOrWhiteSpace(p) && existingSet.Contains(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private async Task<string?> BuildUpdatedGalleryJsonAsync(
+        string? existingJson,
+        string? keepGalleryUrls,
+        IEnumerable<IFormFile>? newFiles,
+        int storageUserId,
+        int entityId,
+        string baseUrl)
+    {
+        var hasKeepField = keepGalleryUrls != null;
+        var uploads = newFiles?.Where(f => f.Length > 0).ToList() ?? new List<IFormFile>();
+
+        if (!hasKeepField && uploads.Count == 0)
+            return existingJson;
+
+        var list = hasKeepField
+            ? FilterKeptExistingPaths(existingJson, keepGalleryUrls, baseUrl)
+            : new List<string>();
+
+        var room = Math.Max(0, MaxGalleryImages - list.Count);
+        foreach (var img in uploads.Take(room))
+        {
+            var url = await _fileStorage.SaveFileAsync(img, storageUserId, entityId);
+            if (url != null)
+                list.Add(url);
+        }
+
+        return list.Count > 0
+            ? System.Text.Json.JsonSerializer.Serialize(list)
+            : null;
+    }
+
+    private async Task<string?> BuildUpdatedVideoJsonAsync(
+        string? existingJson,
+        string? keepVideoUrls,
+        IEnumerable<IFormFile>? newFiles,
+        int entityId,
+        string baseUrl)
+    {
+        var hasKeepField = keepVideoUrls != null;
+        var uploads = newFiles?.Where(f => f.Length > 0).ToList() ?? new List<IFormFile>();
+
+        if (!hasKeepField && uploads.Count == 0)
+            return existingJson;
+
+        var list = hasKeepField
+            ? FilterKeptExistingPaths(existingJson, keepVideoUrls, baseUrl)
+            : new List<string>();
+
+        var room = Math.Max(0, MaxVideos - list.Count);
+        foreach (var vid in uploads.Take(room))
+        {
+            var url = await _fileStorage.SaveVideoFileAsync(vid, entityId);
+            if (url != null)
+                list.Add(url);
+        }
+
+        return list.Count > 0
+            ? System.Text.Json.JsonSerializer.Serialize(list)
+            : null;
+    }
+
     [HttpGet]
     public async Task<ActionResult<PagedResult<EventListDto>>> GetEvents(
         [FromQuery] int page = 1,
@@ -1018,34 +1126,25 @@ public class EventsController : ControllerBase
             if (url != null)
                 mainImageUrl = url;
         }
-
-        var galleryUrls = ev.GalleryUrls;
-        if (dto.GalleryImages != null && dto.GalleryImages.Any())
+        else if (dto.ClearMainImage == true)
         {
-            var list = new List<string>();
-            foreach (var img in dto.GalleryImages.Take(MaxGalleryImages))
-            {
-                var url = await _fileStorage.SaveFileAsync(img, storageUserId, id);
-                if (url != null)
-                    list.Add(url);
-            }
-            if (list.Count > 0)
-                galleryUrls = System.Text.Json.JsonSerializer.Serialize(list);
+            mainImageUrl = null;
         }
 
-        var videoUrls = ev.VideoUrls;
-        if (dto.Videos != null && dto.Videos.Any())
-        {
-            var list = new List<string>();
-            foreach (var vid in dto.Videos.Take(MaxVideos))
-            {
-                var url = await _fileStorage.SaveVideoFileAsync(vid, id);
-                if (url != null)
-                    list.Add(url);
-            }
-            if (list.Count > 0)
-                videoUrls = System.Text.Json.JsonSerializer.Serialize(list);
-        }
+        var galleryUrls = await BuildUpdatedGalleryJsonAsync(
+            ev.GalleryUrls,
+            dto.KeepGalleryUrls,
+            dto.GalleryImages,
+            storageUserId,
+            id,
+            baseUrl);
+
+        var videoUrls = await BuildUpdatedVideoJsonAsync(
+            ev.VideoUrls,
+            dto.KeepVideoUrls,
+            dto.Videos,
+            id,
+            baseUrl);
 
         ev.Title = dto.Title ?? ev.Title;
         ev.Description = dto.Description ?? ev.Description;
@@ -1178,32 +1277,25 @@ public class EventsController : ControllerBase
             if (url != null)
                 draft.MainImagePath = url;
         }
-
-        if (dto.GalleryImages != null && dto.GalleryImages.Any())
+        else if (dto.ClearMainImage == true)
         {
-            var list = new List<string>();
-            foreach (var img in dto.GalleryImages.Take(MaxGalleryImages))
-            {
-                var url = await _fileStorage.SaveFileAsync(img, storageUserId, draftId);
-                if (url != null)
-                    list.Add(url);
-            }
-            if (list.Count > 0)
-                draft.GalleryPathsJson = System.Text.Json.JsonSerializer.Serialize(list);
+            draft.MainImagePath = null;
         }
 
-        if (dto.Videos != null && dto.Videos.Any())
-        {
-            var list = new List<string>();
-            foreach (var vid in dto.Videos.Take(MaxVideos))
-            {
-                var url = await _fileStorage.SaveVideoFileAsync(vid, draftId);
-                if (url != null)
-                    list.Add(url);
-            }
-            if (list.Count > 0)
-                draft.VideoPathsJson = System.Text.Json.JsonSerializer.Serialize(list);
-        }
+        draft.GalleryPathsJson = await BuildUpdatedGalleryJsonAsync(
+            draft.GalleryPathsJson,
+            dto.KeepGalleryUrls,
+            dto.GalleryImages,
+            storageUserId,
+            draftId,
+            baseUrl);
+
+        draft.VideoPathsJson = await BuildUpdatedVideoJsonAsync(
+            draft.VideoPathsJson,
+            dto.KeepVideoUrls,
+            dto.Videos,
+            draftId,
+            baseUrl);
 
         if (!string.IsNullOrWhiteSpace(dto.Title))
             draft.Title = dto.Title;
@@ -1318,6 +1410,16 @@ public class UpdateEventFormDto
     public IFormFile? MainImage { get; set; }
     public IEnumerable<IFormFile>? GalleryImages { get; set; }
     public IEnumerable<IFormFile>? Videos { get; set; }
+    /// <summary>When true and no new MainImage is uploaded, clears the cover image.</summary>
+    public bool? ClearMainImage { get; set; }
+    /// <summary>
+    /// JSON string array of existing gallery URLs/paths to keep.
+    /// When provided (including <c>[]</c>), gallery is rebuilt as keep + newly uploaded files.
+    /// When omitted, gallery is unchanged unless new GalleryImages are uploaded (full replace).
+    /// </summary>
+    public string? KeepGalleryUrls { get; set; }
+    /// <summary>Same semantics as KeepGalleryUrls for videos.</summary>
+    public string? KeepVideoUrls { get; set; }
 }
 
 public record CountryCountDto(string Country, int Count);

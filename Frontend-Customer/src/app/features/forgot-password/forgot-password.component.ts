@@ -63,7 +63,12 @@ import { AuthService } from '../../services/auth.service';
             />
           </div>
           <button type="submit" class="btn btn-primary btn-lg" [disabled]="loading()">
-            {{ loading() ? 'Sending…' : 'Send reset link' }}
+            @if (loading()) {
+              <span class="btn-spinner" aria-hidden="true"></span>
+              Sending…
+            } @else {
+              Send reset link
+            }
           </button>
         </form>
 

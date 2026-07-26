@@ -211,9 +211,12 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 </h3>
                 <div class="sidebar-title-underline" aria-hidden="true"></div>
               </div>
-              @if (!recentWishesLoaded()) {
-                <p class="sidebar-muted">{{ 'feed.sidebarLoading' | t }}</p>
-              } @else if (recentWishes().length === 0) {
+                @if (!recentWishesLoaded()) {
+                  <div class="sidebar-loading">
+                    <div class="spinner spinner-inline"></div>
+                    <p class="sidebar-muted">{{ 'feed.sidebarLoading' | t }}</p>
+                  </div>
+                } @else if (recentWishes().length === 0) {
                 <p class="sidebar-muted">{{ 'myEvents.noWishes' | t }}</p>
               } @else {
                 <ul class="wish-list">
@@ -337,6 +340,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .sidebar-title-sparkle { color: #d4a012; font-size: 0.72em; }
     .sidebar-title-underline { height: 3px; margin-top: 0.45rem; border-radius: 999px; background: linear-gradient(90deg, transparent, rgba(26, 95, 74, 0.35) 15%, rgba(232, 185, 26, 0.65) 50%, rgba(26, 95, 74, 0.35) 85%, transparent); }
     .sidebar-muted { margin: 0; font-size: 0.82rem; color: #64748b; line-height: 1.45; }
+    .sidebar-loading { display: flex; align-items: center; gap: 0.55rem; }
     .wish-list { list-style: none; margin: 0; padding: 0; }
     .wish-list li { border-bottom: 1px solid #eef2f7; }
     .wish-list li:last-child { border-bottom: none; }

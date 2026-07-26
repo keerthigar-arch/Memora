@@ -68,7 +68,12 @@ import { AuthService } from '../../services/auth.service';
               <p class="field-hint">If you only have a username from your administrator, enter it here; we will still email the address on your account.</p>
             </div>
             <button type="submit" class="btn btn-primary btn-lg" [disabled]="loading()">
-              {{ loading() ? 'Sending…' : 'Send reset email' }}
+              @if (loading()) {
+                <span class="btn-spinner" aria-hidden="true"></span>
+                Sending…
+              } @else {
+                Send reset email
+              }
             </button>
           </form>
 

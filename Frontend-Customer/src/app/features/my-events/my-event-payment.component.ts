@@ -54,6 +54,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <span class="choice-sub">{{ 'myEvents.cardPaySub' | t }}</span>
           </button>
           <button type="button" class="choice offline-pay" (click)="payOffline()" [disabled]="busy()">
+            @if (busy()) {
+              <span class="btn-spinner choice-spinner" aria-hidden="true"></span>
+            }
             <span class="choice-title">{{ 'myEvents.offlinePay' | t }}</span>
             <span class="choice-sub">{{ 'myEvents.offlinePaySub' | t }}</span>
           </button>
@@ -160,7 +163,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 
           <div class="card-actions">
             <button type="button" class="pay-btn" (click)="payWithCard()" [disabled]="busy()">
-              {{ busy() ? ('myEvents.paying' | t) : ('myEvents.payAmount' | t: { amount: usd(price()) }) }}
+              @if (busy()) {
+                <span class="btn-spinner" aria-hidden="true"></span>
+                {{ 'myEvents.paying' | t }}
+              } @else {
+                {{ 'myEvents.payAmount' | t: { amount: usd(price()) } }}
+              }
             </button>
             <button type="button" class="back-choice" (click)="backToChoices()" [disabled]="busy()">
               {{ 'myEvents.backToMethods' | t }}
@@ -219,6 +227,13 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         background: #fff;
         cursor: pointer;
         transition: border-color 0.2s, box-shadow 0.2s;
+        display: grid;
+        gap: 0.15rem;
+      }
+      .choice .choice-spinner {
+        margin-bottom: 0.35rem;
+        border-color: rgba(26, 95, 74, 0.2);
+        border-top-color: #1a5f4a;
       }
       .choice:disabled { opacity: 0.6; cursor: not-allowed; }
       .choice:not(:disabled):hover { border-color: #1a5f4a; box-shadow: 0 6px 20px rgba(13, 61, 50, 0.08); }
@@ -370,6 +385,10 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         color: #fff;
         background: linear-gradient(135deg, #0d3d32, #1a5f4a);
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
       }
       .pay-btn:disabled { opacity: 0.65; cursor: not-allowed; }
       .back-choice {

@@ -21,6 +21,14 @@ type EditSnapshot = {
   country: string;
 };
 
+type EditMediaItem = {
+  key: string;
+  source: 'existing' | 'new';
+  url: string;
+  name: string;
+  file?: File;
+};
+
 @Component({
   selector: 'app-edit-event',
   standalone: true,
@@ -172,7 +180,7 @@ type EditSnapshot = {
                 </span>
                 <div class="media-copy">
                   <div class="media-title">Cover image</div>
-                  <p class="media-sub">Leave empty to keep current · JPG, PNG, GIF or WEBP · max 5MB</p>
+                  <p class="media-sub">Keep current, replace, or remove · JPG, PNG, GIF or WEBP · max 5MB</p>
                 </div>
                 @if (mainImagePreview()) {
                   <span class="media-chip">Ready</span>
@@ -201,7 +209,7 @@ type EditSnapshot = {
               }
             </div>
 
-            <div class="media-card" [class.media-card-ready]="galleryPreviews().length > 0">
+            <div class="media-card" [class.media-card-ready]="galleryItems().length > 0">
               <div class="media-card-head">
                 <span class="media-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -213,10 +221,10 @@ type EditSnapshot = {
                 </span>
                 <div class="media-copy">
                   <div class="media-title">Gallery</div>
-                  <p class="media-sub">Replaces current gallery · up to 8 photos · max 5MB each</p>
+                  <p class="media-sub">Keep, remove, or add · up to 8 photos · max 5MB each</p>
                 </div>
-                @if (galleryPreviews().length > 0) {
-                  <span class="media-chip">{{ galleryPreviews().length }} / 8</span>
+                @if (galleryItems().length > 0) {
+                  <span class="media-chip">{{ galleryItems().length }} / 8</span>
                 }
               </div>
               <label class="media-drop media-drop-compact">
@@ -226,19 +234,19 @@ type EditSnapshot = {
                   <span class="media-drop-meta">Click or drop multiple images</span>
                 </div>
               </label>
-              @if (galleryPreviews().length > 0) {
+              @if (galleryItems().length > 0) {
                 <div class="media-thumb-grid">
-                  @for (preview of galleryPreviews(); track preview.url; let i = $index) {
+                  @for (item of galleryItems(); track item.key; let i = $index) {
                     <div class="media-thumb-wrap">
-                      <div class="media-thumb" [style.background-image]="'url(' + preview.url + ')'" [title]="preview.name"></div>
-                      <button type="button" class="media-remove" (click)="removeGalleryImage(i)" [attr.aria-label]="'Remove ' + preview.name">×</button>
+                      <div class="media-thumb" [style.background-image]="'url(' + item.url + ')'" [title]="item.name"></div>
+                      <button type="button" class="media-remove" (click)="removeGalleryImage(i)" [attr.aria-label]="'Remove ' + item.name">×</button>
                     </div>
                   }
                 </div>
               }
             </div>
 
-            <div class="media-card" [class.media-card-ready]="videoPreviews().length > 0">
+            <div class="media-card" [class.media-card-ready]="videoItems().length > 0">
               <div class="media-card-head">
                 <span class="media-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -248,10 +256,10 @@ type EditSnapshot = {
                 </span>
                 <div class="media-copy">
                   <div class="media-title">Videos</div>
-                  <p class="media-sub">Replaces current videos · up to 3 files · MP4 / WEBM / MOV · max 100MB each</p>
+                  <p class="media-sub">Keep, remove, or add · up to 3 files · MP4 / WEBM / MOV · max 100MB each</p>
                 </div>
-                @if (videoPreviews().length > 0) {
-                  <span class="media-chip">{{ videoPreviews().length }} / 3</span>
+                @if (videoItems().length > 0) {
+                  <span class="media-chip">{{ videoItems().length }} / 3</span>
                 }
               </div>
               <label class="media-drop media-drop-compact">
@@ -261,15 +269,15 @@ type EditSnapshot = {
                   <span class="media-drop-meta">Shown on the event detail page</span>
                 </div>
               </label>
-              @if (videoPreviews().length > 0) {
+              @if (videoItems().length > 0) {
                 <div class="video-preview-grid">
-                  @for (preview of videoPreviews(); track preview.url; let i = $index) {
+                  @for (item of videoItems(); track item.key; let i = $index) {
                     <div class="video-preview-card">
                       <div class="video-preview-frame">
-                        <video class="video-preview" [src]="preview.url" controls playsinline preload="metadata"></video>
-                        <button type="button" class="media-remove media-remove-on-video" (click)="removeVideo(i)" [attr.aria-label]="'Remove ' + preview.name">×</button>
+                        <video class="video-preview" [src]="item.url" controls playsinline preload="metadata"></video>
+                        <button type="button" class="media-remove media-remove-on-video" (click)="removeVideo(i)" [attr.aria-label]="'Remove ' + item.name">×</button>
                       </div>
-                      <p class="video-preview-name">{{ preview.name }}</p>
+                      <p class="video-preview-name">{{ item.name }}</p>
                     </div>
                   }
                 </div>
@@ -282,8 +290,13 @@ type EditSnapshot = {
           }
 
           <div class="form-actions">
-            <button type="submit" class="btn btn-primary btn-lg" [disabled]="saving()">
-              {{ saving() ? 'Saving...' : 'Save Changes' }}
+            <button type="submit" class="btn btn-primary" [disabled]="saving()">
+              @if (saving()) {
+                <span class="btn-spinner" aria-hidden="true"></span>
+                Saving…
+              } @else {
+                Save Changes
+              }
             </button>
             <button type="button" class="btn btn-outline" (click)="onCancel()" [disabled]="saving()">Cancel</button>
           </div>
@@ -316,13 +329,61 @@ type EditSnapshot = {
       border-radius: var(--radius);
       box-shadow: var(--shadow);
     }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 1.25rem; }
+    .create-form .form-group { margin-bottom: 1.15rem; }
+    .create-form .form-group > label:not(.media-drop):not(.media-btn) {
+      display: block;
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--primary-dark);
+      line-height: 1.25;
+      margin-bottom: 0.45rem;
+    }
+    .create-form input:not([type="file"]),
+    .create-form textarea,
+    .create-form select {
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 10px;
+      border: 1px solid #dce8e3;
+      background: #fff;
+      padding: 0.7rem 0.9rem;
+      font-family: var(--font-body);
+      font-size: 0.9375rem;
+      color: var(--text);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .create-form input:not([type="file"]):hover,
+    .create-form textarea:hover,
+    .create-form select:hover { border-color: #c5d8d0; }
+    .create-form input:not([type="file"]):focus,
+    .create-form textarea:focus,
+    .create-form select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26, 95, 74, 0.12);
+    }
     .preview-img { max-width: 200px; max-height: 150px; border-radius: var(--radius); margin-top: 0.5rem; object-fit: cover; }
     .error-msg { background: #fef2f2; color: #c53030; padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; }
-    .form-actions { display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
-    .btn-lg { padding: 1rem 2rem; font-size: 1.05rem; }
+    .form-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.35rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(13, 61, 50, 0.08);
+      flex-wrap: wrap;
+    }
+    .form-actions .btn {
+      min-height: 2.5rem;
+      padding: 0.55rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      border-radius: 8px;
+    }
     .invite-section textarea { min-height: 80px; }
-    .form-hint { font-size: 0.875rem; color: var(--text-muted); margin: -0.25rem 0 0.5rem; }
+    .form-hint { font-size: 0.8125rem; color: var(--text-muted); margin: -0.15rem 0 0.5rem; line-height: 1.45; }
 
     .media-stack { display: flex; flex-direction: column; gap: 1rem; margin-top: 0.5rem; }
     .media-card {
@@ -375,10 +436,14 @@ type EditSnapshot = {
     }
     .media-btn {
       display: inline-flex; align-items: center; justify-content: center; min-height: 2rem;
-      padding: 0.35rem 0.85rem; border-radius: 999px; border: 0; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+      padding: 0.4rem 0.85rem; border-radius: 7px; border: 1px solid transparent;
+      font-family: var(--font-body); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.01em; cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
     }
-    .media-btn-secondary { background: rgba(255,255,255,0.14); color: #fff; }
-    .media-btn-danger { background: #fee2e2; color: #b91c1c; }
+    .media-btn-secondary { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.18); color: #fff; }
+    .media-btn-secondary:hover { background: rgba(255,255,255,0.2); }
+    .media-btn-danger { background: rgba(254, 226, 226, 0.95); color: #991b1b; }
+    .media-btn-danger:hover { background: #fecaca; }
     .media-thumb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 0.65rem; margin-top: 0.85rem; }
     .media-thumb-wrap { position: relative; }
     .media-thumb {
@@ -443,11 +508,14 @@ export class EditEventComponent implements OnInit, OnDestroy {
   location = '';
   country = '';
   mainImage: File | null = null;
-  galleryImages: File[] = [];
-  videos: File[] = [];
+  /** Cover URL currently kept from the server (null when removed or replaced by a new file). */
+  existingMainUrl: string | null = null;
   mainImagePreview = signal<string | null>(null);
-  galleryPreviews = signal<{ url: string; name: string }[]>([]);
-  videoPreviews = signal<{ url: string; name: string }[]>([]);
+  galleryItems = signal<EditMediaItem[]>([]);
+  videoItems = signal<EditMediaItem[]>([]);
+  private initialExistingMainUrl: string | null = null;
+  private initialGalleryUrls: string[] = [];
+  private initialVideoUrls: string[] = [];
   event = signal<{ id: number; eventType: string; birthDate?: string; deathDate?: string; weddingDate?: string; visibility?: string; invitedEmails?: string[] } | null>(null);
   loading = signal(true);
   saving = signal(false);
@@ -484,7 +552,23 @@ export class EditEventComponent implements OnInit, OnDestroy {
 
   hasUnsavedChanges(): boolean {
     if (!this.initialSnapshot || this.allowLeave) return false;
-    if (this.mainImage || this.galleryImages.length > 0 || this.videos.length > 0) return true;
+    if (this.mainImage || this.existingMainUrl !== this.initialExistingMainUrl) return true;
+    if (this.galleryItems().some((i) => i.source === 'new')) return true;
+    if (this.videoItems().some((i) => i.source === 'new')) return true;
+    const keptGallery = this.galleryItems().filter((i) => i.source === 'existing').map((i) => i.url);
+    const keptVideos = this.videoItems().filter((i) => i.source === 'existing').map((i) => i.url);
+    if (
+      keptGallery.length !== this.initialGalleryUrls.length ||
+      keptGallery.some((url, i) => url !== this.initialGalleryUrls[i])
+    ) {
+      return true;
+    }
+    if (
+      keptVideos.length !== this.initialVideoUrls.length ||
+      keptVideos.some((url, i) => url !== this.initialVideoUrls[i])
+    ) {
+      return true;
+    }
     const current = this.captureSnapshot();
     return (Object.keys(current) as (keyof EditSnapshot)[]).some(
       (key) => (current[key] ?? '') !== (this.initialSnapshot![key] ?? '')
@@ -548,6 +632,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
         this.invitedEmails = (ev.invitedEmails ?? []).join(', ');
         this.location = ev.location ?? '';
         this.country = ev.country ?? '';
+        this.applyExistingMedia(ev.mainImageUrl, ev.galleryUrls, ev.videoUrls);
         this.initialSnapshot = this.captureSnapshot();
         this.loading.set(false);
       },
@@ -583,7 +668,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
         this.invitedEmails = d.invitedEmails ?? '';
         this.location = d.location ?? '';
         this.country = d.country ?? '';
-        if (d.mainImageUrl) this.mainImagePreview.set(d.mainImageUrl);
+        this.applyExistingMedia(d.mainImageUrl, d.galleryUrlsJson, d.videoUrlsJson);
         this.initialSnapshot = this.captureSnapshot();
         this.loading.set(false);
       },
@@ -592,6 +677,70 @@ export class EditEventComponent implements OnInit, OnDestroy {
         this.loading.set(false);
       }
     });
+  }
+
+  private parseMediaUrls(raw?: string | null): string[] {
+    if (!raw?.trim()) return [];
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((x): x is string => typeof x === 'string' && !!x.trim());
+    } catch {
+      return [];
+    }
+  }
+
+  private mediaFileName(url: string, fallback: string): string {
+    try {
+      const path = url.includes('://') ? new URL(url).pathname : url;
+      const name = path.split('/').pop();
+      return name && name.trim() ? decodeURIComponent(name) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  private applyExistingMedia(
+    mainImageUrl?: string | null,
+    galleryJson?: string | null,
+    videoJson?: string | null
+  ): void {
+    this.revokeNewObjectUrls(this.galleryItems());
+    this.revokeNewObjectUrls(this.videoItems());
+
+    const cover = mainImageUrl?.trim() || null;
+    this.existingMainUrl = cover;
+    this.initialExistingMainUrl = cover;
+    this.mainImage = null;
+    this.mainImagePreview.set(cover);
+
+    const galleryUrls = this.parseMediaUrls(galleryJson);
+    const videoUrls = this.parseMediaUrls(videoJson);
+    this.initialGalleryUrls = [...galleryUrls];
+    this.initialVideoUrls = [...videoUrls];
+
+    this.galleryItems.set(
+      galleryUrls.map((url, index) => ({
+        key: `g-existing-${index}-${url}`,
+        source: 'existing' as const,
+        url,
+        name: this.mediaFileName(url, `Photo ${index + 1}`)
+      }))
+    );
+    this.videoItems.set(
+      videoUrls.map((url, index) => ({
+        key: `v-existing-${index}-${url}`,
+        source: 'existing' as const,
+        url,
+        name: this.mediaFileName(url, `Video ${index + 1}`)
+      }))
+    );
+  }
+
+  private revokeNewObjectUrls(items: EditMediaItem[]): void {
+    for (const item of items) {
+      if (item.source === 'new') URL.revokeObjectURL(item.url);
+    }
   }
 
   onMainImageChange(e: Event) {
@@ -613,6 +762,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
     }
     this.error.set('');
     this.mainImage = file;
+    this.existingMainUrl = null;
     const reader = new FileReader();
     reader.onload = () => this.mainImagePreview.set(reader.result as string);
     reader.readAsDataURL(file);
@@ -621,6 +771,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
 
   removeMainImage(): void {
     this.mainImage = null;
+    this.existingMainUrl = null;
     this.mainImagePreview.set(null);
   }
 
@@ -638,7 +789,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
       validFiles.push(file);
     }
 
-    const room = Math.max(0, 8 - this.galleryImages.length);
+    const room = Math.max(0, 8 - this.galleryItems().length);
     const accepted = validFiles.slice(0, room);
     if (validFiles.length > room) {
       this.error.set('Maximum 8 gallery images allowed. Extra files were skipped.');
@@ -648,16 +799,24 @@ export class EditEventComponent implements OnInit, OnDestroy {
       this.error.set('');
     }
 
-    this.galleryImages = [...this.galleryImages, ...accepted];
-    this.setGalleryPreviews(this.galleryImages);
+    const stamp = Date.now();
+    const added: EditMediaItem[] = accepted.map((file, index) => ({
+      key: `g-new-${stamp}-${index}-${file.name}`,
+      source: 'new',
+      url: URL.createObjectURL(file),
+      name: file.name,
+      file
+    }));
+    this.galleryItems.update((items) => [...items, ...added]);
     input.value = '';
   }
 
   removeGalleryImage(index: number): void {
-    const next = [...this.galleryImages];
-    next.splice(index, 1);
-    this.galleryImages = next;
-    this.setGalleryPreviews(next);
+    const current = this.galleryItems();
+    const target = current[index];
+    if (!target) return;
+    if (target.source === 'new') URL.revokeObjectURL(target.url);
+    this.galleryItems.set(current.filter((_, i) => i !== index));
   }
 
   onVideosChange(e: Event) {
@@ -676,7 +835,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
       validFiles.push(file);
     }
 
-    const room = Math.max(0, 3 - this.videos.length);
+    const room = Math.max(0, 3 - this.videoItems().length);
     const accepted = validFiles.slice(0, room);
     if (validFiles.length > room) {
       this.error.set('Maximum 3 videos allowed. Extra files were skipped.');
@@ -686,39 +845,29 @@ export class EditEventComponent implements OnInit, OnDestroy {
       this.error.set('');
     }
 
-    this.videos = [...this.videos, ...accepted];
-    this.setVideoPreviews(this.videos);
+    const stamp = Date.now();
+    const added: EditMediaItem[] = accepted.map((file, index) => ({
+      key: `v-new-${stamp}-${index}-${file.name}`,
+      source: 'new',
+      url: URL.createObjectURL(file),
+      name: file.name,
+      file
+    }));
+    this.videoItems.update((items) => [...items, ...added]);
     input.value = '';
   }
 
   removeVideo(index: number): void {
-    const next = [...this.videos];
-    next.splice(index, 1);
-    this.videos = next;
-    this.setVideoPreviews(next);
-  }
-
-  private setGalleryPreviews(files: File[]): void {
-    for (const preview of this.galleryPreviews()) {
-      URL.revokeObjectURL(preview.url);
-    }
-    this.galleryPreviews.set(files.map((file) => ({ url: URL.createObjectURL(file), name: file.name })));
-  }
-
-  private setVideoPreviews(files: File[]): void {
-    for (const preview of this.videoPreviews()) {
-      URL.revokeObjectURL(preview.url);
-    }
-    this.videoPreviews.set(files.map((file) => ({ url: URL.createObjectURL(file), name: file.name })));
+    const current = this.videoItems();
+    const target = current[index];
+    if (!target) return;
+    if (target.source === 'new') URL.revokeObjectURL(target.url);
+    this.videoItems.set(current.filter((_, i) => i !== index));
   }
 
   ngOnDestroy(): void {
-    for (const preview of this.galleryPreviews()) {
-      URL.revokeObjectURL(preview.url);
-    }
-    for (const preview of this.videoPreviews()) {
-      URL.revokeObjectURL(preview.url);
-    }
+    this.revokeNewObjectUrls(this.galleryItems());
+    this.revokeNewObjectUrls(this.videoItems());
   }
 
   onVisibilityChange(v: string) {
@@ -750,6 +899,10 @@ export class EditEventComponent implements OnInit, OnDestroy {
       this.error.set('Please add at least one email to invite.');
       return;
     }
+    if (!this.mainImage && !this.existingMainUrl) {
+      this.error.set('Cover image is required. Keep the current one or upload a new photo.');
+      return;
+    }
     this.saving.set(true);
     this.error.set('');
 
@@ -770,9 +923,30 @@ export class EditEventComponent implements OnInit, OnDestroy {
     }
     formData.append('location', this.location);
     formData.append('country', this.country);
-    if (this.mainImage) formData.append('mainImage', this.mainImage);
-    this.galleryImages.forEach(f => formData.append('galleryImages', f));
-    this.videos.forEach(f => formData.append('videos', f));
+
+    if (this.mainImage) {
+      formData.append('mainImage', this.mainImage);
+    } else if (!this.existingMainUrl && this.initialExistingMainUrl) {
+      formData.append('clearMainImage', 'true');
+    }
+
+    const keepGallery = this.galleryItems()
+      .filter((i) => i.source === 'existing')
+      .map((i) => i.url);
+    const newGallery = this.galleryItems()
+      .filter((i) => i.source === 'new' && i.file)
+      .map((i) => i.file!);
+    formData.append('keepGalleryUrls', JSON.stringify(keepGallery));
+    newGallery.forEach((f) => formData.append('galleryImages', f));
+
+    const keepVideos = this.videoItems()
+      .filter((i) => i.source === 'existing')
+      .map((i) => i.url);
+    const newVideos = this.videoItems()
+      .filter((i) => i.source === 'new' && i.file)
+      .map((i) => i.file!);
+    formData.append('keepVideoUrls', JSON.stringify(keepVideos));
+    newVideos.forEach((f) => formData.append('videos', f));
 
     const save$: Observable<unknown> = this.isDraft()
       ? this.api.updateDraft(this.draftId, formData)

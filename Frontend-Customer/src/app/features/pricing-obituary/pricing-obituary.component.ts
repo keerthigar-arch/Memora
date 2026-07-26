@@ -34,8 +34,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 
       <div class="container pricing-shell">
         @if (loading()) {
-          <div class="lift-card status-card" aria-busy="true">
-            <div class="status-shimmer"></div>
+          <div class="lift-card status-card loading-state" aria-busy="true">
+            <div class="spinner"></div>
             <p class="status-label">Loading pricing…</p>
           </div>
         } @else if (error()) {

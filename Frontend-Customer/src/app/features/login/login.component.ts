@@ -81,7 +81,12 @@ const REMEMBER_EMAIL_KEY = 'memora_customer_login_email';
           <div class="error-msg">{{ error() }}</div>
         }
         <button type="submit" class="btn btn-primary btn-lg" [disabled]="loading()">
-          {{ loading() ? 'Logging in…' : 'Login' }}
+          @if (loading()) {
+            <span class="btn-spinner" aria-hidden="true"></span>
+            Logging in…
+          } @else {
+            Login
+          }
         </button>
         <button type="button" class="btn btn-outline btn-test" (click)="useTestAccount()">
           Use test account

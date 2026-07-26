@@ -13,7 +13,8 @@ const RETURN_STORAGE_KEY = 'memora_pricing_return';
     <div class="page">
       <div class="container shell">
         @if (busy()) {
-          <div class="lift-card" aria-busy="true">
+          <div class="lift-card loading-state" aria-busy="true">
+            <div class="spinner"></div>
             <p>Confirming your payment…</p>
           </div>
         } @else if (error()) {

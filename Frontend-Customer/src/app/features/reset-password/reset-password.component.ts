@@ -60,7 +60,12 @@ type ViewState = 'loading' | 'invalid' | 'form' | 'submitting';
               />
             </div>
             <button type="submit" class="btn btn-primary btn-lg" [disabled]="state() === 'submitting'">
-              {{ state() === 'submitting' ? 'Saving…' : 'Update password' }}
+              @if (state() === 'submitting') {
+                <span class="btn-spinner" aria-hidden="true"></span>
+                Saving…
+              } @else {
+                Update password
+              }
             </button>
           </form>
           <p class="back-wrap">
