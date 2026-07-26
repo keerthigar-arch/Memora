@@ -22,6 +22,8 @@ public class PaymentsController : ControllerBase
     private readonly PricingOrderService _pricingOrders;
     private readonly AdminNotificationService _notifications;
     private readonly EventInviteEmailService _inviteEmail;
+    private readonly PaymentReferenceService _references;
+    private readonly PaymentEmailService _paymentEmail;
 
     public PaymentsController(
         AppDbContext db,
@@ -31,7 +33,9 @@ public class PaymentsController : ControllerBase
         StripeService stripe,
         PricingOrderService pricingOrders,
         AdminNotificationService notifications,
-        EventInviteEmailService inviteEmail)
+        EventInviteEmailService inviteEmail,
+        PaymentReferenceService references,
+        PaymentEmailService paymentEmail)
     {
         _db = db;
         _fileStorage = fileStorage;
@@ -41,6 +45,8 @@ public class PaymentsController : ControllerBase
         _pricingOrders = pricingOrders;
         _notifications = notifications;
         _inviteEmail = inviteEmail;
+        _references = references;
+        _paymentEmail = paymentEmail;
     }
 
     [HttpGet("display-options")]
@@ -169,57 +175,19 @@ public class PaymentsController : ControllerBase
     }
 
     /// <summary>
-    /// Customer card payment queues the draft for admin Payments (mark/publish).
-    /// Admin-owned drafts publish immediately after card confirmation.
+    /// Card payment is paid immediately — publish the event for both customer and admin drafts.
+    /// Only offline payment goes through the admin approval queue.
     /// </summary>
     private async Task<ActionResult<EventDetailDto>> CompleteCardPaymentForDraftAsync(
         PendingEvent draft,
         CancellationToken ct)
     {
         draft.PaymentMethod = "Card";
-
-        var ownerIsCustomer = false;
-        if (draft.UserId.HasValue)
-        {
-            var owner = await _db.Users.AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == draft.UserId.Value, ct);
-            ownerIsCustomer = owner != null && string.Equals(owner.Role, "Customer", StringComparison.OrdinalIgnoreCase);
-        }
-
-        if (ownerIsCustomer)
-        {
-            // Queue for admin: mark Received, then publish separately.
-            draft.PaymentReceived = false;
-            draft.AwaitingOfflineApproval = true;
-            draft.OfflineSubmittedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync(ct);
-            await _notifications.NotifyCustomerOfflineSubmittedAsync(draft, ct);
-            // Customer must wait for admin mark/publish — no live event yet.
-            return Ok(new EventDetailDto(
-                0,
-                draft.Title,
-                draft.Description,
-                draft.EventType,
-                draft.EventDate,
-                draft.BirthDate,
-                draft.DeathDate,
-                draft.WeddingDate,
-                draft.Location,
-                draft.Country,
-                null,
-                null,
-                null,
-                draft.CreatedBy,
-                draft.CreatedAt,
-                new List<WishDto>(),
-                draft.Visibility,
-                true,
-                false,
-                null
-            ));
-        }
-
         draft.PaymentReceived = true;
+        draft.AwaitingOfflineApproval = false;
+        draft.OfflineSubmittedAt = null;
+        if (string.IsNullOrWhiteSpace(draft.ReferenceCode))
+            draft.ReferenceCode = await _references.GenerateUniqueReferenceAsync(ct);
         return await PublishDraftAsync(draft, ct);
     }
 
@@ -234,6 +202,11 @@ public class PaymentsController : ControllerBase
         var draftVideoJson = draft.VideoPathsJson;
         var invitedEmailsRaw = draft.InvitedEmails;
         var uid = draft.UserId ?? 0;
+        var paymentMethod = string.IsNullOrWhiteSpace(draft.PaymentMethod) ? "Card" : draft.PaymentMethod;
+        var referenceCode = draft.ReferenceCode;
+        var amountPaid = draft.AmountPaid;
+        var ownerUserId = draft.UserId;
+        var eventTitle = draft.Title;
 
         var baseUrl = _fileStorage.GetBaseUrl(Request);
         var validityEnd = DateTime.UtcNow.AddDays(draft.DisplayDays);
@@ -258,6 +231,8 @@ public class PaymentsController : ControllerBase
             DisplayDays = draft.DisplayDays,
             DisplayValidityEndDate = validityEnd,
             PaymentReceived = true,
+            PaymentMethod = paymentMethod,
+            ReferenceCode = referenceCode,
             CurrencyCode = "USD",
             AmountPaid = draft.AmountPaid
         };
@@ -301,6 +276,20 @@ public class PaymentsController : ControllerBase
 
         await _notifications.ClearNotificationsOnPublishAsync(draftId, ct);
 
+        if (!string.IsNullOrWhiteSpace(referenceCode) && ownerUserId.HasValue)
+        {
+            if (string.Equals(paymentMethod, "Offline", StringComparison.OrdinalIgnoreCase))
+            {
+                await _paymentEmail.SendOfflinePublishedAsync(
+                    ownerUserId, eventTitle, referenceCode, amountPaid, ev.Id, ct);
+            }
+            else if (string.Equals(paymentMethod, "Card", StringComparison.OrdinalIgnoreCase))
+            {
+                await _paymentEmail.SendCardPaymentSuccessAsync(
+                    ownerUserId, eventTitle, referenceCode, amountPaid, ev.Id, ct);
+            }
+        }
+
         return Ok(new EventDetailDto(
             ev.Id,
             ev.Title,
@@ -342,16 +331,6 @@ public class PaymentsController : ControllerBase
             return Forbid();
 
         var result = await CompleteCardPaymentForDraftAsync(draft, ct);
-        if (result.Result is OkObjectResult ok && ok.Value is EventDetailDto ev && ev.Id == 0)
-        {
-            return Ok(new
-            {
-                awaitingApproval = true,
-                draftId = draft.Id,
-                message = "Card payment submitted. An admin will confirm payment and publish your event."
-            });
-        }
-
         return result.Result ?? Ok(result.Value);
     }
 
@@ -372,17 +351,41 @@ public class PaymentsController : ControllerBase
             return Forbid();
 
         if (draft.AwaitingOfflineApproval)
-            return Ok(new { message = "Already submitted for approval.", draftId = draft.Id });
+        {
+            return Ok(new
+            {
+                message = "Already submitted for approval.",
+                draftId = draft.Id,
+                referenceCode = draft.ReferenceCode
+            });
+        }
 
         draft.PaymentMethod = "Offline";
         draft.PaymentReceived = false;
         draft.AwaitingOfflineApproval = true;
         draft.OfflineSubmittedAt = DateTime.UtcNow;
+        if (string.IsNullOrWhiteSpace(draft.ReferenceCode))
+            draft.ReferenceCode = await _references.GenerateUniqueReferenceAsync(ct);
         await _db.SaveChangesAsync(ct);
 
         await _notifications.NotifyCustomerOfflineSubmittedAsync(draft, ct);
 
-        return Ok(new { message = "Submitted for admin approval. You will see it on the feed after approval.", draftId = draft.Id });
+        if (!string.IsNullOrWhiteSpace(draft.ReferenceCode))
+        {
+            await _paymentEmail.SendOfflinePaymentPendingAsync(
+                draft.UserId,
+                draft.Title,
+                draft.ReferenceCode,
+                draft.AmountPaid,
+                ct);
+        }
+
+        return Ok(new
+        {
+            message = "Submitted for admin approval. You will see it on the feed after approval.",
+            draftId = draft.Id,
+            referenceCode = draft.ReferenceCode
+        });
     }
 
     /// <summary>Admin: offline payment drafts awaiting approval.</summary>
@@ -391,8 +394,10 @@ public class PaymentsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<CustomerDraftListDto>>> GetPendingOfflineApprovals(CancellationToken ct)
     {
         var baseUrl = _fileStorage.GetBaseUrl(Request);
+        // Card payments publish immediately; only offline submissions wait here.
         var drafts = await _db.PendingEvents.AsNoTracking()
-            .Where(d => d.AwaitingOfflineApproval)
+            .Where(d => d.AwaitingOfflineApproval &&
+                        (d.PaymentMethod == null || d.PaymentMethod == "Offline"))
             .OrderByDescending(d => d.OfflineSubmittedAt ?? d.CreatedAt)
             .ToListAsync(ct);
 
@@ -431,7 +436,79 @@ public class PaymentsController : ControllerBase
                 FileStorageService.NormalizeUrl(d.MainImagePath, baseUrl),
                 d.OfflineSubmittedAt,
                 ownerName,
-                ownerEmail
+                ownerEmail,
+                d.ReferenceCode
+            );
+        }).ToList();
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Admin: published customer event payments (card and offline) for the Payments page history.
+    /// Card payments publish immediately — this is how they remain visible after payment.
+    /// </summary>
+    [HttpGet("customer-paid")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<IReadOnlyList<CustomerPaidEventDto>>> GetCustomerPaidEvents(
+        [FromQuery] string? paymentMethod,
+        CancellationToken ct)
+    {
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
+        var methodFilter = string.IsNullOrWhiteSpace(paymentMethod)
+            ? null
+            : paymentMethod.Trim();
+
+        var query = _db.Events.AsNoTracking()
+            .Where(e => e.PaymentReceived
+                        && e.IsPublished
+                        && e.PaymentMethod != null
+                        && (e.PaymentMethod == "Card" || e.PaymentMethod == "Offline"));
+
+        if (!string.IsNullOrEmpty(methodFilter))
+        {
+            query = query.Where(e => e.PaymentMethod == methodFilter);
+        }
+
+        var events = await query
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(200)
+            .ToListAsync(ct);
+
+        var userIds = events
+            .Where(e => e.UserId.HasValue)
+            .Select(e => e.UserId!.Value)
+            .Distinct()
+            .ToList();
+        var owners = userIds.Count == 0
+            ? new Dictionary<int, (string DisplayName, string Email)>()
+            : await _db.Users.AsNoTracking()
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => (u.DisplayName, u.Email), ct);
+
+        var items = events.Select(e =>
+        {
+            string? ownerName = null;
+            string? ownerEmail = null;
+            if (e.UserId.HasValue && owners.TryGetValue(e.UserId.Value, out var owner))
+            {
+                ownerName = owner.DisplayName;
+                ownerEmail = owner.Email;
+            }
+
+            return new CustomerPaidEventDto(
+                e.Id,
+                e.Title,
+                e.EventType,
+                e.EventDate,
+                e.DisplayDays ?? 0,
+                e.AmountPaid,
+                e.PaymentMethod!,
+                e.CreatedAt,
+                FileStorageService.NormalizeUrl(e.MainImageUrl, baseUrl),
+                ownerName,
+                ownerEmail,
+                e.ReferenceCode
             );
         }).ToList();
 
@@ -480,7 +557,8 @@ public class PaymentsController : ControllerBase
             draft.OfflineSubmittedAt,
             owner?.DisplayName,
             owner?.Email,
-            draft.InvitedEmails
+            draft.InvitedEmails,
+            draft.ReferenceCode
         ));
     }
 
@@ -522,6 +600,9 @@ public class PaymentsController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(draft.PaymentMethod))
             draft.PaymentMethod = "Offline";
+        if (string.IsNullOrWhiteSpace(draft.ReferenceCode))
+            draft.ReferenceCode = await _references.GenerateUniqueReferenceAsync(ct);
+
         return await PublishDraftAsync(draft, ct);
     }
 }
@@ -529,5 +610,4 @@ public class PaymentsController : ControllerBase
 public record CreateCheckoutRequest(int DraftId);
 public record VerifySessionRequest(string SessionId);
 public record ConfirmPaymentRequest(int DraftId);
-
 

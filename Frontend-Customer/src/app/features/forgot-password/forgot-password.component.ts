@@ -36,7 +36,7 @@ import { AuthService } from '../../services/auth.service';
         @if (devResetUrl()) {
           <div class="dev-reset-banner" role="region" aria-label="Development reset link">
             <p class="dev-reset-title">No real email in dev mode — open this link to reset:</p>
-            <a class="dev-reset-link" [href]="devResetUrl()!" target="_blank" rel="noopener noreferrer">{{
+            <a class="dev-reset-link" [href]="devResetUrl()!">{{
               devResetUrl()
             }}</a>
             <p class="dev-reset-hint">

@@ -105,7 +105,24 @@ public record CustomerDraftListDto(
     string? MainImageUrl,
     DateTime? OfflineSubmittedAt = null,
     string? OwnerDisplayName = null,
-    string? OwnerEmail = null
+    string? OwnerEmail = null,
+    string? ReferenceCode = null
+);
+
+/// <summary>Published customer event payment (card or offline) for the admin Payments page.</summary>
+public record CustomerPaidEventDto(
+    int Id,
+    string Title,
+    string EventType,
+    DateTime EventDate,
+    int DisplayDays,
+    decimal AmountPaid,
+    string PaymentMethod,
+    DateTime PaidAt,
+    string? MainImageUrl,
+    string? OwnerDisplayName,
+    string? OwnerEmail,
+    string? ReferenceCode = null
 );
 
 public record CustomerDraftDetailDto(
@@ -133,7 +150,8 @@ public record CustomerDraftDetailDto(
     DateTime? OfflineSubmittedAt,
     string? OwnerDisplayName,
     string? OwnerEmail,
-    string? InvitedEmails = null
+    string? InvitedEmails = null,
+    string? ReferenceCode = null
 );
 
 public record RecentWishSidebarDto(

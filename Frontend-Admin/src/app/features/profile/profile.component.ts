@@ -1,12 +1,13 @@
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AuthService, UserProfile } from '../../services/auth.service';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     @if (loading()) {
       <div class="container loading-wrap">
@@ -18,6 +19,7 @@ import { AuthService, UserProfile } from '../../services/auth.service';
         <header class="profile-hero" aria-labelledby="admin-profile-heading">
           <div class="hero-backdrop" aria-hidden="true"></div>
           <div class="container profile-hero-inner">
+            <a routerLink="/events" class="back-link">← Back to events</a>
             <div class="hero-shell">
               <div class="hero-head">
                 <p class="hero-kicker">Memora Admin</p>
@@ -199,6 +201,18 @@ import { AuthService, UserProfile } from '../../services/auth.service';
       position: relative;
       z-index: 1;
     }
+    .profile-hero-inner > .back-link {
+      display: inline-block;
+      margin-bottom: 0.85rem;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .profile-hero-inner > .back-link:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
     .hero-shell {
       max-width: 1040px;
       margin: 0 auto;
@@ -362,7 +376,7 @@ import { AuthService, UserProfile } from '../../services/auth.service';
       margin: 0 auto;
       align-items: start;
     }
-    @media (min-width: 900px) {
+    @media (min-width: 992px) {
       .profile-columns {
         grid-template-columns: 1.15fr 0.85fr;
         gap: 1.5rem;
@@ -517,7 +531,7 @@ import { AuthService, UserProfile } from '../../services/auth.service';
         transform: rotate(360deg);
       }
     }
-    @media (max-width: 600px) {
+    @media (max-width: 767px) {
       .details-grid {
         grid-template-columns: 1fr;
       }
@@ -545,6 +559,22 @@ import { AuthService, UserProfile } from '../../services/auth.service';
       .meta-block {
         flex: 1;
         min-width: 0;
+      }
+      .profile-card {
+        padding: 1.25rem 1.15rem 1.35rem;
+      }
+      .profile-body {
+        padding-left: var(--container-pad, 1rem);
+        padding-right: var(--container-pad, 1rem);
+      }
+    }
+    @media (max-width: 480px) {
+      .avatar {
+        width: 4.5rem;
+        height: 4.5rem;
+      }
+      .hero-identity-card {
+        padding: 0.85rem;
       }
     }
     @media (min-width: 768px) {

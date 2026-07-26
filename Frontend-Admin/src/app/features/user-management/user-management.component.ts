@@ -65,7 +65,9 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
                 <tr>
                   <td class="td-avatar">
                     @if (u.profileImageUrl) {
-                      <img [src]="u.profileImageUrl" alt="" class="avatar" width="40" height="40" />
+                      <span class="avatar" aria-hidden="true">
+                        <img [src]="u.profileImageUrl" alt="" />
+                      </span>
                     } @else {
                       <span class="avatar-ph" aria-hidden="true">{{ initials(u.displayName) }}</span>
                     }
@@ -306,16 +308,34 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
         width: 3.25rem;
       }
       .avatar {
+        display: inline-flex;
         width: 40px;
         height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        aspect-ratio: 1 / 1;
         border-radius: 50%;
-        object-fit: cover;
+        overflow: hidden;
         border: 1px solid var(--border);
+        background: #fff;
+        flex-shrink: 0;
+        vertical-align: middle;
+      }
+      .avatar img {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        object-fit: cover;
+        object-position: center;
+        display: block;
       }
       .avatar-ph {
         display: inline-flex;
         width: 40px;
         height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        aspect-ratio: 1 / 1;
         border-radius: 50%;
         align-items: center;
         justify-content: center;
@@ -324,6 +344,8 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
         background: rgba(26, 95, 74, 0.15);
         color: var(--primary-dark);
         border: 1px solid var(--border);
+        flex-shrink: 0;
+        vertical-align: middle;
       }
       .name-cell {
         font-weight: 600;
@@ -363,6 +385,64 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
         font-weight: 600;
         min-width: 6rem;
         text-align: center;
+      }
+
+      /* Tablet Portrait and below */
+      @media (max-width: 991px) {
+        .filters-card {
+          padding: 0.9rem 1rem;
+        }
+        .user-table {
+          min-width: 640px;
+          font-size: 0.8125rem;
+        }
+        .user-table th,
+        .user-table td {
+          padding: 0.65rem 0.75rem;
+        }
+      }
+
+      /* Mobile Large and below */
+      @media (max-width: 767px) {
+        .fld-grow {
+          min-width: 0;
+          width: 100%;
+        }
+        .filters-row {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .filters-actions-inline {
+          width: 100%;
+        }
+        .filters-actions-inline .btn {
+          flex: 1 1 auto;
+        }
+        .pager-bar {
+          flex-direction: column;
+          align-items: stretch;
+          text-align: center;
+        }
+        .pager-btns {
+          justify-content: center;
+        }
+      }
+
+      /* Mobile Small */
+      @media (max-width: 480px) {
+        .page-head {
+          padding-top: 1rem;
+        }
+        .user-table {
+          min-width: 560px;
+        }
+        .avatar,
+        .avatar-ph {
+          width: 32px;
+          height: 32px;
+          min-width: 32px;
+          min-height: 32px;
+        }
       }
     `
   ]

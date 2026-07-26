@@ -271,9 +271,21 @@ import { NotificationService } from '../../services/notification.service';
         margin: 0 auto 1rem;
       }
       @keyframes spin { to { transform: rotate(360deg); } }
-      @media (max-width: 860px) {
-        .detail-layout { grid-template-columns: 1fr; }
+      @media (max-width: 991px) {
+        .detail-layout { grid-template-columns: 1fr; gap: 1rem; }
         .detail-aside { position: static; }
+      }
+
+      @media (max-width: 767px) {
+        .detail-hero { padding: 1.5rem var(--container-pad, 1rem); }
+        .detail-body { padding: 1rem; }
+        .meta-grid {
+          grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+        }
+      }
+
+      @media (max-width: 480px) {
+        .meta-grid { grid-template-columns: 1fr; }
       }
     `
   ]

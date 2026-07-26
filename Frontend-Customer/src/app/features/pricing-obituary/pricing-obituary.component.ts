@@ -16,6 +16,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <div class="hero-band">
             <div class="hero-glow" aria-hidden="true"></div>
             <div class="hero-inner">
+              <a routerLink="/" class="back-link">← Back to Feed</a>
               <p class="hero-kicker">
                 <span class="hero-kicker-rule" aria-hidden="true"></span>
                 Memora
@@ -179,6 +180,18 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       position: relative;
       z-index: 1;
       text-align: center;
+    }
+    .hero-inner .back-link {
+      display: inline-block;
+      margin-bottom: 0.85rem;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .hero-inner .back-link:hover {
+      color: #fff;
+      text-decoration: underline;
     }
     .hero-kicker {
       margin: 0 0 0.35rem;

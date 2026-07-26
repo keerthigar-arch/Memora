@@ -198,8 +198,11 @@ export class ApiService {
     return this.http.get<CustomerDraftListDto[]>(`${API}/events/my-drafts`);
   }
 
-  submitOfflinePayment(draftId: number): Observable<{ message: string; draftId: number }> {
-    return this.http.post<{ message: string; draftId: number }>(`${API}/payments/submit-offline`, { draftId });
+  submitOfflinePayment(draftId: number): Observable<{ message: string; draftId: number; referenceCode?: string | null }> {
+    return this.http.post<{ message: string; draftId: number; referenceCode?: string | null }>(
+      `${API}/payments/submit-offline`,
+      { draftId }
+    );
   }
 
   getDisplayOptions(): Observable<{ days: number; price: number; label: string }[]> {
@@ -239,11 +242,8 @@ export class ApiService {
     return this.http.post<EventDetailDto>(`${API}/payments/verify-session`, { sessionId });
   }
 
-  confirmPaymentMock(draftId: number): Observable<EventDetailDto & { awaitingApproval?: boolean; message?: string }> {
-    return this.http.post<EventDetailDto & { awaitingApproval?: boolean; message?: string }>(
-      `${API}/payments/confirm-mock`,
-      { draftId }
-    );
+  confirmPaymentMock(draftId: number): Observable<EventDetailDto> {
+    return this.http.post<EventDetailDto>(`${API}/payments/confirm-mock`, { draftId });
   }
 
   createEvent(formData: FormData): Observable<EventDetailDto> {

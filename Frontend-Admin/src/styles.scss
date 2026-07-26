@@ -14,12 +14,25 @@
   --radius: 12px;
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
+
+  /* Breakpoint tokens (reference; use matching px in @media) */
+  --bp-mobile-sm: 320px;   /* Mobile Small: 320–480 */
+  --bp-mobile-lg: 481px;   /* Mobile Large: 481–767 */
+  --bp-tablet: 768px;      /* Tablet Portrait: 768–991 */
+  --bp-tablet-lg: 992px;   /* Tablet Landscape: 992–1199 */
+  --bp-desktop: 1200px;    /* Laptop/Desktop: 1200–1439 */
+  --bp-desktop-lg: 1440px; /* Large Desktop: 1440–1919 */
+  --bp-ultrawide: 1920px;  /* Ultra-wide: 1920+ */
+
+  --container-pad: 1rem;
+  --container-max: 1200px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -40,6 +53,17 @@ body {
   background-position: center top, center, center, center;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+img,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+video {
+  max-width: 100%;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -49,9 +73,9 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0 0 0.5em;
 }
 
-h1 { font-size: 2.25rem; }
-h2 { font-size: 1.75rem; }
-h3 { font-size: 1.35rem; }
+h1 { font-size: clamp(1.5rem, 4vw, 2.25rem); }
+h2 { font-size: clamp(1.25rem, 3vw, 1.75rem); }
+h3 { font-size: clamp(1.1rem, 2.5vw, 1.35rem); }
 
 a {
   color: var(--primary);
@@ -124,6 +148,7 @@ a {
 
   input, textarea, select {
     width: 100%;
+    max-width: 100%;
     padding: 0.75rem 1rem;
     font-family: var(--font-body);
     font-size: 1rem;
@@ -153,9 +178,11 @@ a {
 }
 
 .container {
-  max-width: 1200px;
+  width: 100%;
+  max-width: var(--container-max);
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding-left: var(--container-pad);
+  padding-right: var(--container-pad);
 }
 
 .card {
@@ -182,4 +209,76 @@ a {
   &.funeral, &.obituary { background: #e8e4e0; color: #4a4541; }
   &.birthday { background: #fef3c7; color: #92400e; }
   &.wedding, &.anniversary { background: #fce7f3; color: #9d174d; }
+}
+
+/* ---------- Responsive scale ---------- */
+
+/* Mobile Small: 320–480 */
+@media (max-width: 480px) {
+  :root {
+    --container-pad: 0.75rem;
+  }
+
+  body {
+    font-size: 15px;
+    background-attachment: scroll;
+  }
+
+  .btn {
+    padding: 0.65rem 1.1rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Mobile Large: 481–767 */
+@media (min-width: 481px) and (max-width: 767px) {
+  :root {
+    --container-pad: 1rem;
+  }
+}
+
+/* Tablet Portrait: 768–991 */
+@media (min-width: 768px) and (max-width: 991px) {
+  :root {
+    --container-pad: 1.25rem;
+  }
+}
+
+/* Tablet Landscape: 992–1199 */
+@media (min-width: 992px) and (max-width: 1199px) {
+  :root {
+    --container-pad: 1.5rem;
+    --container-max: 1140px;
+  }
+}
+
+/* Laptop/Desktop: 1200–1439 */
+@media (min-width: 1200px) {
+  :root {
+    --container-pad: 1.5rem;
+    --container-max: 1200px;
+  }
+}
+
+/* Large Desktop: 1440–1919 */
+@media (min-width: 1440px) {
+  :root {
+    --container-pad: 2rem;
+    --container-max: 1360px;
+  }
+}
+
+/* Ultra-wide: 1920+ */
+@media (min-width: 1920px) {
+  :root {
+    --container-pad: 2rem;
+    --container-max: 1600px;
+  }
+}
+
+/* Shared helpers used across feature pages */
+@media (max-width: 767px) {
+  .form-row {
+    grid-template-columns: 1fr !important;
+  }
 }

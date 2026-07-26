@@ -31,5 +31,10 @@ public class PendingEvent
     public DateTime? OfflineSubmittedAt { get; set; }
     [MaxLength(20)]
     public string? PaymentMethod { get; set; }
+
+    /// <summary>Customer-facing payment reference (MEM-YYYY-XXXXXXXX), shared with admin Payments.</summary>
+    [MaxLength(40)]
+    public string? ReferenceCode { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -12,12 +12,18 @@ public class PricingOrderService
     private readonly AppDbContext _db;
     private readonly PricingService _pricing;
     private readonly StripeService _stripe;
+    private readonly PaymentReferenceService _references;
 
-    public PricingOrderService(AppDbContext db, PricingService pricing, StripeService stripe)
+    public PricingOrderService(
+        AppDbContext db,
+        PricingService pricing,
+        StripeService stripe,
+        PaymentReferenceService references)
     {
         _db = db;
         _pricing = pricing;
         _stripe = stripe;
+        _references = references;
     }
 
     public async Task<(bool ok, string? reference, string? error)> SubmitDirectAsync(
@@ -38,7 +44,7 @@ public class PricingOrderService
                 out var stripeCur, out var normCat, out var catTitle))
             return (false, null, "Invalid package selection.");
 
-        var reference = await GenerateUniqueReferenceAsync(ct);
+        var reference = await _references.GenerateUniqueReferenceAsync(ct);
         var order = new PricingOrder
         {
             ReferenceCode = reference,
@@ -171,7 +177,7 @@ public class PricingOrderService
         if (order.Status != "pending_payment")
             return (false, null, "This order cannot be completed.");
 
-        order.ReferenceCode = await GenerateUniqueReferenceAsync(ct);
+        order.ReferenceCode = await _references.GenerateUniqueReferenceAsync(ct);
         order.Status = "paid_card";
         order.CompletedAt = DateTime.UtcNow;
         order.StripeSessionId = session.Id;
@@ -317,22 +323,5 @@ public class PricingOrderService
         if (string.IsNullOrWhiteSpace(email) || !email.Contains('@', StringComparison.Ordinal))
             return "Please enter a valid email address.";
         return null;
-    }
-
-    private async Task<string> GenerateUniqueReferenceAsync(CancellationToken ct)
-    {
-        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        for (var attempt = 0; attempt < 24; attempt++)
-        {
-            var suffixChars = new char[8];
-            for (var i = 0; i < suffixChars.Length; i++)
-                suffixChars[i] = chars[Random.Shared.Next(chars.Length)];
-            var code = $"MEM-{DateTime.UtcNow:yyyy}-{new string(suffixChars)}";
-            var exists = await _db.PricingOrders.AnyAsync(o => o.ReferenceCode == code, ct);
-            if (!exists)
-                return code;
-        }
-
-        throw new InvalidOperationException("Could not allocate order reference.");
     }
 }

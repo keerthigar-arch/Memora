@@ -7,13 +7,16 @@ import {
   AdminPaymentEventDto,
   ApiService,
   CustomerDraftListDto,
+  CustomerPaidEventDto,
   PricingOrderAdminDto
 } from '../../services/api.service';
+import { environment } from '../../../environments/environment';
+import { DatePickerComponent } from '../../components/date-picker/date-picker.component';
 
 @Component({
   selector: 'app-pricing-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, DatePickerComponent],
   template: `
     <section class="page-head">
       <div class="container">
@@ -30,7 +33,7 @@ import {
             <input
               type="search"
               class="inp"
-              placeholder="Reference, customer name, email, or phone"
+              placeholder="Reference or customer email"
               [(ngModel)]="filterSearch"
               name="filterSearch"
               (keydown.enter)="applyFilters()"
@@ -90,11 +93,23 @@ import {
           <div class="filters-row filters-row--dates">
             <label class="fld">
               <span class="lbl">From</span>
-              <input type="date" class="inp" [(ngModel)]="filterDateFrom" name="filterDateFrom" />
+              <app-date-picker
+                [(ngModel)]="filterDateFrom"
+                name="filterDateFrom"
+                placeholder="From date"
+                ariaLabel="Filter from date"
+                (ngModelChange)="filterDateFrom = $event || ''"
+              ></app-date-picker>
             </label>
             <label class="fld">
               <span class="lbl">To</span>
-              <input type="date" class="inp" [(ngModel)]="filterDateTo" name="filterDateTo" />
+              <app-date-picker
+                [(ngModel)]="filterDateTo"
+                name="filterDateTo"
+                placeholder="To date"
+                ariaLabel="Filter to date"
+                (ngModelChange)="filterDateTo = $event || ''"
+              ></app-date-picker>
             </label>
           </div>
         }
@@ -107,11 +122,16 @@ import {
         </div>
       </div>
 
-      @if (loading() || offlineLoading() || adminPaymentsLoading()) {
+      @if (loading() || offlineLoading() || adminPaymentsLoading() || paidLoading()) {
         <div class="loading"><div class="spinner"></div><p>Loading…</p></div>
-      } @else if (error() || offlineError() || adminPaymentsError()) {
-        <div class="banner err">{{ error() || offlineError() || adminPaymentsError() }}</div>
-      } @else if (rows().length === 0 && offlineDrafts().length === 0 && adminPaymentEvents().length === 0) {
+      } @else if (error() || offlineError() || adminPaymentsError() || paidError()) {
+        <div class="banner err">{{ error() || offlineError() || adminPaymentsError() || paidError() }}</div>
+      } @else if (
+        rows().length === 0 &&
+        filteredOfflineDrafts().length === 0 &&
+        adminPaymentEvents().length === 0 &&
+        filteredPaidEvents().length === 0
+      ) {
         <div class="empty">
           <p class="empty-title">No payments found</p>
           <p class="muted empty-sub">Try adjusting filters or check again later.</p>
@@ -121,36 +141,27 @@ import {
           <table class="pay-table">
             <thead>
               <tr>
-                <th>Payment</th>
+                <th>Reference</th>
                 <th>Source</th>
                 <th>Status</th>
-                <th>Customer</th>
-                <th>Details</th>
+                <th>Email</th>
                 <th class="th-num">Amount</th>
                 <th class="th-date">Date</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              @for (d of offlineDrafts(); track 'offline-' + d.id) {
+              @for (d of filteredOfflineDrafts(); track 'offline-' + d.id) {
                 <tr class="row-offline">
-                  <td class="name-cell">{{ d.title }}</td>
+                  <td class="mono ref-cell">{{ d.referenceCode || ('#' + d.id) }}</td>
                   <td>
-                    <span class="source-badge" [class.source-offline]="!isCardDraft(d)" [class.source-card]="isCardDraft(d)">
-                      {{ isCardDraft(d) ? 'Customer card' : 'Customer offline' }}
-                    </span>
+                    <span class="source-badge source-offline">Customer offline</span>
                   </td>
                   <td>
-                    <span class="pill">{{ isCardDraft(d) ? 'Awaiting confirmation' : 'Awaiting payment' }}</span>
+                    <span class="pill">{{ d.paymentReceived ? 'Received — publish' : 'Awaiting payment' }}</span>
                   </td>
-                  <td class="contact-cell">
-                    <div>{{ d.ownerDisplayName || '—' }}</div>
-                    @if (d.ownerEmail) {
-                      <div class="muted">{{ d.ownerEmail }}</div>
-                    }
-                  </td>
-                  <td>{{ d.eventType }} · {{ d.displayDays }} days</td>
-                  <td class="num-cell">{{ formatUsd(d.amountPaid) }} <span class="cur">USD</span></td>
+                  <td class="email-cell">{{ d.ownerEmail || '—' }}</td>
+                  <td class="num-cell">{{ formatUsd(d.amountPaid) }}</td>
                   <td class="date-cell muted">{{ (d.offlineSubmittedAt || d.createdAt) | date: 'medium' }}</td>
                   <td>
                     <div class="action-stack">
@@ -171,14 +182,37 @@ import {
                 </tr>
               }
 
+              @for (paid of filteredPaidEvents(); track 'paid-' + paid.id) {
+                <tr class="row-paid" [class.row-card]="isCardPaid(paid)">
+                  <td class="mono ref-cell">{{ paid.referenceCode || ('#' + paid.id) }}</td>
+                  <td>
+                    <span
+                      class="source-badge"
+                      [class.source-card]="isCardPaid(paid)"
+                      [class.source-offline]="!isCardPaid(paid)"
+                    >
+                      {{ isCardPaid(paid) ? 'Customer card' : 'Customer offline' }}
+                    </span>
+                  </td>
+                  <td><span class="pill pill-paid">Paid</span></td>
+                  <td class="email-cell">{{ paid.ownerEmail || '—' }}</td>
+                  <td class="num-cell">{{ formatUsd(paid.amountPaid) }}</td>
+                  <td class="date-cell muted">{{ paid.paidAt | date: 'medium' }}</td>
+                  <td>
+                    <a [href]="customerEventUrl(paid.id)" class="btn btn-outline btn-sm">
+                      View event
+                    </a>
+                  </td>
+                </tr>
+              }
+
               @for (event of adminPaymentEvents(); track 'admin-' + event.id) {
                 <tr class="row-admin">
-                  <td class="name-cell">{{ event.title }}</td>
+                  <td class="mono ref-cell">#{{ event.id }}</td>
                   <td><span class="source-badge source-admin">Admin event</span></td>
                   <td><span class="pill">Awaiting payment</span></td>
-                  <td class="muted">Admin</td>
-                  <td>{{ event.eventType }} · {{ event.displayDays }} days</td>
-                  <td class="num-cell">{{ formatUsd(event.amountDue) }} <span class="cur">USD</span></td>
+                  <td class="email-cell muted">—</td>
+                  <td class="num-cell">{{ formatUsd(event.amountDue) }}</td>
                   <td class="date-cell muted">{{ event.createdAt | date: 'medium' }}</td>
                   <td>
                     <label class="check-wrap">
@@ -196,21 +230,13 @@ import {
 
               @for (row of rows(); track row.id) {
                 <tr [class.row-card]="isCard(row)" [class.row-direct]="isDirect(row)">
-                  <td class="mono ref-cell">{{ row.referenceCode || 'Pricing order' }}</td>
+                  <td class="mono ref-cell">{{ row.referenceCode || '—' }}</td>
                   <td><span class="source-badge" [class.source-direct]="isDirect(row)" [class.source-card]="isCard(row)">
                     {{ isCard(row) ? 'Card' : 'Direct transfer' }}
                   </span></td>
                   <td><span class="pill">{{ statusLabel(row) }}</span></td>
-                  <td class="contact-cell">
-                    <div class="name-cell">{{ row.customerName }}</div>
-                    <div>{{ row.customerEmail }}</div>
-                    <div class="muted">{{ row.customerPhone }}</div>
-                  </td>
-                  <td class="pkg-cell">
-                    {{ row.category }} · {{ row.country }}
-                    <div class="pkg-line">{{ row.packageDayLabel }}</div>
-                  </td>
-                  <td class="num-cell">{{ row.amountDisplay }} <span class="cur">{{ row.currencyCode }}</span></td>
+                  <td class="email-cell">{{ row.customerEmail || '—' }}</td>
+                  <td class="num-cell">{{ row.amountDisplay }}</td>
                   <td class="date-cell muted">{{ row.createdAt | date: 'medium' }}</td>
                   <td class="direct-cell">
                     @if (isDirect(row)) {
@@ -343,11 +369,6 @@ import {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.65rem 0.85rem;
-      }
-      @media (min-width: 900px) {
-        .filters-row--controls {
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
       }
       .filters-row--dates {
         margin-top: 0.65rem;
@@ -584,6 +605,10 @@ import {
         background: rgba(26, 95, 74, 0.12);
         color: var(--primary-dark);
       }
+      .pill-paid {
+        background: #dcfce7;
+        color: #166534;
+      }
       .source-badge {
         display: inline-block;
         padding: 0.2rem 0.5rem;
@@ -614,6 +639,11 @@ import {
       }
       .contact-cell {
         max-width: 200px;
+        word-break: break-word;
+        font-size: 0.8125rem;
+      }
+      .email-cell {
+        max-width: 240px;
         word-break: break-word;
         font-size: 0.8125rem;
       }
@@ -686,6 +716,78 @@ import {
         min-width: 6rem;
         text-align: center;
       }
+
+      /* Tablet Landscape filters: 4 columns */
+      @media (min-width: 992px) {
+        .filters-row--controls {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+
+      /* Tablet Portrait and below */
+      @media (max-width: 991px) {
+        .filters-card {
+          padding: 0.9rem 1rem;
+        }
+        .pay-table {
+          min-width: 720px;
+          font-size: 0.8125rem;
+        }
+        .pay-table th,
+        .pay-table td {
+          padding: 0.65rem 0.75rem;
+        }
+      }
+
+      /* Mobile Large and below */
+      @media (max-width: 767px) {
+        .filters-row--controls {
+          grid-template-columns: 1fr;
+        }
+        .filters-row--dates {
+          grid-template-columns: 1fr;
+          max-width: none;
+        }
+        .fld-grow {
+          min-width: 0;
+          width: 100%;
+        }
+        .filters-actions-inline,
+        .filters-foot {
+          width: 100%;
+        }
+        .filters-actions-inline .btn,
+        .filters-foot .btn {
+          flex: 1 1 auto;
+        }
+        .pager-bar {
+          flex-direction: column;
+          align-items: stretch;
+          text-align: center;
+        }
+        .pager-btns {
+          justify-content: center;
+        }
+        .section-head {
+          flex-wrap: wrap;
+        }
+      }
+
+      /* Mobile Small */
+      @media (max-width: 480px) {
+        .page-head {
+          padding-top: 1rem;
+        }
+        .pay-table {
+          min-width: 640px;
+        }
+        .action-stack {
+          width: 100%;
+        }
+        .action-stack .btn {
+          width: 100%;
+        }
+      }
     `
   ]
 })
@@ -703,6 +805,10 @@ export class PricingPaymentsComponent implements OnInit {
   offlineLoading = signal(true);
   offlineError = signal('');
 
+  paidEvents = signal<CustomerPaidEventDto[]>([]);
+  paidLoading = signal(true);
+  paidError = signal('');
+
   adminPaymentEvents = signal<AdminPaymentEventDto[]>([]);
   adminPaymentsLoading = signal(true);
   adminPaymentsError = signal('');
@@ -717,16 +823,60 @@ export class PricingPaymentsComponent implements OnInit {
   filterDateFrom = '';
   filterDateTo = '';
 
+  /** Offline drafts still awaiting admin action (not card). */
+  filteredOfflineDrafts(): CustomerDraftListDto[] {
+    if (this.filterChannel === 'card') return [];
+    if (this.filterStatus === 'paid_card' || this.filterStatus === 'paid_direct') return [];
+    return this.applyCommonClientFilters(this.offlineDrafts(), (d) => ({
+      title: d.title,
+      owner: d.ownerDisplayName,
+      email: d.ownerEmail,
+      reference: d.referenceCode,
+      date: d.offlineSubmittedAt || d.createdAt
+    }));
+  }
+
+  /** Published customer payments (card + offline) kept as payment history. */
+  filteredPaidEvents(): CustomerPaidEventDto[] {
+    if (this.filterChannel === 'direct') return [];
+    if (this.filterStatus === 'pending_payment' || this.filterStatus === 'direct_open') return [];
+    if (this.filterChannel === 'card' || this.filterStatus === 'paid_card') {
+      return this.applyCommonClientFilters(
+        this.paidEvents().filter((e) => (e.paymentMethod || '').toLowerCase() === 'card'),
+        (e) => ({
+          title: e.title,
+          owner: e.ownerDisplayName,
+          email: e.ownerEmail,
+          reference: e.referenceCode,
+          date: e.paidAt
+        })
+      );
+    }
+    if (this.filterStatus === 'paid_direct') return [];
+    return this.applyCommonClientFilters(this.paidEvents(), (e) => ({
+      title: e.title,
+      owner: e.ownerDisplayName,
+      email: e.ownerEmail,
+      reference: e.referenceCode,
+      date: e.paidAt
+    }));
+  }
+
   constructor(private readonly api: ApiService) {}
 
   ngOnInit(): void {
     this.loadOffline();
+    this.loadPaidEvents();
     this.loadAdminPaymentEvents();
     this.load();
   }
 
-  isCardDraft(d: CustomerDraftListDto): boolean {
-    return (d.paymentMethod || '').toLowerCase() === 'card';
+  isCardPaid(e: CustomerPaidEventDto): boolean {
+    return (e.paymentMethod || '').toLowerCase() === 'card';
+  }
+
+  customerEventUrl(eventId: number): string {
+    return `${environment.customerPortalUrl}/event/${eventId}`;
   }
 
   markCustomerDraftReceived(draft: CustomerDraftListDto, checked: boolean): void {
@@ -771,6 +921,22 @@ export class PricingPaymentsComponent implements OnInit {
         this.offlineError.set(this.loadErrorMessage(err));
         this.offlineDrafts.set([]);
         this.offlineLoading.set(false);
+      }
+    });
+  }
+
+  loadPaidEvents(): void {
+    this.paidLoading.set(true);
+    this.paidError.set('');
+    this.api.getCustomerPaidEvents().subscribe({
+      next: (items) => {
+        this.paidEvents.set(items ?? []);
+        this.paidLoading.set(false);
+      },
+      error: (err) => {
+        this.paidError.set(this.loadErrorMessage(err));
+        this.paidEvents.set([]);
+        this.paidLoading.set(false);
       }
     });
   }
@@ -902,6 +1068,9 @@ export class PricingPaymentsComponent implements OnInit {
     }
     this.page.set(1);
     this.load();
+    this.loadOffline();
+    this.loadPaidEvents();
+    this.loadAdminPaymentEvents();
   }
 
   resetFilters(): void {
@@ -914,6 +1083,40 @@ export class PricingPaymentsComponent implements OnInit {
     this.filterDateTo = '';
     this.page.set(1);
     this.load();
+    this.loadOffline();
+    this.loadPaidEvents();
+    this.loadAdminPaymentEvents();
+  }
+
+  private applyCommonClientFilters<T>(
+    items: T[],
+    pick: (item: T) => {
+      title: string;
+      owner?: string | null;
+      email?: string | null;
+      reference?: string | null;
+      date: string;
+    }
+  ): T[] {
+    const q = this.filterSearch.trim().toLowerCase();
+    const dates = this.resolvedDateFilters();
+    const from = dates.from ? new Date(`${dates.from}T00:00:00`) : null;
+    const to = dates.to ? new Date(`${dates.to}T23:59:59`) : null;
+
+    return items.filter((item) => {
+      const meta = pick(item);
+      if (q) {
+        const hay = `${meta.title} ${meta.owner || ''} ${meta.email || ''} ${meta.reference || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (from || to) {
+        const when = new Date(meta.date);
+        if (Number.isNaN(when.getTime())) return false;
+        if (from && when < from) return false;
+        if (to && when > to) return false;
+      }
+      return true;
+    });
   }
 
   goPage(p: number): void {

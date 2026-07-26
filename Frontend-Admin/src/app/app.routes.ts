@@ -3,6 +3,7 @@ import { authGuard } from './guards/auth.guard';
 import { adminGuard } from './guards/admin.guard';
 import { mustChangePasswordGuard } from './guards/must-change-password.guard';
 import { firstLoginPasswordGuard } from './guards/first-login-password.guard';
+import { editEventUnsavedGuard } from './guards/edit-event-unsaved.guard';
 import { FirstLoginPasswordComponent } from './features/first-login-password/first-login-password.component';
 import { ForgotPasswordComponent } from './features/forgot-password/forgot-password.component';
 import { ResetPasswordComponent } from './features/reset-password/reset-password.component';
@@ -69,10 +70,12 @@ export const routes: Routes = [
       },
       {
         path: 'event/:id/edit',
+        canDeactivate: [editEventUnsavedGuard],
         loadComponent: () => import('./features/edit-event/edit-event.component').then((m) => m.EditEventComponent)
       },
       {
         path: 'pending-event/:draftId/edit',
+        canDeactivate: [editEventUnsavedGuard],
         loadComponent: () => import('./features/edit-event/edit-event.component').then((m) => m.EditEventComponent)
       },
       {

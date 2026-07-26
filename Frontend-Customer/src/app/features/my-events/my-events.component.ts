@@ -18,11 +18,12 @@ import { EventStatsService } from '../../services/event-stats.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { LanguageService } from '../../services/language.service';
 import { formatUsd, periodLabelForDays } from '../../constants/display-plans';
+import { DatePickerComponent } from '../../components/date-picker/date-picker.component';
 
 @Component({
   selector: 'app-my-events',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe],
+  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe, DatePickerComponent],
   template: `
     <section class="page-hero">
       <div class="container hero-inner">
@@ -79,13 +80,23 @@ import { formatUsd, periodLabelForDays } from '../../constants/display-plans';
               <div class="date-inputs custom-picker">
                 <label class="date-field">
                   <span>{{ 'feed.date.from' | t }}</span>
-                  <input type="text" class="date-input" inputmode="numeric" maxlength="10" [placeholder]="'feed.date.placeholder' | t"
-                    [(ngModel)]="fromDateDisplay" (blur)="onCustomFromBlur()" autocomplete="off" />
+                  <app-date-picker
+                    [(ngModel)]="fromDate"
+                    name="fromDate"
+                    [placeholder]="'feed.date.placeholder' | t"
+                    [ariaLabel]="('feed.date.from' | t)"
+                    (ngModelChange)="onCustomDateChange($event, 'from')"
+                  ></app-date-picker>
                 </label>
                 <label class="date-field">
                   <span>{{ 'feed.date.to' | t }}</span>
-                  <input type="text" class="date-input" inputmode="numeric" maxlength="10" [placeholder]="'feed.date.placeholder' | t"
-                    [(ngModel)]="toDateDisplay" (blur)="onCustomToBlur()" autocomplete="off" />
+                  <app-date-picker
+                    [(ngModel)]="toDate"
+                    name="toDate"
+                    [placeholder]="'feed.date.placeholder' | t"
+                    [ariaLabel]="('feed.date.to' | t)"
+                    (ngModelChange)="onCustomDateChange($event, 'to')"
+                  ></app-date-picker>
                 </label>
                 <button type="button" class="btn btn-outline btn-sm-picker" (click)="clearCustomDates()">{{ 'feed.date.clear' | t }}</button>
               </div>
@@ -149,7 +160,7 @@ import { formatUsd, periodLabelForDays } from '../../constants/display-plans';
           } @else {
             <div class="event-grid">
               @for (ev of events(); track ev.id) {
-                <a [routerLink]="['/event', ev.id]" class="event-card">
+                <a [routerLink]="['/event', ev.id]" [queryParams]="{ from: 'my-events' }" class="event-card">
                   <div class="card-image" [class.has-image]="!!ev.mainImageUrl" [style.background-image]="ev.mainImageUrl ? 'url(' + ev.mainImageUrl + ')' : null">
                     <span class="event-type-badge" [ngClass]="getEventTypeClass(ev.eventType)">
                       {{ lang.eventTypeLabel(ev.eventType) }}
@@ -369,8 +380,6 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   searchTerm = '';
   fromDate = '';
   toDate = '';
-  fromDateDisplay = '';
-  toDateDisplay = '';
   pageSize = 12;
 
   paymentDrafts = computed(() => this.drafts().filter((d) => !d.awaitingOfflineApproval));
@@ -485,7 +494,6 @@ export class MyEventsComponent implements OnInit, OnDestroy {
       this.fromDate = `${lastYear}-01-01`;
       this.toDate = `${lastYear}-12-31`;
     }
-    this.syncDisplaysFromIso();
     this.page.set(1);
     this.events.set([]);
     this.loadEvents();
@@ -496,45 +504,19 @@ export class MyEventsComponent implements OnInit, OnDestroy {
     this.showCustomDatePicker.set(next);
     if (next) {
       this.dateRange.set('custom');
-      this.syncDisplaysFromIso();
     }
   }
 
   clearCustomDates() {
     this.fromDate = '';
     this.toDate = '';
-    this.fromDateDisplay = '';
-    this.toDateDisplay = '';
     this.setDateRange('all');
   }
 
-  onCustomFromBlur() {
-    if (this.fromDateDisplay.trim() === '') {
-      this.fromDate = '';
-      this.onDatePickerChange();
-      return;
-    }
-    const parsed = this.ddMmYyyyToIso(this.fromDateDisplay);
-    if (parsed === null) {
-      this.fromDateDisplay = this.isoToDdMmYyyy(this.fromDate);
-      return;
-    }
-    this.fromDate = parsed;
-    this.onDatePickerChange();
-  }
-
-  onCustomToBlur() {
-    if (this.toDateDisplay.trim() === '') {
-      this.toDate = '';
-      this.onDatePickerChange();
-      return;
-    }
-    const parsed = this.ddMmYyyyToIso(this.toDateDisplay);
-    if (parsed === null) {
-      this.toDateDisplay = this.isoToDdMmYyyy(this.toDate);
-      return;
-    }
-    this.toDate = parsed;
+  onCustomDateChange(value: string | null, which: 'from' | 'to') {
+    const next = value || '';
+    if (which === 'from') this.fromDate = next;
+    else this.toDate = next;
     this.onDatePickerChange();
   }
 
@@ -591,30 +573,5 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   loadMore() {
     this.page.update((p) => p + 1);
     this.loadEvents();
-  }
-
-  private isoToDdMmYyyy(iso: string): string {
-    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
-    const [y, m, d] = iso.split('-');
-    return `${d}/${m}/${y}`;
-  }
-
-  private ddMmYyyyToIso(raw: string): string | null {
-    const s = raw.trim();
-    if (!s) return null;
-    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (!m) return null;
-    const day = parseInt(m[1], 10);
-    const month = parseInt(m[2], 10);
-    const year = parseInt(m[3], 10);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    const dt = new Date(year, month - 1, day);
-    if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return null;
-    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  }
-
-  private syncDisplaysFromIso() {
-    this.fromDateDisplay = this.isoToDdMmYyyy(this.fromDate);
-    this.toDateDisplay = this.isoToDdMmYyyy(this.toDate);
   }
 }

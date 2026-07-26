@@ -42,6 +42,7 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.DisplayValidityEndDate);
             e.HasIndex(x => new { x.IsPublished, x.Visibility, x.DisplayValidityEndDate, x.CreatedAt });
             e.HasIndex(x => new { x.EventType, x.IsPublished, x.CreatedAt });
+            e.HasIndex(x => x.ReferenceCode).IsUnique();
 
             e.HasOne(x => x.User)
              .WithMany()
@@ -90,6 +91,7 @@ public class AppDbContext : DbContext
             p.Property(x => x.OfflineSubmittedAt).AsUtcTimestamp();
             p.HasIndex(x => x.UserId);
             p.HasIndex(x => new { x.AwaitingOfflineApproval, x.CreatedAt });
+            p.HasIndex(x => x.ReferenceCode).IsUnique();
         });
 
         modelBuilder.Entity<ContactSubmission>(c =>

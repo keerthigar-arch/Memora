@@ -26,6 +26,13 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 
       @if (message()) {
         <p class="ok" role="status">{{ message() }}</p>
+        @if (paymentReference()) {
+          <div class="ref-box" role="status">
+            <span class="ref-label">{{ 'myEvents.paymentReference' | t }}</span>
+            <strong class="ref-code">{{ paymentReference() }}</strong>
+            <p class="ref-hint">{{ 'myEvents.offlineEmailHint' | t }}</p>
+          </div>
+        }
       }
       @if (error()) {
         <p class="err" role="alert">{{ error() }}</p>
@@ -218,6 +225,34 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .choice-title { display: block; font-weight: 800; color: #0f2922; }
       .choice-sub { display: block; margin-top: 0.25rem; font-size: 0.82rem; color: #5a6f68; }
       .ok { color: #166534; background: #f0fdf4; padding: 0.75rem; border-radius: 10px; }
+      .ref-box {
+        margin-top: 0.75rem;
+        padding: 0.9rem 1rem;
+        border-radius: 12px;
+        border: 1px solid #d8e3de;
+        background: #f5f7f6;
+      }
+      .ref-label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #5a6f68;
+        margin-bottom: 0.35rem;
+      }
+      .ref-code {
+        display: block;
+        font-family: ui-monospace, Consolas, Monaco, monospace;
+        font-size: 1.05rem;
+        color: #1e4638;
+        letter-spacing: 0.02em;
+      }
+      .ref-hint {
+        margin: 0.55rem 0 0;
+        font-size: 0.8rem;
+        color: #52635c;
+      }
       .err { color: #b91c1c; margin-bottom: 0.75rem; }
 
       .card-panel {
@@ -357,6 +392,7 @@ export class MyEventPaymentComponent implements OnInit {
   busy = signal(false);
   error = signal('');
   message = signal('');
+  paymentReference = signal('');
   step = signal<'choose' | 'card'>('choose');
   fieldError = signal<'name' | 'number' | 'expiry' | 'cvv' | ''>('');
 
@@ -459,14 +495,11 @@ export class MyEventPaymentComponent implements OnInit {
     this.api.confirmPaymentMock(this.draftId).subscribe({
       next: (res) => {
         this.busy.set(false);
-        if (res.awaitingApproval || res.id === 0) {
-          this.message.set(
-            res.message || this.i18n.t('myEvents.cardSubmitSuccess')
-          );
-          this.step.set('choose');
-          setTimeout(() => void this.router.navigate(['/my-events']), 2200);
+        if (!res?.id) {
+          this.error.set(this.i18n.t('myEvents.cardPayFailed'));
           return;
         }
+        this.message.set(this.i18n.t('myEvents.cardSubmitSuccess'));
         void this.router.navigate(['/event', res.id]);
       },
       error: (e) => {
@@ -480,11 +513,15 @@ export class MyEventPaymentComponent implements OnInit {
     if (!this.draftId) return;
     this.busy.set(true);
     this.error.set('');
+    this.paymentReference.set('');
     this.api.submitOfflinePayment(this.draftId).subscribe({
-      next: () => {
+      next: (res) => {
         this.busy.set(false);
         this.message.set(this.i18n.t('myEvents.offlineSubmitSuccess'));
-        setTimeout(() => void this.router.navigate(['/my-events']), 2000);
+        if (res?.referenceCode) {
+          this.paymentReference.set(res.referenceCode);
+        }
+        setTimeout(() => void this.router.navigate(['/my-events']), 4500);
       },
       error: (err) => {
         this.busy.set(false);

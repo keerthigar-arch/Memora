@@ -65,7 +65,8 @@ public class AdminNotificationService
                 && n.Kind == "CustomerEventOffline"
                 && _db.PendingEvents.Any(d =>
                     d.Id == n.PendingEventId
-                    && d.AwaitingOfflineApproval));
+                    && d.AwaitingOfflineApproval
+                    && (d.PaymentMethod == null || d.PaymentMethod == "Offline")));
     }
 
     /// <summary>Remove legacy rows (published events, missing drafts, old published kind).</summary>
@@ -76,7 +77,9 @@ public class AdminNotificationService
                 n.EventId != null
                 || n.Kind == "CustomerEventPublished"
                 || (n.PendingEventId != null && !_db.PendingEvents.Any(d =>
-                    d.Id == n.PendingEventId && d.AwaitingOfflineApproval)))
+                    d.Id == n.PendingEventId
+                    && d.AwaitingOfflineApproval
+                    && (d.PaymentMethod == null || d.PaymentMethod == "Offline"))))
             .ToListAsync(ct);
 
         if (stale.Count == 0) return;

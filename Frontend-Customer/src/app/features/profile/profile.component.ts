@@ -1,13 +1,14 @@
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AuthService, ForgotPasswordResponse, UserProfile } from '../../services/auth.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-customer-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [CommonModule, FormsModule, TranslatePipe, RouterLink],
   template: `
     @if (loading()) {
       <div class="container loading-wrap">
@@ -19,6 +20,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <header class="profile-hero" aria-labelledby="customer-profile-heading">
           <div class="hero-backdrop" aria-hidden="true"></div>
           <div class="container profile-hero-inner">
+            <a routerLink="/" class="back-link">← {{ 'detail.back' | t }}</a>
             <div class="hero-shell">
               <div class="hero-head">
                 <p class="hero-kicker">Memora</p>
@@ -161,7 +163,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   @if (forgotDevResetUrl()) {
                     <div class="dev-reset-banner">
                       <p class="dev-reset-title">{{ 'profile.devResetTitle' | t }}</p>
-                      <a class="dev-reset-link" [href]="forgotDevResetUrl()!" target="_blank" rel="noopener noreferrer">{{
+                      <a class="dev-reset-link" [href]="forgotDevResetUrl()!">{{
                         forgotDevResetUrl()
                       }}</a>
                     </div>
@@ -244,6 +246,18 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .profile-hero-inner {
       position: relative;
       z-index: 1;
+    }
+    .profile-hero-inner > .back-link {
+      display: inline-block;
+      margin-bottom: 0.85rem;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .profile-hero-inner > .back-link:hover {
+      color: #fff;
+      text-decoration: underline;
     }
     .hero-shell {
       max-width: 1040px;

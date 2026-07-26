@@ -99,7 +99,7 @@ import { environment } from '../../../environments/environment';
           @for (ev of events(); track ev.id) {
             <div class="event-card card" [class.customer-event]="ev.ownerRole === 'Customer'">
               @if (ev.isPublished) {
-                <a [href]="publicEventUrl(ev.id)" target="_blank" rel="noopener" class="card-image-link">
+                <a [href]="publicEventUrl(ev.id)" class="card-image-link">
                   <div class="card-image" [class.has-image]="!!ev.mainImageUrl" [style.background-image]="ev.mainImageUrl ? 'url(' + ev.mainImageUrl + ')' : null"></div>
                 </a>
               } @else {
@@ -222,7 +222,7 @@ import { environment } from '../../../environments/environment';
       outline: 2px solid #fff;
       outline-offset: 3px;
     }
-    .filters { padding: 0.85rem 1.5rem 0; }
+    .filters { padding: 0.85rem var(--container-pad, 1.5rem) 0; }
     .source-switch {
       position: relative;
       display: grid;
@@ -312,12 +312,9 @@ import { environment } from '../../../environments/environment';
     .source-tab-label {
       white-space: nowrap;
     }
-    @media (max-width: 520px) {
-      .source-tab-label { font-size: 0.82rem; }
-    }
     .search-row { display: flex; gap: 0.75rem; margin-bottom: 1rem; justify-content: center; flex-wrap: wrap; }
     .search-input {
-      flex: 1; min-width: 200px; max-width: 400px;
+      flex: 1; min-width: 0; max-width: 400px; width: 100%;
       padding: 0.6rem 1rem;
       border: 2px solid var(--border);
       border-radius: var(--radius);
@@ -332,10 +329,10 @@ import { environment } from '../../../environments/environment';
       cursor: pointer;
       &.active { background: var(--primary); color: white; border-color: var(--primary); }
     }
-    .feed { padding: 2rem 1.5rem; }
+    .feed { padding: 2rem var(--container-pad, 1.5rem); }
     .event-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
       gap: 1.5rem;
     }
     .event-card {
@@ -450,12 +447,66 @@ import { environment } from '../../../environments/environment';
     @keyframes spin { to { transform: rotate(360deg); } }
     .empty-icon { font-size: 2.5rem; color: var(--accent); display: block; margin-bottom: 0.5rem; }
     .load-more { text-align: center; padding: 2rem 0; }
-    @media (max-width: 960px) {
+    /* Tablet Landscape and below */
+    @media (max-width: 1199px) {
+      .event-grid {
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+        gap: 1.25rem;
+      }
+    }
+
+    /* Tablet Portrait and below */
+    @media (max-width: 991px) {
       .hero {
         padding: 1.1rem 0;
       }
       .hero-inner {
-        padding: 1.1rem 1rem;
+        padding: 1.1rem var(--container-pad, 1rem);
+      }
+      .filters { padding: 0.85rem var(--container-pad, 1rem) 0; }
+      .feed { padding: 1.5rem var(--container-pad, 1rem); }
+    }
+
+    /* Mobile Large and below */
+    @media (max-width: 767px) {
+      .event-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .source-switch {
+        max-width: 100%;
+      }
+      .filter-btn {
+        padding: 0.45rem 0.75rem;
+        font-size: 0.85rem;
+      }
+      .actions .btn-sm {
+        flex: 1 1 auto;
+        min-width: calc(50% - 0.5rem);
+        justify-content: center;
+      }
+    }
+
+    /* Mobile Small */
+    @media (max-width: 480px) {
+      .source-tab {
+        padding: 0.55rem 0.45rem;
+        font-size: 0.8rem;
+        gap: 0.3rem;
+      }
+      .source-tab-label { font-size: 0.78rem; }
+      .source-tab-count {
+        min-width: 1.15rem;
+        padding: 0.08rem 0.35rem;
+        font-size: 0.68rem;
+      }
+      .hero-create {
+        width: 100%;
+        max-width: 18rem;
+      }
+      .card-content { padding: 1rem; }
+      .actions .btn-sm {
+        min-width: 100%;
       }
     }
   `]

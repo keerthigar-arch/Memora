@@ -66,6 +66,14 @@ public class Event
 
     public bool PaymentReceived { get; set; }
 
+    /// <summary>How the event was paid: Card, Offline, or null for legacy/admin unmarked.</summary>
+    [MaxLength(20)]
+    public string? PaymentMethod { get; set; }
+
+    /// <summary>Customer-facing payment reference (MEM-YYYY-XXXXXXXX).</summary>
+    [MaxLength(40)]
+    public string? ReferenceCode { get; set; }
+
     public ICollection<Wish> Wishes { get; set; } = new List<Wish>();
     public ICollection<EventInvite> Invites { get; set; } = new List<EventInvite>();
 }

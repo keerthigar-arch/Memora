@@ -16,6 +16,7 @@ import { environment } from '../../../environments/environment';
   template: `
     <section class="payment-hero">
       <div class="container">
+        <a routerLink="/create-event" class="back-link">← Back to create event</a>
         <h1>Complete Payment</h1>
         <p>Your event will be displayed for the selected duration after payment.</p>
       </div>
@@ -173,11 +174,20 @@ import { environment } from '../../../environments/environment';
       padding: 3rem 1.5rem;
       text-align: center;
     }
+    .payment-hero .back-link {
+      display: inline-block;
+      margin-bottom: 0.75rem;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .payment-hero .back-link:hover { color: #fff; text-decoration: underline; }
     .payment-hero h1 { color: white; margin-bottom: 0.5rem; }
     .payment-hero p  { opacity: 0.9; margin: 0; }
 
     /* ── Layout ── */
-    .payment-container { max-width: 520px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .payment-container { max-width: 520px; margin: 0 auto; padding: 2rem var(--container-pad, 1.5rem); }
     .payment-card {
       background: white;
       padding: 2rem;
@@ -344,6 +354,22 @@ import { environment } from '../../../environments/environment';
     }
     .payment-actions .btn { flex: 1; min-width: 140px; }
     .payment-actions .sample-fill { flex: 1 1 100%; }
+
+    @media (max-width: 767px) {
+      .form-row { grid-template-columns: 1fr; }
+      .payment-hero { padding: 2rem var(--container-pad, 1rem); }
+      .payment-container { padding: 1.25rem var(--container-pad, 1rem); }
+      .payment-card { padding: 1.25rem; }
+      .payment-actions .btn {
+        flex: 1 1 100%;
+        min-width: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .payment-card { padding: 1rem; }
+      .summary-row.total { font-size: 1.1rem; }
+    }
   `]
 })
 export class PaymentComponent {

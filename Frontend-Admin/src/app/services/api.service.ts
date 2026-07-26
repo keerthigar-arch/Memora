@@ -83,6 +83,22 @@ export interface CustomerDraftListDto {
   offlineSubmittedAt?: string | null;
   ownerDisplayName?: string | null;
   ownerEmail?: string | null;
+  referenceCode?: string | null;
+}
+
+export interface CustomerPaidEventDto {
+  id: number;
+  title: string;
+  eventType: string;
+  eventDate: string;
+  displayDays: number;
+  amountPaid: number;
+  paymentMethod: string;
+  paidAt: string;
+  mainImageUrl?: string | null;
+  ownerDisplayName?: string | null;
+  ownerEmail?: string | null;
+  referenceCode?: string | null;
 }
 
 export interface CustomerDraftDetailDto {
@@ -285,6 +301,14 @@ export class ApiService {
 
   getPendingOfflineApprovals(): Observable<CustomerDraftListDto[]> {
     return this.http.get<CustomerDraftListDto[]>(`${API}/payments/pending-offline`);
+  }
+
+  getCustomerPaidEvents(paymentMethod?: string): Observable<CustomerPaidEventDto[]> {
+    let params = new HttpParams();
+    if (paymentMethod) {
+      params = params.set('paymentMethod', paymentMethod);
+    }
+    return this.http.get<CustomerPaidEventDto[]>(`${API}/payments/customer-paid`, { params });
   }
 
   getOfflineDraftDetail(draftId: number): Observable<CustomerDraftDetailDto> {

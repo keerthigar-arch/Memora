@@ -3,6 +3,7 @@ using System.Text;
 using LifeEventsHub.Api.Data;
 using LifeEventsHub.Api.Models;
 using LifeEventsHub.Api.Services;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -89,6 +90,8 @@ builder.Services.AddScoped<JwtService>();
 builder.Services.AddSingleton<PricingService>();
 builder.Services.AddSingleton<StripeService>();
 builder.Services.AddScoped<PricingOrderService>();
+builder.Services.AddScoped<PaymentReferenceService>();
+builder.Services.AddScoped<PaymentEmailService>();
 builder.Services.AddScoped<AdminCustomerListService>();
 builder.Services.AddScoped<AdminNotificationService>();
 
@@ -139,16 +142,39 @@ var customerProfileRoot = Path.GetFullPath(
 Directory.CreateDirectory(customerProfileRoot);
 
 app.UseResponseCompression();
+app.UseCors("AllowAngular");
+
+var mediaContentTypes = new FileExtensionContentTypeProvider();
+mediaContentTypes.Mappings[".mp4"] = "video/mp4";
+mediaContentTypes.Mappings[".webm"] = "video/webm";
+mediaContentTypes.Mappings[".mov"] = "video/quicktime";
+mediaContentTypes.Mappings[".m4v"] = "video/mp4";
+
+Action<StaticFileResponseContext> prepareMediaResponse = ctx =>
+{
+    var ext = Path.GetExtension(ctx.File.Name).ToLowerInvariant();
+    if (ext is ".mp4" or ".webm" or ".mov" or ".m4v")
+    {
+        // Ensure browsers can stream seeking/audio correctly for cross-origin players.
+        ctx.Context.Response.Headers.CacheControl = "public,max-age=86400";
+        ctx.Context.Response.Headers.AcceptRanges = "bytes";
+    }
+};
+
 app.UseStaticFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(mediaRoot),
-    RequestPath = FileStorageService.MediaRequestPath
+    RequestPath = FileStorageService.MediaRequestPath,
+    ContentTypeProvider = mediaContentTypes,
+    OnPrepareResponse = prepareMediaResponse
 });
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(eventMediaRoot),
-    RequestPath = FileStorageService.EventMediaRequestPath
+    RequestPath = FileStorageService.EventMediaRequestPath,
+    ContentTypeProvider = mediaContentTypes,
+    OnPrepareResponse = prepareMediaResponse
 });
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -160,7 +186,6 @@ app.UseStaticFiles(new StaticFileOptions
     FileProvider = new PhysicalFileProvider(adminProfileRoot),
     RequestPath = FileStorageService.AdminProfileRequestPath
 });
-app.UseCors("AllowAngular");
 app.UseOutputCache();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -371,18 +396,29 @@ using (var scope = app.Services.CreateScope())
         "ALTER TABLE `PendingEvents` ADD COLUMN `OfflineSubmittedAt` datetime(6) NULL");
     await AddColumnIfMissingAsync("PendingEvents", "PaymentMethod",
         "ALTER TABLE `PendingEvents` ADD COLUMN `PaymentMethod` varchar(20) NULL");
+    await AddColumnIfMissingAsync("PendingEvents", "ReferenceCode",
+        "ALTER TABLE `PendingEvents` ADD COLUMN `ReferenceCode` varchar(40) NULL");
     await AddColumnIfMissingAsync("Events", "CurrencyCode",
         "ALTER TABLE `Events` ADD COLUMN `CurrencyCode` varchar(16) NOT NULL DEFAULT 'USD'");
     await AddColumnIfMissingAsync("Events", "AmountGBP",
         "ALTER TABLE `Events` ADD COLUMN `AmountGBP` decimal(18,4) NOT NULL DEFAULT 0");
     await AddColumnIfMissingAsync("Events", "AmountPaid",
         "ALTER TABLE `Events` ADD COLUMN `AmountPaid` decimal(18,4) NOT NULL DEFAULT 0");
+    await AddColumnIfMissingAsync("Events", "PaymentMethod",
+        "ALTER TABLE `Events` ADD COLUMN `PaymentMethod` varchar(20) NULL");
+    await AddColumnIfMissingAsync("Events", "ReferenceCode",
+        "ALTER TABLE `Events` ADD COLUMN `ReferenceCode` varchar(40) NULL");
     await AddColumnIfMissingAsync("Events", "ExchangeRateUsed",
         "ALTER TABLE `Events` ADD COLUMN `ExchangeRateUsed` decimal(18,6) NOT NULL DEFAULT 1");
     await AddColumnIfMissingAsync("Events", "VideoUrls",
         "ALTER TABLE `Events` ADD COLUMN `VideoUrls` longtext NULL");
     await AddColumnIfMissingAsync("PendingEvents", "VideoPathsJson",
         "ALTER TABLE `PendingEvents` ADD COLUMN `VideoPathsJson` longtext NULL");
+
+    await CreateIndexIfMissingAsync("PendingEvents", "IX_PendingEvents_ReferenceCode",
+        "CREATE UNIQUE INDEX `IX_PendingEvents_ReferenceCode` ON `PendingEvents` (`ReferenceCode`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_ReferenceCode",
+        "CREATE UNIQUE INDEX `IX_Events_ReferenceCode` ON `Events` (`ReferenceCode`)");
 
     try
     {

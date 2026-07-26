@@ -715,7 +715,8 @@ import { NotificationService } from '../../services/notification.service';
         padding: 8px 0 24px;
       }
 
-      @media (max-width: 1080px) {
+      /* Tablet Portrait and below: hamburger nav (≤991px) */
+      @media (max-width: 991px) {
         .header-inner {
           grid-template-columns: auto 1fr auto;
         }
@@ -728,11 +729,16 @@ import { NotificationService } from '../../services/notification.service';
         .mobile-menu-btn {
           display: inline-flex;
         }
+        .header-nav-link.is-active::after {
+          display: none;
+        }
       }
 
-      @media (max-width: 640px) {
+      /* Mobile Large and below (≤767px) */
+      @media (max-width: 767px) {
         .header-inner {
           padding: 8px 12px;
+          min-height: 56px;
         }
         .wordmark {
           font-size: 1.3125rem;
@@ -755,10 +761,43 @@ import { NotificationService } from '../../services/notification.service';
           padding-left: 0;
           border-left: none;
         }
+        .profile-dropdown {
+          width: min(240px, calc(100vw - 1.5rem));
+          right: 0;
+        }
+        .main {
+          padding: 4px 0 20px;
+        }
+      }
+
+      /* Mobile Small (≤480px) */
+      @media (max-width: 480px) {
         .top-bar-inner {
           flex-direction: column;
           gap: 2px;
           padding: 6px 12px;
+        }
+        .wordmark {
+          font-size: 1.2rem;
+        }
+        .logo {
+          gap: 6px;
+          padding: 4px 6px;
+          margin-left: -6px;
+        }
+        .mobile-menu-btn {
+          width: 36px;
+          height: 36px;
+        }
+        .profile-trigger {
+          height: 36px;
+        }
+        .profile-avatar {
+          width: 32px;
+          height: 32px;
+        }
+        .header-actions {
+          gap: 4px;
         }
       }
 

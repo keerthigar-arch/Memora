@@ -1,17 +1,18 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MEMORA_DISPLAY_PLANS } from '../../constants/display-plans';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
-import { COUNTRY_CURRENCY_MAP, CurrencyInfo, CurrencyService } from '../../services/currency.service';
+import { COUNTRY_CURRENCY_MAP } from '../../services/currency.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
+import { DatePickerComponent } from '../../components/date-picker/date-picker.component';
 
 @Component({
   selector: 'app-create-my-event',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, TranslatePipe, DatePickerComponent],
   template: `
     <div class="create-page">
       <header class="create-hero">
@@ -52,7 +53,14 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               </div>
               <div class="form-group">
                 <label>{{ 'myEvents.eventDate' | t }} *</label>
-                <input type="date" [(ngModel)]="eventDate" name="eventDate" required #eventDateInput="ngModel" />
+                <app-date-picker
+                  [(ngModel)]="eventDate"
+                  name="eventDate"
+                  required
+                  placeholder="Choose event date"
+                  ariaLabel="Event date"
+                  #eventDateInput="ngModel"
+                ></app-date-picker>
                 @if (eventDateInput.invalid && (eventDateInput.dirty || eventDateInput.touched)) {
                   <div class="validation-error"><small>Required.</small></div>
                 }
@@ -62,18 +70,36 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <div class="form-row">
                 <div class="form-group">
                   <label>Birth date *</label>
-                  <input type="date" [(ngModel)]="birthDate" name="birthDate" required />
+                  <app-date-picker
+                    [(ngModel)]="birthDate"
+                    name="birthDate"
+                    required
+                    placeholder="Choose birth date"
+                    ariaLabel="Birth date"
+                  ></app-date-picker>
                 </div>
                 <div class="form-group">
                   <label>Date of passing *</label>
-                  <input type="date" [(ngModel)]="deathDate" name="deathDate" required />
+                  <app-date-picker
+                    [(ngModel)]="deathDate"
+                    name="deathDate"
+                    required
+                    placeholder="Choose date of passing"
+                    ariaLabel="Date of passing"
+                  ></app-date-picker>
                 </div>
               </div>
             }
             @if (eventType === 'Wedding' || eventType === 'Anniversary') {
               <div class="form-group">
                 <label>{{ eventType === 'Wedding' ? 'Wedding date' : 'Anniversary (wedding) date' }} *</label>
-                <input type="date" [(ngModel)]="weddingDate" name="weddingDate" required />
+                <app-date-picker
+                  [(ngModel)]="weddingDate"
+                  name="weddingDate"
+                  required
+                  placeholder="Choose ceremony date"
+                  ariaLabel="Ceremony date"
+                ></app-date-picker>
               </div>
             }
           </section>
@@ -108,16 +134,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <p class="form-section-hint">{{ 'myEvents.sectionPlaceHint' | t }}</p>
             </div>
             <div class="form-group">
-              <label>{{ 'myEvents.location' | t }} *</label>
-              <input [(ngModel)]="location" name="location" required maxlength="200" #locationInput="ngModel" />
-              @if (locationInput.invalid && (locationInput.dirty || locationInput.touched)) {
-                <div class="validation-error"><small>Required.</small></div>
-              }
-            </div>
-            <div class="form-group">
               <label>{{ 'myEvents.country' | t }} *</label>
-              <select [(ngModel)]="country" name="country" required #countryInput="ngModel"
-                (ngModelChange)="onCountryChange($event)">
+              <select [(ngModel)]="country" name="country" required #countryInput="ngModel">
                 <option value="">{{ 'myEvents.country' | t }}</option>
                 @for (c of countryOptions; track c) {
                   <option [value]="c">{{ c }}</option>
@@ -126,13 +144,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               @if (countryInput.invalid && (countryInput.dirty || countryInput.touched)) {
                 <div class="validation-error"><small>Required.</small></div>
               }
-              @if (selectedCurrency) {
-                <div class="currency-auto-badge">
-                  <span class="badge-icon" aria-hidden="true">✓</span>
-                  <span>
-                    Currency: <strong>{{ selectedCurrency.name }} ({{ selectedCurrency.code }})</strong>
-                  </span>
-                </div>
+            </div>
+            <div class="form-group">
+              <label>{{ 'myEvents.location' | t }} *</label>
+              <input [(ngModel)]="location" name="location" required maxlength="200" #locationInput="ngModel" />
+              @if (locationInput.invalid && (locationInput.dirty || locationInput.touched)) {
+                <div class="validation-error"><small>Required.</small></div>
               }
             </div>
           </section>
@@ -199,37 +216,141 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <h2 id="cust-sec-media" class="form-section-title">{{ 'myEvents.sectionMedia' | t }}</h2>
               <p class="form-section-hint">{{ 'myEvents.sectionMediaHint' | t }}</p>
             </div>
-            <div class="form-group">
-              <label>{{ 'myEvents.mainImage' | t }} *</label>
-              <label class="file-drop">
-                <span class="file-drop-text">{{ 'myEvents.fileDropMain' | t }}</span>
-                <input type="file" accept="image/*" (change)="onMainImage($event)" />
-              </label>
-              @if (mainImagePreview()) {
-                <img [src]="mainImagePreview()!" alt="" class="preview-img" />
-              } @else {
-                <div class="validation-error"><small>{{ 'myEvents.mainImageRequired' | t }}</small></div>
-              }
-            </div>
-            <div class="form-group">
-              <label>{{ 'myEvents.gallery' | t }}</label>
-              <label class="file-drop file-drop-secondary">
-                <span class="file-drop-text">{{ 'myEvents.fileDropGallery' | t }}</span>
-                <input type="file" accept="image/*" multiple (change)="onGallery($event)" />
-              </label>
-              @if (galleryImages.length > 0) {
-                <p class="form-hint">{{ galleryImages.length }} / 8</p>
-              }
-            </div>
-            <div class="form-group">
-              <label>{{ 'myEvents.videos' | t }}</label>
-              <label class="file-drop file-drop-secondary">
-                <span class="file-drop-text">{{ 'myEvents.fileDropVideos' | t }}</span>
-                <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple (change)="onVideos($event)" />
-              </label>
-              @if (videos.length > 0) {
-                <p class="form-hint">{{ videos.length }} / 3</p>
-              }
+
+            <div class="media-stack">
+              <div class="media-card" [class.media-card-ready]="!!mainImagePreview()">
+                <div class="media-card-head">
+                  <span class="media-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="4" width="18" height="16" rx="2.5"/>
+                      <circle cx="9" cy="10" r="1.75"/>
+                      <path d="M3 16.5l5.2-4.2a1.2 1.2 0 0 1 1.5 0L21 19"/>
+                    </svg>
+                  </span>
+                  <div class="media-copy">
+                    <div class="media-title">{{ 'myEvents.mainImage' | t }} <span class="media-req">*</span></div>
+                    <p class="media-sub">{{ 'myEvents.fileDropMain' | t }}</p>
+                  </div>
+                  @if (mainImagePreview()) {
+                    <span class="media-chip">Ready</span>
+                  }
+                </div>
+
+                @if (mainImagePreview()) {
+                  <div class="media-cover-frame">
+                    <img [src]="mainImagePreview()!" alt="" class="media-cover-img" />
+                    <div class="media-cover-actions">
+                      <label class="media-btn media-btn-secondary">
+                        Change
+                        <input type="file" accept="image/*" (change)="onMainImage($event)" hidden />
+                      </label>
+                      <button type="button" class="media-btn media-btn-danger" (click)="removeMainImage()">Remove</button>
+                    </div>
+                  </div>
+                } @else {
+                  <label class="media-drop media-drop-cover">
+                    <input type="file" accept="image/*" (change)="onMainImage($event)" />
+                    <div class="media-drop-empty">
+                      <span class="media-drop-plus" aria-hidden="true">+</span>
+                      <span class="media-drop-lead">Drop an image or click to upload</span>
+                      <span class="media-drop-meta">Recommended landscape photo</span>
+                    </div>
+                  </label>
+                  <div class="validation-error"><small>{{ 'myEvents.mainImageRequired' | t }}</small></div>
+                }
+              </div>
+
+              <div class="media-card" [class.media-card-ready]="galleryPreviews().length > 0">
+                <div class="media-card-head">
+                  <span class="media-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                      <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                      <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                      <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+                    </svg>
+                  </span>
+                  <div class="media-copy">
+                    <div class="media-title">{{ 'myEvents.gallery' | t }}</div>
+                    <p class="media-sub">{{ 'myEvents.fileDropGallery' | t }}</p>
+                  </div>
+                  @if (galleryPreviews().length > 0) {
+                    <span class="media-chip">{{ galleryPreviews().length }} / 8</span>
+                  }
+                </div>
+                <label class="media-drop media-drop-compact">
+                  <input type="file" accept="image/*" multiple (change)="onGallery($event)" />
+                  <div class="media-drop-empty media-drop-empty-sm">
+                    <span class="media-drop-lead">Add gallery photos</span>
+                    <span class="media-drop-meta">Click or drop multiple images</span>
+                  </div>
+                </label>
+                @if (galleryPreviews().length > 0) {
+                  <div class="media-thumb-grid">
+                    @for (preview of galleryPreviews(); track preview.url; let i = $index) {
+                      <div class="media-thumb-wrap">
+                        <div class="media-thumb" [style.background-image]="'url(' + preview.url + ')'" [title]="preview.name"></div>
+                        <button
+                          type="button"
+                          class="media-remove"
+                          (click)="removeGalleryImage(i)"
+                          [attr.aria-label]="'Remove ' + preview.name"
+                        >×</button>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+
+              <div class="media-card" [class.media-card-ready]="videoPreviews().length > 0">
+                <div class="media-card-head">
+                  <span class="media-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="6" width="13" height="12" rx="2"/>
+                      <path d="M16 10.5l5-3v9l-5-3v-3z"/>
+                    </svg>
+                  </span>
+                  <div class="media-copy">
+                    <div class="media-title">{{ 'myEvents.videos' | t }}</div>
+                    <p class="media-sub">{{ 'myEvents.fileDropVideos' | t }}</p>
+                  </div>
+                  @if (videoPreviews().length > 0) {
+                    <span class="media-chip">{{ videoPreviews().length }} / 3</span>
+                  }
+                </div>
+                <label class="media-drop media-drop-compact">
+                  <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple (change)="onVideos($event)" />
+                  <div class="media-drop-empty media-drop-empty-sm">
+                    <span class="media-drop-lead">Add event videos</span>
+                    <span class="media-drop-meta">Shown on the event detail page</span>
+                  </div>
+                </label>
+                @if (videoPreviews().length > 0) {
+                  <div class="video-preview-grid">
+                    @for (preview of videoPreviews(); track preview.url; let i = $index) {
+                      <div class="video-preview-card">
+                        <div class="video-preview-frame">
+                          <video
+                            class="video-preview"
+                            [src]="preview.url"
+                            controls
+                            playsinline
+                            preload="metadata"
+                            (play)="ensureVideoAudible($event)"
+                          ></video>
+                          <button
+                            type="button"
+                            class="media-remove media-remove-on-video"
+                            (click)="removeVideo(i)"
+                            [attr.aria-label]="'Remove ' + preview.name"
+                          >×</button>
+                        </div>
+                        <p class="video-preview-name">{{ preview.name }}</p>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
             </div>
           </section>
 
@@ -238,14 +359,17 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           }
 
           <div class="submit-bar">
-            <button type="submit" class="btn btn-primary btn-submit" [disabled]="saving() || !isFormValid()">
-              @if (saving()) {
-                <span class="btn-spinner" aria-hidden="true"></span>
-                {{ 'myEvents.saving' | t }}
-              } @else {
-                {{ 'myEvents.proceedPayment' | t }}
-              }
-            </button>
+            <div class="submit-actions">
+              <button type="submit" class="btn btn-primary btn-submit" [disabled]="saving() || !isFormValid()">
+                @if (saving()) {
+                  <span class="btn-spinner" aria-hidden="true"></span>
+                  {{ 'myEvents.saving' | t }}
+                } @else {
+                  {{ 'myEvents.proceedPayment' | t }}
+                }
+              </button>
+              <a routerLink="/my-events" class="btn btn-outline btn-cancel">{{ 'myEvents.cancel' | t }}</a>
+            </div>
             <p class="submit-hint">{{ 'myEvents.submitHint' | t }}</p>
           </div>
         </form>
@@ -362,11 +486,20 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       box-sizing: border-box;
       border-radius: var(--create-radius-sm);
       border: 1px solid #dce8e3;
+      background: #fff;
       padding: 0.65rem 0.85rem;
       font-size: 0.9375rem;
       color: var(--create-ink);
+      transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
     }
-    .create-form input:focus,
+    .create-form input:not([type="file"]):hover,
+    .create-form textarea:hover,
+    .create-form select:hover {
+      border-color: #c5d8d0;
+    }
+    .create-form input:not([type="file"]):focus,
     .create-form textarea:focus,
     .create-form select:focus {
       outline: none;
@@ -407,6 +540,275 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       margin-top: 0.75rem;
       object-fit: cover;
     }
+    .video-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+    }
+    .video-preview {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--create-radius-sm);
+      background: #000;
+    }
+
+    .media-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .media-card {
+      position: relative;
+      padding: 1rem;
+      border-radius: 16px;
+      border: 1px solid rgba(26, 95, 74, 0.12);
+      background:
+        radial-gradient(ellipse at top left, rgba(45, 143, 115, 0.08), transparent 55%),
+        linear-gradient(180deg, #ffffff 0%, #fbfaf8 100%);
+      box-shadow: 0 8px 24px rgba(15, 31, 26, 0.05);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .media-card:hover {
+      border-color: rgba(26, 95, 74, 0.22);
+      box-shadow: 0 12px 28px rgba(15, 31, 26, 0.08);
+    }
+    .media-card-ready { border-color: rgba(26, 95, 74, 0.28); }
+    .media-card-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+    .media-icon {
+      width: 2.35rem;
+      height: 2.35rem;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--primary, #1a5f4a);
+      background: rgba(26, 95, 74, 0.1);
+      border: 1px solid rgba(26, 95, 74, 0.12);
+    }
+    .media-icon svg { width: 1.15rem; height: 1.15rem; display: block; }
+    .media-copy { flex: 1; min-width: 0; }
+    .media-title {
+      font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--primary-dark, #0d3d32);
+      line-height: 1.25;
+    }
+    .media-req { color: #c53030; }
+    .media-sub {
+      margin: 0.2rem 0 0;
+      font-size: 0.8125rem;
+      color: var(--create-muted);
+      line-height: 1.4;
+    }
+    .media-chip {
+      flex-shrink: 0;
+      padding: 0.28rem 0.65rem;
+      border-radius: 999px;
+      background: rgba(26, 95, 74, 0.12);
+      color: var(--primary-dark, #0d3d32);
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .media-drop {
+      position: relative;
+      display: block;
+      border-radius: 14px;
+      border: 1.5px dashed rgba(26, 95, 74, 0.22);
+      background: rgba(255, 255, 255, 0.72);
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    }
+    .media-drop:hover {
+      border-color: rgba(26, 95, 74, 0.45);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(26, 95, 74, 0.1);
+    }
+    .media-drop input[type="file"] {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 3;
+    }
+    .media-drop-cover { min-height: 11rem; }
+    .media-drop-compact { min-height: 4.75rem; }
+    .media-drop-empty {
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      padding: 1.5rem 1rem;
+      text-align: center;
+    }
+    .media-drop-empty-sm { padding: 1rem; }
+    .media-drop-plus {
+      width: 2.25rem;
+      height: 2.25rem;
+      margin-bottom: 0.35rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(145deg, #2d8f73 0%, #1a5f4a 100%);
+      color: #fff;
+      font-size: 1.25rem;
+      font-weight: 600;
+      box-shadow: 0 8px 18px rgba(26, 95, 74, 0.25);
+    }
+    .media-drop-lead {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--create-ink);
+    }
+    .media-drop-meta {
+      font-size: 0.78rem;
+      color: var(--create-muted);
+    }
+    .media-cover-preview {
+      position: relative;
+      min-height: 11rem;
+      pointer-events: none;
+    }
+    .media-cover-preview img {
+      display: block;
+      width: 100%;
+      height: 11rem;
+      object-fit: cover;
+    }
+    .media-drop-cta {
+      position: absolute;
+      left: 50%;
+      bottom: 0.85rem;
+      transform: translateX(-50%);
+      padding: 0.4rem 0.9rem;
+      border-radius: 999px;
+      background: rgba(15, 41, 34, 0.82);
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .media-cover-frame {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(26, 95, 74, 0.16);
+      box-shadow: 0 10px 24px rgba(15, 31, 26, 0.1);
+      background: #0f2922;
+    }
+    .media-cover-img {
+      display: block;
+      width: 100%;
+      height: 12rem;
+      object-fit: cover;
+    }
+    .media-cover-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      padding: 0.65rem 0.75rem;
+      background: linear-gradient(180deg, #16362d 0%, #0f2922 100%);
+    }
+    .media-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      border: 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .media-btn-secondary {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+    }
+    .media-btn-danger {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+    .media-thumb-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+      gap: 0.65rem;
+      margin-top: 0.85rem;
+    }
+    .media-thumb-wrap { position: relative; }
+    .media-thumb {
+      aspect-ratio: 1;
+      border-radius: 12px;
+      background-size: cover;
+      background-position: center;
+      background-color: #e8eeeb;
+      box-shadow: 0 4px 14px rgba(15, 31, 26, 0.1);
+      border: 1px solid rgba(26, 95, 74, 0.1);
+    }
+    .media-remove {
+      position: absolute;
+      top: 0.35rem;
+      right: 0.35rem;
+      width: 1.55rem;
+      height: 1.55rem;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(15, 41, 34, 0.88);
+      color: #fff;
+      font-size: 1rem;
+      line-height: 1;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+    .media-remove:hover { background: #b91c1c; }
+    .media-remove-on-video {
+      top: 0.55rem;
+      right: 0.55rem;
+    }
+    .video-preview-card {
+      border-radius: 14px;
+      overflow: hidden;
+      background: #0f2922;
+      border: 1px solid rgba(26, 95, 74, 0.16);
+      box-shadow: 0 8px 20px rgba(15, 31, 26, 0.1);
+    }
+    .video-preview-frame { position: relative; }
+    .video-preview-card .video-preview {
+      border-radius: 0;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      background: #000;
+    }
+    .video-preview-name {
+      margin: 0;
+      padding: 0.55rem 0.7rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #d7e3de;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: linear-gradient(180deg, #16362d 0%, #0f2922 100%);
+    }
+
     .validation-error { color: #c53030; font-size: 0.8125rem; margin-top: 0.35rem; }
     .character-count { font-size: 0.72rem; color: var(--create-muted); text-align: right; margin-top: 0.3rem; }
     .character-count.exceed-limit { color: #c53030; font-weight: 600; }
@@ -416,30 +818,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       text-align: center;
       border-radius: var(--create-radius-sm);
       background: rgba(45, 143, 115, 0.06);
-    }
-    .currency-auto-badge {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.6rem;
-      margin-top: 0.65rem;
-      padding: 0.65rem 0.9rem;
-      background: linear-gradient(135deg, rgba(45, 143, 115, 0.08), rgba(45, 143, 115, 0.04));
-      border: 1px solid rgba(26, 95, 74, 0.15);
-      border-radius: var(--create-radius-sm);
-      font-size: 0.84rem;
-      color: var(--primary-dark);
-    }
-    .badge-icon {
-      width: 1.35rem;
-      height: 1.35rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(26, 95, 74, 0.12);
-      border-radius: 999px;
-      font-size: 0.65rem;
-      font-weight: 800;
-      color: var(--primary);
     }
     .display-options {
       display: grid;
@@ -495,6 +873,23 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       padding-top: 1.25rem;
       border-top: 1px solid rgba(13, 61, 50, 0.08);
     }
+    .submit-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .btn-cancel {
+      min-height: 2.65rem;
+      padding: 0.65rem 1.2rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: var(--create-radius-sm);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
     .btn-submit {
       display: inline-flex;
       align-items: center;
@@ -522,7 +917,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .submit-hint { margin: 0; font-size: 0.8125rem; color: var(--create-muted); }
   `]
 })
-export class CreateMyEventComponent implements OnInit {
+export class CreateMyEventComponent implements OnInit, OnDestroy {
   readonly countryOptions = [...Object.keys(COUNTRY_CURRENCY_MAP).sort(), 'Other'];
 
   eventType = '';
@@ -540,18 +935,18 @@ export class CreateMyEventComponent implements OnInit {
   mainImage: File | null = null;
   galleryImages: File[] = [];
   videos: File[] = [];
-  selectedCurrency: CurrencyInfo | null = null;
 
   displayOptions = signal<{ days: number; price: number; label: string }[]>([]);
   mainImagePreview = signal<string | null>(null);
+  galleryPreviews = signal<{ url: string; name: string }[]>([]);
+  videoPreviews = signal<{ url: string; name: string }[]>([]);
   saving = signal(false);
   error = signal('');
 
   constructor(
     private api: ApiService,
     private auth: AuthService,
-    private router: Router,
-    private currencyService: CurrencyService
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -579,16 +974,11 @@ export class CreateMyEventComponent implements OnInit {
     }
   }
 
-  onCountryChange(countryName: string): void {
-    this.selectedCurrency = this.currencyService.getCurrencyForCountry(countryName);
-  }
-
   onMainImage(ev: Event): void {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) {
-      this.mainImage = null;
-      this.mainImagePreview.set(null);
+      input.value = '';
       return;
     }
     if (!file.type.startsWith('image/')) {
@@ -606,10 +996,17 @@ export class CreateMyEventComponent implements OnInit {
     const reader = new FileReader();
     reader.onload = () => this.mainImagePreview.set(reader.result as string);
     reader.readAsDataURL(file);
+    input.value = '';
+  }
+
+  removeMainImage(): void {
+    this.mainImage = null;
+    this.mainImagePreview.set(null);
   }
 
   onGallery(ev: Event): void {
-    const files = Array.from((ev.target as HTMLInputElement).files || []);
+    const input = ev.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
     const validFiles: File[] = [];
     let hasInvalid = false;
 
@@ -621,20 +1018,31 @@ export class CreateMyEventComponent implements OnInit {
       validFiles.push(file);
     }
 
-    if (validFiles.length > 8) {
+    const room = Math.max(0, 8 - this.galleryImages.length);
+    const accepted = validFiles.slice(0, room);
+    if (validFiles.length > room) {
       this.error.set('Maximum 8 gallery images allowed. Extra files were skipped.');
-      validFiles.length = 8;
     } else if (hasInvalid) {
       this.error.set('Some files were skipped (invalid type or size > 5MB).');
     } else {
       this.error.set('');
     }
 
-    this.galleryImages = validFiles;
+    this.galleryImages = [...this.galleryImages, ...accepted];
+    this.setGalleryPreviews(this.galleryImages);
+    input.value = '';
+  }
+
+  removeGalleryImage(index: number): void {
+    const next = [...this.galleryImages];
+    next.splice(index, 1);
+    this.galleryImages = next;
+    this.setGalleryPreviews(next);
   }
 
   onVideos(ev: Event): void {
-    const files = Array.from((ev.target as HTMLInputElement).files || []);
+    const input = ev.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
     const allowed = ['.mp4', '.webm', '.mov'];
     const validFiles: File[] = [];
     let hasInvalid = false;
@@ -648,16 +1056,63 @@ export class CreateMyEventComponent implements OnInit {
       validFiles.push(file);
     }
 
-    if (validFiles.length > 3) {
+    const room = Math.max(0, 3 - this.videos.length);
+    const accepted = validFiles.slice(0, room);
+    if (validFiles.length > room) {
       this.error.set('Maximum 3 videos allowed. Extra files were skipped.');
-      validFiles.length = 3;
     } else if (hasInvalid) {
       this.error.set('Some videos were skipped (only MP4/WEBM/MOV up to 100MB).');
     } else {
       this.error.set('');
     }
 
-    this.videos = validFiles;
+    this.videos = [...this.videos, ...accepted];
+    this.setVideoPreviews(this.videos);
+    input.value = '';
+  }
+
+  removeVideo(index: number): void {
+    const next = [...this.videos];
+    next.splice(index, 1);
+    this.videos = next;
+    this.setVideoPreviews(next);
+  }
+
+  ensureVideoAudible(event: Event): void {
+    const video = event.target as HTMLVideoElement | null;
+    if (!video || video.tagName !== 'VIDEO') return;
+    video.muted = false;
+    video.defaultMuted = false;
+    if (video.volume === 0) {
+      video.volume = 1;
+    }
+  }
+
+  private setGalleryPreviews(files: File[]): void {
+    for (const preview of this.galleryPreviews()) {
+      URL.revokeObjectURL(preview.url);
+    }
+    this.galleryPreviews.set(
+      files.map((file) => ({ url: URL.createObjectURL(file), name: file.name }))
+    );
+  }
+
+  private setVideoPreviews(files: File[]): void {
+    for (const preview of this.videoPreviews()) {
+      URL.revokeObjectURL(preview.url);
+    }
+    this.videoPreviews.set(
+      files.map((file) => ({ url: URL.createObjectURL(file), name: file.name }))
+    );
+  }
+
+  ngOnDestroy(): void {
+    for (const preview of this.galleryPreviews()) {
+      URL.revokeObjectURL(preview.url);
+    }
+    for (const preview of this.videoPreviews()) {
+      URL.revokeObjectURL(preview.url);
+    }
   }
 
   isFormValid(): boolean {

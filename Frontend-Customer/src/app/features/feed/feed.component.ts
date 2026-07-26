@@ -18,11 +18,12 @@ import { EventStatsService } from '../../services/event-stats.service';
 import { environment } from '../../../environments/environment';
 import { LanguageService } from '../../services/language.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
+import { DatePickerComponent } from '../../components/date-picker/date-picker.component';
 
 @Component({
   selector: 'app-feed',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe],
+  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe, DatePickerComponent],
   template: `
     <section class="filters-wrap">
       <div class="container filters">
@@ -69,33 +70,23 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <div class="date-inputs custom-picker">
                 <label class="date-field">
                   <span>{{ 'feed.date.from' | t }}</span>
-                  <input
-                    type="text"
-                    class="date-input"
-                    inputmode="numeric"
-                    maxlength="10"
+                  <app-date-picker
+                    [(ngModel)]="fromDate"
+                    name="fromDate"
                     [placeholder]="'feed.date.placeholder' | t"
-                    [(ngModel)]="fromDateDisplay"
-                    name="fromDateDisplay"
-                    (blur)="onCustomFromBlur()"
-                    autocomplete="off"
-                    [attr.aria-label]="('feed.date.from' | t) + ' ' + ('feed.date.placeholder' | t)"
-                  />
+                    [ariaLabel]="('feed.date.from' | t)"
+                    (ngModelChange)="onCustomDateChange($event, 'from')"
+                  ></app-date-picker>
                 </label>
                 <label class="date-field">
                   <span>{{ 'feed.date.to' | t }}</span>
-                  <input
-                    type="text"
-                    class="date-input"
-                    inputmode="numeric"
-                    maxlength="10"
+                  <app-date-picker
+                    [(ngModel)]="toDate"
+                    name="toDate"
                     [placeholder]="'feed.date.placeholder' | t"
-                    [(ngModel)]="toDateDisplay"
-                    name="toDateDisplay"
-                    (blur)="onCustomToBlur()"
-                    autocomplete="off"
-                    [attr.aria-label]="('feed.date.to' | t) + ' ' + ('feed.date.placeholder' | t)"
-                  />
+                    [ariaLabel]="('feed.date.to' | t)"
+                    (ngModelChange)="onCustomDateChange($event, 'to')"
+                  ></app-date-picker>
                 </label>
                 <button type="button" class="btn btn-outline btn-sm-picker" (click)="clearCustomDates()">{{ 'feed.date.clear' | t }}</button>
               </div>
@@ -121,7 +112,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <p>{{ 'feed.emptyHint' | t }}</p>
               <p class="empty-hint">
                 {{ 'feed.publishPrompt' | t }}
-                <a [href]="env.adminPortalUrl" target="_blank" rel="noopener">{{ 'feed.organizerLink' | t }}</a>.
+                <a [href]="env.adminPortalUrl">{{ 'feed.organizerLink' | t }}</a>.
               </p>
             </div>
           } @else {
@@ -872,9 +863,6 @@ export class FeedComponent implements OnInit, OnDestroy {
   /** API query format yyyy-MM-dd */
   fromDate = '';
   toDate = '';
-  /** Shown in custom picker as DD/MM/YYYY */
-  fromDateDisplay = '';
-  toDateDisplay = '';
   pageSize = 12;
 
   hasMore = computed(() => {
@@ -976,7 +964,6 @@ export class FeedComponent implements OnInit, OnDestroy {
       this.fromDate = `${lastYear}-01-01`;
       this.toDate = `${lastYear}-12-31`;
     }
-    this.syncDisplaysFromIso();
     this.page.set(1);
     this.events.set([]);
     this.loadEvents();
@@ -995,70 +982,19 @@ export class FeedComponent implements OnInit, OnDestroy {
     this.showCustomDatePicker.set(next);
     if (next) {
       this.dateRange.set('custom');
-      this.syncDisplaysFromIso();
     }
   }
 
   clearCustomDates() {
     this.fromDate = '';
     this.toDate = '';
-    this.fromDateDisplay = '';
-    this.toDateDisplay = '';
     this.setDateRange('all');
   }
 
-  private isoToDdMmYyyy(iso: string): string {
-    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
-    const [y, m, d] = iso.split('-');
-    return `${d}/${m}/${y}`;
-  }
-
-  private ddMmYyyyToIso(raw: string): string | null {
-    const s = raw.trim();
-    if (!s) return null;
-    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (!m) return null;
-    const day = parseInt(m[1], 10);
-    const month = parseInt(m[2], 10);
-    const year = parseInt(m[3], 10);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    const dt = new Date(year, month - 1, day);
-    if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return null;
-    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  }
-
-  private syncDisplaysFromIso() {
-    this.fromDateDisplay = this.isoToDdMmYyyy(this.fromDate);
-    this.toDateDisplay = this.isoToDdMmYyyy(this.toDate);
-  }
-
-  onCustomFromBlur() {
-    if (this.fromDateDisplay.trim() === '') {
-      this.fromDate = '';
-      this.onDatePickerChange();
-      return;
-    }
-    const parsed = this.ddMmYyyyToIso(this.fromDateDisplay);
-    if (parsed === null) {
-      this.fromDateDisplay = this.isoToDdMmYyyy(this.fromDate);
-      return;
-    }
-    this.fromDate = parsed;
-    this.onDatePickerChange();
-  }
-
-  onCustomToBlur() {
-    if (this.toDateDisplay.trim() === '') {
-      this.toDate = '';
-      this.onDatePickerChange();
-      return;
-    }
-    const parsed = this.ddMmYyyyToIso(this.toDateDisplay);
-    if (parsed === null) {
-      this.toDateDisplay = this.isoToDdMmYyyy(this.toDate);
-      return;
-    }
-    this.toDate = parsed;
+  onCustomDateChange(value: string | null, which: 'from' | 'to') {
+    const next = value || '';
+    if (which === 'from') this.fromDate = next;
+    else this.toDate = next;
     this.onDatePickerChange();
   }
 
