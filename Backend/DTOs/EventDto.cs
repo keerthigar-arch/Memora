@@ -151,6 +151,7 @@ public record CustomerDraftDetailDto(
     string? OwnerDisplayName,
     string? OwnerEmail,
     string? InvitedEmails = null,
+    string? ConfirmationDocumentUrl = null,
     string? ReferenceCode = null
 );
 

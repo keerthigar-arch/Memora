@@ -17,6 +17,12 @@ public class FileStorageService
     private static readonly string[] AllowedVideoExtensions = { ".mp4", ".webm", ".mov" };
     private const long MaxVideoFileSize = 100L * 1024 * 1024; // 100MB
 
+    private static readonly string[] AllowedDocumentExtensions = { ".pdf", ".jpg", ".jpeg", ".png", ".webp" };
+    private const long MaxDocumentFileSize = 10L * 1024 * 1024; // 10MB
+
+    /// <summary>Subfolder under each event id for confirmation documents.</summary>
+    public const string DocumentFolderSegment = "document";
+
     /// <summary>Second path segment for profile photos (not tied to an event).</summary>
     public const string ProfileFolderSegment = "profile";
 
@@ -125,6 +131,32 @@ public class FileStorageService
         return $"{EventMediaRequestPath}/{serialNumber}/{fileName}";
     }
 
+    /// <summary>
+    /// Saves a confirmation document under <c>Event/{serialNumber}/document/{guid}{ext}</c>.
+    /// Allowed: pdf / jpg / jpeg / png / webp, up to 10MB.
+    /// Returns relative URL <c>/media/event/{serialNumber}/document/{fileName}</c>.
+    /// </summary>
+    public async Task<string?> SaveConfirmationDocumentAsync(IFormFile file, int serialNumber)
+    {
+        if (file == null || file.Length == 0 || file.Length > MaxDocumentFileSize)
+            return null;
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!AllowedDocumentExtensions.Contains(ext))
+            return null;
+
+        var folder = Path.Combine(_eventRootPath, serialNumber.ToString(), DocumentFolderSegment);
+        Directory.CreateDirectory(folder);
+
+        var fileName = $"{Guid.NewGuid()}{ext}";
+        var filePath = Path.Combine(folder, fileName);
+
+        await using var stream = new FileStream(filePath, FileMode.Create);
+        await file.CopyToAsync(stream);
+
+        return $"{EventMediaRequestPath}/{serialNumber}/{DocumentFolderSegment}/{fileName}";
+    }
+
     /// <summary>Legacy profile image: <c>{root}/{userId}/profile/</c>.</summary>
     public Task<string?> SaveProfileImageAsync(IFormFile file, int userId) =>
         SaveLegacyProfileImageAsync(file, userId);
@@ -228,16 +260,27 @@ public class FileStorageService
 
         if (Directory.Exists(dst))
         {
-            foreach (var file in Directory.EnumerateFiles(src))
-            {
-                var name = Path.GetFileName(file);
-                File.Copy(file, Path.Combine(dst, name), overwrite: true);
-            }
+            CopyDirectoryContents(src, dst);
             Directory.Delete(src, recursive: true);
             return;
         }
 
         Directory.Move(src, dst);
+    }
+
+    private static void CopyDirectoryContents(string src, string dst)
+    {
+        Directory.CreateDirectory(dst);
+        foreach (var file in Directory.EnumerateFiles(src))
+        {
+            var name = Path.GetFileName(file);
+            File.Copy(file, Path.Combine(dst, name), overwrite: true);
+        }
+        foreach (var dir in Directory.EnumerateDirectories(src))
+        {
+            var name = Path.GetFileName(dir);
+            CopyDirectoryContents(dir, Path.Combine(dst, name));
+        }
     }
 
     /// <summary>

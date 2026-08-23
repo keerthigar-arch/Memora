@@ -74,13 +74,42 @@ import { NotificationService } from '../../services/notification.service';
                 <div><dt>Customer email</dt><dd>{{ draft()!.ownerEmail }}</dd></div>
               }
             </dl>
+
+            @if (draft()!.confirmationDocumentUrl) {
+              <div class="doc-block">
+                <h3 class="doc-title">Confirmation document</h3>
+                <p class="doc-copy">
+                  Required verification file for this {{ draft()!.eventType }} event.
+                </p>
+                @if (isImageDocument(draft()!.confirmationDocumentUrl!)) {
+                  <a [href]="draft()!.confirmationDocumentUrl!" target="_blank" rel="noopener noreferrer" class="doc-preview-link">
+                    <img [src]="draft()!.confirmationDocumentUrl!" alt="Confirmation document" class="doc-preview-img" />
+                  </a>
+                }
+                <a
+                  [href]="draft()!.confirmationDocumentUrl!"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="btn btn-outline btn-block"
+                >
+                  Open / download document
+                </a>
+              </div>
+            } @else if (requiresConfirmationDocument(draft()!.eventType)) {
+              <div class="doc-block doc-block-missing">
+                <h3 class="doc-title">Confirmation document missing</h3>
+                <p class="doc-copy">This event type requires a confirmation document, but none was uploaded.</p>
+              </div>
+            }
           </div>
         </div>
 
         <aside class="detail-aside card">
           <h2>Review &amp; publish</h2>
           <p class="aside-copy">
-            @if (draft()!.paymentReceived) {
+            @if (draft()!.paymentMethod === 'Card' && draft()!.paymentReceived) {
+              Card payment is already confirmed. Publish to make this event visible on the public feed.
+            } @else if (draft()!.paymentReceived) {
               Payment is marked received. Publish to make this event visible on the public feed.
             } @else if (draft()!.paymentMethod === 'Card') {
               Confirm card payment and publish in one step, or mark Received on Payments first.
@@ -240,6 +269,41 @@ import { NotificationService } from '../../services/notification.service';
         color: #0f2922;
         font-weight: 500;
       }
+      .doc-block {
+        margin-top: 1.35rem;
+        padding-top: 1.15rem;
+        border-top: 1px solid #e3ece8;
+      }
+      .doc-block-missing {
+        background: #fff7ed;
+        margin: 1.25rem -1.35rem -1.5rem;
+        padding: 1.15rem 1.35rem 1.35rem;
+        border-top: 1px solid #fed7aa;
+      }
+      .doc-title {
+        margin: 0 0 0.35rem;
+        font-size: 0.95rem;
+        color: #0f2922;
+      }
+      .doc-copy {
+        margin: 0 0 0.85rem;
+        font-size: 0.85rem;
+        color: #5c726b;
+        line-height: 1.5;
+      }
+      .doc-preview-link {
+        display: block;
+        margin-bottom: 0.75rem;
+      }
+      .doc-preview-img {
+        display: block;
+        width: 100%;
+        max-height: 320px;
+        object-fit: contain;
+        border-radius: 10px;
+        border: 1px solid #e3ece8;
+        background: #f8faf9;
+      }
       .detail-aside {
         padding: 1.15rem 1.2rem;
         position: sticky;
@@ -356,6 +420,16 @@ export class PendingEventDetailComponent implements OnInit {
       currency: 'USD',
       maximumFractionDigits: 0
     }).format(amount);
+  }
+
+  requiresConfirmationDocument(eventType: string): boolean {
+    const t = (eventType || '').trim().toLowerCase();
+    return t === 'wedding' || t === 'obituary' || t === 'funeral';
+  }
+
+  isImageDocument(url: string): boolean {
+    const path = url.split('?')[0].toLowerCase();
+    return ['.jpg', '.jpeg', '.png', '.webp', '.gif'].some((ext) => path.endsWith(ext));
   }
 
   publish() {

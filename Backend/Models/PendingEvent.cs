@@ -20,6 +20,11 @@ public class PendingEvent
     public string? MainImagePath { get; set; }
     public string? GalleryPathsJson { get; set; }
     public string? VideoPathsJson { get; set; }
+
+    /// <summary>Confirmation document for Wedding / Obituary (Funeral) — under Event/{id}/document/.</summary>
+    [MaxLength(500)]
+    public string? ConfirmationDocumentPath { get; set; }
+
     public string CreatedBy { get; set; } = string.Empty;
     public string Visibility { get; set; } = "Public";
     public string? InvitedEmails { get; set; }

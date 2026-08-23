@@ -27,8 +27,10 @@ public class EventsController : ControllerBase
     private const long MaxVideoBytes = 100L * 1024 * 1024;
     private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
     private static readonly string[] VideoExtensions = { ".mp4", ".webm", ".mov" };
+    private static readonly string[] DocumentExtensions = { ".pdf", ".jpg", ".jpeg", ".png", ".webp" };
+    private const long MaxDocumentBytes = 10L * 1024 * 1024;
 
-    /// <summary>Upper bound for multipart uploads: 1 main + 8 gallery + 3 videos plus headroom.</summary>
+    /// <summary>Upper bound for multipart uploads: 1 main + 8 gallery + 3 videos + document plus headroom.</summary>
     public const long MaxUploadRequestBytes = 400L * 1024 * 1024;
 
     public EventsController(
@@ -86,6 +88,35 @@ public class EventsController : ControllerBase
             if (vid.Length > MaxVideoBytes)
                 return "Each video must be 100 MB or smaller.";
         }
+
+        return null;
+    }
+
+    /// <summary>Wedding and Obituary/Funeral require a confirmation document.</summary>
+    private static bool RequiresConfirmationDocument(string? eventType)
+    {
+        var t = (eventType ?? "").Trim();
+        return t.Equals("Wedding", StringComparison.OrdinalIgnoreCase)
+            || t.Equals("Obituary", StringComparison.OrdinalIgnoreCase)
+            || t.Equals("Funeral", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? ValidateConfirmationDocument(string? eventType, IFormFile? document, bool requiredWhenTypeMatches)
+    {
+        var needsDoc = RequiresConfirmationDocument(eventType);
+        if (!needsDoc)
+            return null;
+
+        if (requiredWhenTypeMatches && (document == null || document.Length == 0))
+            return "A confirmation document is required for Wedding and Funeral (Obituary) events.";
+
+        if (document == null || document.Length == 0)
+            return null;
+
+        if (!HasExtension(document, DocumentExtensions))
+            return "Confirmation document must be a PDF or image (pdf, jpg, jpeg, png, webp).";
+        if (document.Length > MaxDocumentBytes)
+            return "Confirmation document must be 10 MB or smaller.";
 
         return null;
     }
@@ -891,6 +922,10 @@ public class EventsController : ControllerBase
         if (mediaError != null)
             return BadRequest(new { message = mediaError });
 
+        var docError = ValidateConfirmationDocument(dto.EventType, dto.ConfirmationDocument, requiredWhenTypeMatches: true);
+        if (docError != null)
+            return BadRequest(new { message = docError });
+
         var userId = _jwt.GetUserIdFromClaims(User);
         var user = userId.HasValue ? await _db.Users.FindAsync(userId.Value) : null;
         var createdBy = user?.DisplayName ?? dto.CreatedBy ?? "Anonymous";
@@ -909,6 +944,7 @@ public class EventsController : ControllerBase
             Country = dto.Country,
             MainImagePath = null,
             GalleryPathsJson = null,
+            ConfirmationDocumentPath = null,
             CreatedBy = createdBy,
             UserId = userId,
             Visibility = dto.Visibility ?? "Public",
@@ -927,6 +963,18 @@ public class EventsController : ControllerBase
             _db.PendingEvents.Remove(draft);
             await _db.SaveChangesAsync();
             return BadRequest(new { message = "Main image could not be saved. Use jpg, jpeg, png, gif, or webp up to 5 MB." });
+        }
+
+        string? confirmationDocumentPath = null;
+        if (RequiresConfirmationDocument(dto.EventType) && dto.ConfirmationDocument != null)
+        {
+            confirmationDocumentPath = await _fileStorage.SaveConfirmationDocumentAsync(dto.ConfirmationDocument, draft.Id);
+            if (confirmationDocumentPath == null)
+            {
+                _db.PendingEvents.Remove(draft);
+                await _db.SaveChangesAsync();
+                return BadRequest(new { message = "Confirmation document could not be saved. Use pdf, jpg, jpeg, png, or webp up to 10 MB." });
+            }
         }
 
         var galleryPaths = new List<string>();
@@ -957,6 +1005,7 @@ public class EventsController : ControllerBase
             draftRow.MainImagePath = mainImagePath;
             draftRow.GalleryPathsJson = galleryPaths.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(galleryPaths) : null;
             draftRow.VideoPathsJson = videoPaths.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(videoPaths) : null;
+            draftRow.ConfirmationDocumentPath = confirmationDocumentPath;
             await _db.SaveChangesAsync();
         }
 
@@ -977,6 +1026,10 @@ public class EventsController : ControllerBase
         var mediaError = ValidateEventMedia(dto.MainImage, dto.GalleryImages, dto.Videos, mainImageRequired: true);
         if (mediaError != null)
             return BadRequest(new { message = mediaError });
+
+        var docError = ValidateConfirmationDocument(dto.EventType, dto.ConfirmationDocument, requiredWhenTypeMatches: true);
+        if (docError != null)
+            return BadRequest(new { message = docError });
 
         var userId = _jwt.GetUserIdFromClaims(User);
         var user = userId.HasValue ? await _db.Users.FindAsync(new object[] { userId.Value }, cancellationToken) : null;
@@ -1047,6 +1100,18 @@ public class EventsController : ControllerBase
             }
             if (list.Count > 0)
                 ev.VideoUrls = System.Text.Json.JsonSerializer.Serialize(list);
+        }
+
+        if (RequiresConfirmationDocument(dto.EventType) && dto.ConfirmationDocument != null)
+        {
+            var docPath = await _fileStorage.SaveConfirmationDocumentAsync(dto.ConfirmationDocument, ev.Id);
+            if (docPath == null)
+            {
+                _db.Events.Remove(ev);
+                await _db.SaveChangesAsync(cancellationToken);
+                return BadRequest(new { message = "Confirmation document could not be saved. Use pdf, jpg, jpeg, png, or webp up to 10 MB." });
+            }
+            ev.ConfirmationDocumentUrl = docPath;
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -1268,6 +1333,17 @@ public class EventsController : ControllerBase
         if (mediaError != null)
             return BadRequest(new { message = mediaError });
 
+        var effectiveType = !string.IsNullOrWhiteSpace(dto.EventType) ? dto.EventType : draft.EventType;
+        var docRequired = RequiresConfirmationDocument(effectiveType)
+            && string.IsNullOrWhiteSpace(draft.ConfirmationDocumentPath)
+            && (dto.ConfirmationDocument == null || dto.ConfirmationDocument.Length == 0);
+        if (docRequired)
+            return BadRequest(new { message = "A confirmation document is required for Wedding and Funeral (Obituary) events." });
+
+        var docError = ValidateConfirmationDocument(effectiveType, dto.ConfirmationDocument, requiredWhenTypeMatches: false);
+        if (docError != null)
+            return BadRequest(new { message = docError });
+
         var storageUserId = draft.UserId ?? _jwt.GetUserIdFromClaims(User) ?? 0;
         var baseUrl = _fileStorage.GetBaseUrl(Request);
 
@@ -1280,6 +1356,14 @@ public class EventsController : ControllerBase
         else if (dto.ClearMainImage == true)
         {
             draft.MainImagePath = null;
+        }
+
+        if (dto.ConfirmationDocument != null && dto.ConfirmationDocument.Length > 0)
+        {
+            var docPath = await _fileStorage.SaveConfirmationDocumentAsync(dto.ConfirmationDocument, draftId);
+            if (docPath == null)
+                return BadRequest(new { message = "Confirmation document could not be saved. Use pdf, jpg, jpeg, png, or webp up to 10 MB." });
+            draft.ConfirmationDocumentPath = docPath;
         }
 
         draft.GalleryPathsJson = await BuildUpdatedGalleryJsonAsync(
@@ -1351,7 +1435,9 @@ public class EventsController : ControllerBase
             draft.OfflineSubmittedAt,
             owner?.DisplayName,
             owner?.Email,
-            draft.InvitedEmails
+            draft.InvitedEmails,
+            FileStorageService.NormalizeUrl(draft.ConfirmationDocumentPath, baseUrl),
+            draft.ReferenceCode
         ));
     }
 
@@ -1390,6 +1476,8 @@ public class CreateEventFormDto
     public IFormFile? MainImage { get; set; }
     public IEnumerable<IFormFile>? GalleryImages { get; set; }
     public IEnumerable<IFormFile>? Videos { get; set; }
+    /// <summary>Required for Wedding and Obituary/Funeral.</summary>
+    public IFormFile? ConfirmationDocument { get; set; }
 }
 
 public class UpdateEventFormDto
@@ -1410,6 +1498,7 @@ public class UpdateEventFormDto
     public IFormFile? MainImage { get; set; }
     public IEnumerable<IFormFile>? GalleryImages { get; set; }
     public IEnumerable<IFormFile>? Videos { get; set; }
+    public IFormFile? ConfirmationDocument { get; set; }
     /// <summary>When true and no new MainImage is uploaded, clears the cover image.</summary>
     public bool? ClearMainImage { get; set; }
     /// <summary>

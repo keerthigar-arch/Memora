@@ -40,6 +40,23 @@ export interface CustomerDraftListDto {
   offlineSubmittedAt?: string | null;
   ownerDisplayName?: string | null;
   ownerEmail?: string | null;
+  referenceCode?: string | null;
+}
+
+/** Customer card payment succeeded but event awaits admin approval. */
+export interface AwaitingApprovalPaymentResult {
+  awaitingApproval: true;
+  draftId: number;
+  referenceCode?: string | null;
+  message?: string;
+}
+
+export type ConfirmPaymentResult = EventDetailDto | AwaitingApprovalPaymentResult;
+
+export function isAwaitingApprovalPaymentResult(
+  res: ConfirmPaymentResult
+): res is AwaitingApprovalPaymentResult {
+  return !!res && 'awaitingApproval' in res && (res as AwaitingApprovalPaymentResult).awaitingApproval === true;
 }
 
 export interface EventListDto {
@@ -238,12 +255,12 @@ export class ApiService {
     return this.http.post<{ url: string }>(`${API}/payments/create-checkout-session`, { draftId });
   }
 
-  verifyStripeSession(sessionId: string): Observable<EventDetailDto> {
-    return this.http.post<EventDetailDto>(`${API}/payments/verify-session`, { sessionId });
+  verifyStripeSession(sessionId: string): Observable<ConfirmPaymentResult> {
+    return this.http.post<ConfirmPaymentResult>(`${API}/payments/verify-session`, { sessionId });
   }
 
-  confirmPaymentMock(draftId: number): Observable<EventDetailDto> {
-    return this.http.post<EventDetailDto>(`${API}/payments/confirm-mock`, { draftId });
+  confirmPaymentMock(draftId: number): Observable<ConfirmPaymentResult> {
+    return this.http.post<ConfirmPaymentResult>(`${API}/payments/confirm-mock`, { draftId });
   }
 
   createEvent(formData: FormData): Observable<EventDetailDto> {

@@ -35,6 +35,32 @@ public static class PaymentEmailTemplate
         return EmailTemplateLayout.Wrap("Payment successful", body, "Online payment confirmation");
     }
 
+    public static string BuildCardPendingApproval(
+        string recipientDisplayName,
+        string eventTitle,
+        string referenceCode,
+        decimal amountPaid)
+    {
+        var name = SafeName(recipientDisplayName);
+        var title = WebUtility.HtmlEncode(eventTitle);
+        var reference = WebUtility.HtmlEncode(referenceCode);
+        var amount = FormatUsd(amountPaid);
+
+        var body = $"""
+            <p style="margin:0 0 14px;font-size:16px;line-height:1.5;color:#1f2937;">Hi {name},</p>
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#4b5563;">
+              Your payment for <strong>{title}</strong> was successful. Our team will review your event shortly.
+              It will appear on the Memora feed once an admin approves it.
+            </p>
+            {ReferenceBox(reference, amount)}
+            <p style="margin:22px 0 0;font-size:13px;line-height:1.5;color:#9ca3af;">
+              Keep this reference number for your records.
+            </p>
+            """;
+
+        return EmailTemplateLayout.Wrap("Payment received", body, "Awaiting admin approval");
+    }
+
     public static string BuildOfflinePending(
         string recipientDisplayName,
         string eventTitle,

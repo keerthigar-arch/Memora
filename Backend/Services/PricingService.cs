@@ -15,10 +15,10 @@ public class PricingService
     /// <summary>Fixed USD display plans — same price for every event type and country.</summary>
     private static readonly DisplayOption[] Options =
     {
-        new() { Days = 30, Price = 300m, Label = "1 Month" },
-        new() { Days = 90, Price = 450m, Label = "3 Months" },
-        new() { Days = 180, Price = 750m, Label = "6 Months" },
-        new() { Days = 365, Price = 1000m, Label = "12 Months" }
+        new() { Days = 30, Price = 200m, Label = "1 Month" },
+        new() { Days = 90, Price = 350m, Label = "3 Months" },
+        new() { Days = 180, Price = 500m, Label = "6 Months" },
+        new() { Days = 365, Price = 750m, Label = "12 Months" }
     };
 
     public IReadOnlyList<DisplayOption> GetDisplayOptions() => Options;

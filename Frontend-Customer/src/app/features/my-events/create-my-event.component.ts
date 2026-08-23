@@ -355,6 +355,44 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 }
               </div>
             </div>
+
+            @if (needsConfirmationDocument()) {
+              <div class="media-card" [class.media-card-ready]="!!confirmationDocument()">
+                <div class="media-card-head">
+                  <span class="media-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <path d="M14 2v6h6"/>
+                      <path d="M8 13h8M8 17h6"/>
+                    </svg>
+                  </span>
+                  <div class="media-copy">
+                    <div class="media-title">{{ 'myEvents.confirmationDoc' | t }} *</div>
+                    <p class="media-sub">{{ confirmationDocHint() }}</p>
+                  </div>
+                  @if (confirmationDocument()) {
+                    <span class="media-chip">Ready</span>
+                  }
+                </div>
+                <label class="media-drop media-drop-compact">
+                  <input
+                    type="file"
+                    accept=".pdf,image/jpeg,image/png,image/webp,application/pdf"
+                    (change)="onConfirmationDocument($event)"
+                  />
+                  <div class="media-drop-empty media-drop-empty-sm">
+                    <span class="media-drop-lead">{{ confirmationDocument()?.name || ('myEvents.confirmationDocDrop' | t) }}</span>
+                    <span class="media-drop-meta">{{ 'myEvents.confirmationDocMeta' | t }}</span>
+                  </div>
+                </label>
+                @if (confirmationDocument()) {
+                  <div class="doc-selected">
+                    <span>{{ confirmationDocument()!.name }}</span>
+                    <button type="button" class="media-remove" (click)="removeConfirmationDocument()" aria-label="Remove document">×</button>
+                  </div>
+                }
+              </div>
+            }
           </section>
 
           @if (error()) {
@@ -821,6 +859,22 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       text-overflow: ellipsis;
       background: linear-gradient(180deg, #16362d 0%, #0f2922 100%);
     }
+    .doc-selected {
+      margin-top: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 10px;
+      background: #f0f9f5;
+      border: 1px solid rgba(26, 95, 74, 0.14);
+      font-size: 0.85rem;
+      color: #0f2922;
+    }
+    .doc-selected .media-remove {
+      position: static;
+    }
 
     .validation-error { color: #c53030; font-size: 0.8125rem; margin-top: 0.35rem; }
     .character-count { font-size: 0.72rem; color: var(--create-muted); text-align: right; margin-top: 0.3rem; }
@@ -978,11 +1032,13 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
   mainImage: File | null = null;
   galleryImages: File[] = [];
   videos: File[] = [];
+  confirmationDocFile: File | null = null;
 
   displayOptions = signal<{ days: number; price: number; label: string }[]>([]);
   mainImagePreview = signal<string | null>(null);
   galleryPreviews = signal<{ url: string; name: string }[]>([]);
   videoPreviews = signal<{ url: string; name: string }[]>([]);
+  confirmationDocument = signal<File | null>(null);
   saving = signal(false);
   error = signal('');
 
@@ -1015,6 +1071,51 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
     if (type !== 'Wedding' && type !== 'Anniversary') {
       this.weddingDate = '';
     }
+    if (!this.needsConfirmationDocument()) {
+      this.removeConfirmationDocument();
+    }
+  }
+
+  needsConfirmationDocument(): boolean {
+    const t = (this.eventType || '').trim();
+    return t === 'Wedding' || t === 'Obituary' || t === 'Funeral';
+  }
+
+  confirmationDocHint(): string {
+    if (this.eventType === 'Wedding') {
+      return 'Upload a marriage certificate or wedding invitation that confirms the ceremony.';
+    }
+    return 'Upload a funeral notice, death certificate, or other document that confirms the funeral.';
+  }
+
+  onConfirmationDocument(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      input.value = '';
+      return;
+    }
+    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+    if (!allowed.includes(ext)) {
+      this.error.set('Confirmation document must be a PDF or image (pdf, jpg, png, webp).');
+      input.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      this.error.set('Confirmation document must be 10 MB or smaller.');
+      input.value = '';
+      return;
+    }
+    this.error.set('');
+    this.confirmationDocFile = file;
+    this.confirmationDocument.set(file);
+    input.value = '';
+  }
+
+  removeConfirmationDocument(): void {
+    this.confirmationDocFile = null;
+    this.confirmationDocument.set(null);
   }
 
   onMainImage(ev: Event): void {
@@ -1167,6 +1268,7 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
     if ((this.eventType === 'Wedding' || this.eventType === 'Anniversary') && !this.weddingDate) return false;
     if (this.visibility === 'InviteOnly' && !this.invitedEmails.trim()) return false;
     if (!this.mainImage) return false;
+    if (this.needsConfirmationDocument() && !this.confirmationDocFile) return false;
     return true;
   }
 
@@ -1203,6 +1305,9 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
     if (this.mainImage) fd.append('mainImage', this.mainImage);
     this.galleryImages.forEach((f) => fd.append('galleryImages', f));
     this.videos.forEach((f) => fd.append('videos', f));
+    if (this.confirmationDocFile) {
+      fd.append('confirmationDocument', this.confirmationDocFile);
+    }
 
     const plan = this.displayOptions().find((p) => p.days === this.displayDays) ?? this.displayOptions()[0];
 

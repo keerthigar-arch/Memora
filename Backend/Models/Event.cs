@@ -46,6 +46,10 @@ public class Event
 
     public string? VideoUrls { get; set; }
 
+    /// <summary>Confirmation document for Wedding / Obituary (Funeral) — under Event/{id}/document/.</summary>
+    [MaxLength(500)]
+    public string? ConfirmationDocumentUrl { get; set; }
+
     [Required]
     [MaxLength(200)]
     public string CreatedBy { get; set; } = string.Empty;

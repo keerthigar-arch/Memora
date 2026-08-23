@@ -48,6 +48,29 @@ public class PaymentEmailService
             ct);
     }
 
+    public async Task SendCardPaymentPendingApprovalAsync(
+        int? userId,
+        string eventTitle,
+        string referenceCode,
+        decimal amountPaid,
+        CancellationToken ct = default)
+    {
+        var owner = await ResolveOwnerAsync(userId, ct);
+        if (owner == null) return;
+
+        var html = PaymentEmailTemplate.BuildCardPendingApproval(
+            owner.Value.DisplayName,
+            eventTitle,
+            referenceCode,
+            amountPaid);
+
+        await SendSafeAsync(
+            owner.Value.Email,
+            "Payment received — awaiting approval — Memora",
+            html,
+            ct);
+    }
+
     public async Task SendOfflinePaymentPendingAsync(
         int? userId,
         string eventTitle,

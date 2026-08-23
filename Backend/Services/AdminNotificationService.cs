@@ -14,8 +14,8 @@ public class AdminNotificationService
         _db = db;
     }
 
-    /// <summary>Offline payment submitted — admin action required.</summary>
-    public async Task NotifyCustomerOfflineSubmittedAsync(PendingEvent draft, CancellationToken ct = default)
+    /// <summary>Customer event paid / submitted — admin action required before feed publish.</summary>
+    public async Task NotifyCustomerEventPendingAsync(PendingEvent draft, CancellationToken ct = default)
     {
         if (!draft.UserId.HasValue) return;
 
@@ -37,6 +37,10 @@ public class AdminNotificationService
         await _db.SaveChangesAsync(ct);
     }
 
+    /// <summary>Backward-compatible alias.</summary>
+    public Task NotifyCustomerOfflineSubmittedAsync(PendingEvent draft, CancellationToken ct = default) =>
+        NotifyCustomerEventPendingAsync(draft, ct);
+
     /// <summary>Remove notifications once the event is published (no longer needs admin attention).</summary>
     public async Task ClearNotificationsOnPublishAsync(int? draftId, CancellationToken ct = default)
     {
@@ -57,7 +61,7 @@ public class AdminNotificationService
         }
     }
 
-    /// <summary>Notifications that still need admin review (offline draft awaiting approval only).</summary>
+    /// <summary>Notifications that still need admin review (customer drafts awaiting approval).</summary>
     public IQueryable<AdminNotification> ActiveNotificationsQuery()
     {
         return _db.AdminNotifications.AsNoTracking()
@@ -66,7 +70,7 @@ public class AdminNotificationService
                 && _db.PendingEvents.Any(d =>
                     d.Id == n.PendingEventId
                     && d.AwaitingOfflineApproval
-                    && (d.PaymentMethod == null || d.PaymentMethod == "Offline")));
+                    && (d.PaymentMethod == null || d.PaymentMethod == "Offline" || d.PaymentMethod == "Card")));
     }
 
     /// <summary>Remove legacy rows (published events, missing drafts, old published kind).</summary>
@@ -79,7 +83,7 @@ public class AdminNotificationService
                 || (n.PendingEventId != null && !_db.PendingEvents.Any(d =>
                     d.Id == n.PendingEventId
                     && d.AwaitingOfflineApproval
-                    && (d.PaymentMethod == null || d.PaymentMethod == "Offline"))))
+                    && (d.PaymentMethod == null || d.PaymentMethod == "Offline" || d.PaymentMethod == "Card"))))
             .ToListAsync(ct);
 
         if (stale.Count == 0) return;

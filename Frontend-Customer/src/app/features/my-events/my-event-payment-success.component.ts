@@ -1,7 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ApiService } from '../../services/api.service';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ApiService, isAwaitingApprovalPaymentResult } from '../../services/api.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
@@ -19,11 +19,16 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <h1>{{ 'myEvents.payFailed' | t }}</h1>
         <p class="err">{{ error() }}</p>
         <a routerLink="/my-events" class="btn">{{ 'myEvents.back' | t }}</a>
-      } @else if (eventId()) {
+      } @else {
         <h1>{{ 'myEvents.paySuccess' | t }}</h1>
         <p>{{ 'myEvents.paySuccessLede' | t }}</p>
-        <a [routerLink]="['/event', eventId()]" class="btn">{{ 'myEvents.viewEvent' | t }}</a>
-        <a routerLink="/my-events" class="link">{{ 'myEvents.back' | t }}</a>
+        @if (paymentReference()) {
+          <div class="ref-box" role="status">
+            <span class="ref-label">{{ 'myEvents.paymentReference' | t }}</span>
+            <strong class="ref-code">{{ paymentReference() }}</strong>
+          </div>
+        }
+        <a routerLink="/my-events" class="btn">{{ 'myEvents.back' | t }}</a>
       }
     </div>
   `,
@@ -41,15 +46,38 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         text-decoration: none;
         font-weight: 700;
       }
-      .link { display: block; margin-top: 1rem; color: #1a5f4a; }
       .err { color: #b91c1c; }
+      .ref-box {
+        margin: 1rem auto 0;
+        max-width: 320px;
+        padding: 0.9rem 1rem;
+        border-radius: 12px;
+        border: 1px solid #d8e3de;
+        background: #f5f7f6;
+        text-align: left;
+      }
+      .ref-label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #5a6f68;
+        margin-bottom: 0.35rem;
+      }
+      .ref-code {
+        display: block;
+        font-family: ui-monospace, Consolas, Monaco, monospace;
+        font-size: 1.05rem;
+        color: #1e4638;
+      }
     `
   ]
 })
 export class MyEventPaymentSuccessComponent implements OnInit {
   loading = signal(true);
   error = signal('');
-  eventId = signal<number | null>(null);
+  paymentReference = signal('');
 
   constructor(
     private route: ActivatedRoute,
@@ -64,8 +92,10 @@ export class MyEventPaymentSuccessComponent implements OnInit {
       return;
     }
     this.api.verifyStripeSession(sessionId).subscribe({
-      next: (ev) => {
-        this.eventId.set(ev.id);
+      next: (res) => {
+        if (isAwaitingApprovalPaymentResult(res) && res.referenceCode) {
+          this.paymentReference.set(res.referenceCode);
+        }
         this.loading.set(false);
       },
       error: (err) => {

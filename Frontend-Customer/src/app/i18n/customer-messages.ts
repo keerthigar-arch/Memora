@@ -109,14 +109,14 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
 
     'myEvents.title': 'My Events',
     'myEvents.lede':
-      'Create an event, pay by card or offline, and track what appears on the public feed. Events stay hidden until payment is confirmed.',
+      'Create an event, pay online, and track what appears on the public feed. Events stay hidden until payment is confirmed and an admin approves them.',
     'myEvents.create': 'Create event',
     'myEvents.drafts': 'Drafts — continue payment',
-    'myEvents.pendingApproval': 'Awaiting payment confirmation (offline)',
+    'myEvents.pendingApproval': 'Awaiting admin approval',
     'myEvents.published': 'Published on feed',
     'myEvents.loading': 'Loading…',
     'myEvents.noDrafts': 'No drafts waiting for payment.',
-    'myEvents.noPending': 'No events awaiting offline payment confirmation.',
+    'myEvents.noPending': 'No events awaiting admin approval.',
     'myEvents.noPublished': 'No published events yet.',
     'myEvents.noneAvailable': 'No events available at the moment.',
     'myEvents.emptyHint': 'Create an event to get started, or adjust your filters.',
@@ -126,14 +126,14 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.createAnother': 'Create another event',
     'myEvents.createAnotherBody': 'Share a new milestone with family and friends.',
     'myEvents.continuePayment': 'Proceed to payment',
-    'myEvents.offlineSubmitted': 'Awaiting admin confirmation',
+    'myEvents.offlineSubmitted': 'Awaiting admin approval',
     'myEvents.live': 'Live',
     'myEvents.hidden': 'Hidden until published',
     'myEvents.view': 'View on feed',
     'myEvents.back': 'Back to My Events',
     'myEvents.createTitle': 'Create an event',
     'myEvents.createLede':
-      'Complete your event details below. On the next step you will choose card or offline payment.',
+      'Complete your event details below. On the next step you will proceed to payment.',
     'myEvents.composeKicker': 'Compose',
     'myEvents.sectionBasics': 'Event basics',
     'myEvents.sectionBasicsHint': 'Choose the occasion and the date guests will see first.',
@@ -155,7 +155,10 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.fileDropVideos': 'Add videos · up to 3 files, MP4 / WEBM / MOV, max 100MB each',
     'myEvents.videos': 'Videos',
     'myEvents.mainImageRequired': 'Main image is required.',
-    'myEvents.submitHint': 'Next: pay by card or choose offline payment.',
+    'myEvents.confirmationDoc': 'Confirmation document',
+    'myEvents.confirmationDocDrop': 'Upload confirmation document',
+    'myEvents.confirmationDocMeta': 'PDF or image · max 10MB · required for Wedding & Funeral',
+    'myEvents.submitHint': 'Next: proceed to payment.',
     'myEvents.loadingPricing': 'Loading pricing…',
     'myEvents.eventType': 'Event type',
     'myEvents.eventDate': 'Event date',
@@ -170,21 +173,21 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.proceedPayment': 'Proceed to payment',
     'myEvents.cancel': 'Cancel',
     'myEvents.saving': 'Saving…',
-    'myEvents.paymentTitle': 'Choose payment method',
+    'myEvents.paymentTitle': 'Payment',
     'myEvents.paymentLede':
-      'Your event stays hidden from the public feed until payment is complete and confirmed. Choose the option that works best for you.',
+      'Your event stays hidden from the public feed until payment is complete and an admin approves it.',
     'myEvents.paymentHowItWorks': 'How payment works',
     'myEvents.paymentInstrCard':
-      'Card payment: enter card details on the next screen. After successful payment, your event is published and appears on the feed immediately.',
+      'Enter your card details below. After successful payment, an admin reviews your event. It appears on the feed only after approval.',
     'myEvents.paymentInstrOffline':
-      'Offline payment: pay in cash or transfer to our bank account and send us the payment slip. Your event remains hidden until an admin confirms payment and publishes it.',
+      'Offline payment is no longer available.',
     'myEvents.paymentInstrAlt':
-      'You can also send your event details to us by email or WhatsApp — we can create the event for you. Until payment is received, it will stay hidden from the feed.',
+      'You can also send your event details to us by email or WhatsApp — we can create the event for you. Until payment is received and approved, it will stay hidden from the feed.',
     'myEvents.cardPay': 'Card payment',
-    'myEvents.cardPaySub': 'Enter card details — your event goes live right after payment.',
-    'myEvents.cardFormTitle': 'Pay by card',
+    'myEvents.cardPaySub': 'Pay by card — your event goes live after admin approval.',
+    'myEvents.cardFormTitle': 'Proceed to payment',
     'myEvents.cardFormLede':
-      'Enter card details below. Use “Fill sample card” for demo data. After payment, your event is published immediately.',
+      'Enter card details below. Use “Fill sample card” for demo data. After payment, your event awaits admin approval before appearing on the feed.',
     'myEvents.fillSampleCard': 'Fill sample card',
     'myEvents.cardName': 'Name on card',
     'myEvents.cardNamePh': 'e.g. Jane Demo',
@@ -197,9 +200,9 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.cardCvvErr': 'Enter a valid 3-digit CVV.',
     'myEvents.paying': 'Processing…',
     'myEvents.payAmount': 'Pay {{amount}} USD',
-    'myEvents.backToMethods': 'Back to payment methods',
+    'myEvents.backToMethods': 'Back',
     'myEvents.cardSubmitSuccess':
-      'Card payment successful. Your event is now live on the feed.',
+      'Payment successful. Your event is awaiting admin approval and will appear on the feed once approved.',
     'myEvents.cardPayFailed': 'Payment failed. Please try again.',
     'myEvents.offlinePay': 'Offline payment',
     'myEvents.offlinePaySub':
@@ -208,9 +211,11 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
       'Submitted for admin approval. Complete your payment using the reference below — your event will appear on the feed once payment is confirmed and published.',
     'myEvents.paymentReference': 'Your reference',
     'myEvents.offlineEmailHint': 'We also sent these instructions to your email.',
+    'myEvents.approvalEmailHint': 'We also sent a confirmation to your email.',
     'myEvents.verifying': 'Verifying payment…',
     'myEvents.paySuccess': 'Payment successful',
-    'myEvents.paySuccessLede': 'Your event is now published on the public feed.',
+    'myEvents.paySuccessLede':
+      'Your payment was received. Your event will appear on the public feed after an admin approves it.',
     'myEvents.payFailed': 'Payment issue',
     'myEvents.viewEvent': 'View your event',
 
@@ -263,13 +268,13 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'pricing.legend': '*Terms apply · Features depend on the package you choose.',
     'pricing.paymentTitle': 'Payment & publishing',
     'pricing.paymentIntro':
-      'When you create an event, you can pay by card or offline. Events are only shown on the public feed after payment is confirmed.',
+      'When you create an event, pay by card online. Events are only shown on the public feed after payment is confirmed and an admin approves them.',
     'pricing.paymentCard':
-      'Card (Stripe): pay online by card. After successful payment, your event is published automatically.',
+      'Card (Stripe): pay online by card. After successful payment, an admin reviews and publishes your event to the feed.',
     'pricing.paymentOffline':
-      'Offline: pay in cash or by bank transfer and send us the payment slip. Your event stays hidden until an admin confirms payment and publishes it.',
+      'Offline payment is no longer available for customer-created events.',
     'pricing.paymentAlt':
-      'Alternative: email or WhatsApp your event details to us and we can create the event for you. It remains hidden until payment is received.',
+      'Alternative: email or WhatsApp your event details to us and we can create the event for you. It remains hidden until payment is received and approved.',
 
     'pricing.slug.birthday': 'Birthday',
     'pricing.slug.puberty-ceremony': 'Puberty Ceremony',
@@ -465,14 +470,14 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
 
     'myEvents.title': 'என் நிகழ்வுகள்',
     'myEvents.lede':
-      'நிகழ்வை உருவாக்கி, அட்டை அல்லது ஆஃப்லைன் கட்டணம் செலுத்தி, பொது ஊட்டத்தில் எது தெரிகிறது என்பதைக் கண்காணிக்கவும். கட்டணம் உறுதிப்படும் வரை நிகழ்வுகள் மறைக்கப்பட்டிருக்கும்.',
+      'நிகழ்வை உருவாக்கி, ஆன்லைனில் கட்டணம் செலுத்தி, பொது ஊட்டத்தில் எது தெரிகிறது என்பதைக் கண்காணிக்கவும். கட்டணம் உறுதிப்பட்டு நிர்வாகி அனுமதிக்கும் வரை நிகழ்வுகள் மறைக்கப்பட்டிருக்கும்.',
     'myEvents.create': 'நிகழ்வு உருவாக்கு',
     'myEvents.drafts': 'வரைவுகள் — கட்டணம் தொடரவும்',
-    'myEvents.pendingApproval': 'கட்டண உறுதிப்பாட்டுக்காக காத்திருக்கிறது (ஆஃப்லைன்)',
+    'myEvents.pendingApproval': 'நிர்வாக அனுமதிக்காக காத்திருக்கிறது',
     'myEvents.published': 'ஊட்டத்தில் வெளியிடப்பட்டது',
     'myEvents.loading': 'ஏற்றுகிறது…',
     'myEvents.noDrafts': 'கட்டணத்திற்காக வரைவுகள் இல்லை.',
-    'myEvents.noPending': 'ஆஃப்லைன் கட்டண உறுதிப்பாட்டுக்காக நிகழ்வுகள் இல்லை.',
+    'myEvents.noPending': 'நிர்வாக அனுமதிக்காக நிகழ்வுகள் இல்லை.',
     'myEvents.noPublished': 'வெளியிடப்பட்ட நிகழ்வுகள் இன்னும் இல்லை.',
     'myEvents.noneAvailable': 'தற்போது நிகழ்வுகள் எதுவும் இல்லை.',
     'myEvents.emptyHint': 'தொடங்க ஒரு நிகழ்வை உருவாக்கவும் அல்லது வடிகட்டிகளை மாற்றவும்.',
@@ -482,14 +487,14 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.createAnother': 'மற்றொரு நிகழ்வு உருவாக்கு',
     'myEvents.createAnotherBody': 'குடும்பம் மற்றும் நண்பர்களுடன் புதிய தருணத்தைப் பகிருங்கள்.',
     'myEvents.continuePayment': 'கட்டணத்திற்குச் செல்',
-    'myEvents.offlineSubmitted': 'நிர்வாக உறுதிப்பாட்டுக்காக காத்திருக்கிறது',
+    'myEvents.offlineSubmitted': 'நிர்வாக அனுமதிக்காக காத்திருக்கிறது',
     'myEvents.live': 'நேரடி',
     'myEvents.hidden': 'வெளியிடும் வரை மறைக்கப்பட்டது',
     'myEvents.view': 'ஊட்டத்தில் காண்',
     'myEvents.back': 'என் நிகழ்வுகளுக்குத் திரும்பு',
     'myEvents.createTitle': 'நிகழ்வு உருவாக்கு',
     'myEvents.createLede':
-      'கீழே நிகழ்வு விவரங்களை நிரப்புங்கள். அடுத்த படியில் அட்டை அல்லது ஆஃப்லைன் கட்டணத்தைத் தேர்வு செய்வீர்கள்.',
+      'கீழே நிகழ்வு விவரங்களை நிரப்புங்கள். அடுத்த படியில் கட்டணத்திற்குச் செல்வீர்கள்.',
     'myEvents.composeKicker': 'உருவாக்கு',
     'myEvents.sectionBasics': 'நிகழ்வு அடிப்படை',
     'myEvents.sectionBasicsHint': 'விருந்தினர்கள் முதலில் காணும் வகையையும் தேதியையும் தேர்வு செய்யுங்கள்.',
@@ -511,7 +516,10 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.fileDropVideos': 'வீடியோக்களைச் சேர்க்கவும் · அதிகபட்சம் 3 கோப்புகள், MP4 / WEBM / MOV, ஒவ்வொன்றும் 100MB வரை',
     'myEvents.videos': 'வீடியோக்கள்',
     'myEvents.mainImageRequired': 'முதன்மை படம் அவசியம்.',
-    'myEvents.submitHint': 'அடுத்து: அட்டை அல்லது ஆஃப்லைன் கட்டணத்தைத் தேர்வு செய்யுங்கள்.',
+    'myEvents.confirmationDoc': 'உறுதிப்படுத்தும் ஆவணம்',
+    'myEvents.confirmationDocDrop': 'உறுதிப்படுத்தும் ஆவணத்தைப் பதிவேற்றுங்கள்',
+    'myEvents.confirmationDocMeta': 'PDF அல்லது படம் · அதிகபட்சம் 10MB · திருமணம் & இறுதிச் சடங்குக்கு அவசியம்',
+    'myEvents.submitHint': 'அடுத்து: கட்டணத்திற்குச் செல்லுங்கள்.',
     'myEvents.loadingPricing': 'விலை ஏற்றுகிறது…',
     'myEvents.eventType': 'நிகழ்வு வகை',
     'myEvents.eventDate': 'நிகழ்வு தேதி',
@@ -526,21 +534,21 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.proceedPayment': 'கட்டணத்திற்குச் செல்',
     'myEvents.cancel': 'ரத்துசெய்',
     'myEvents.saving': 'சேமிக்கிறது…',
-    'myEvents.paymentTitle': 'கட்டண முறையைத் தேர்வு செய்யுங்கள்',
+    'myEvents.paymentTitle': 'கட்டணம்',
     'myEvents.paymentLede':
-      'கட்டணம் முடிந்து உறுதிப்படும் வரை உங்கள் நிகழ்வு பொது ஊட்டத்தில் தோன்றாது. உங்களுக்கு வசதியான விருப்பத்தைத் தேர்வு செய்யுங்கள்.',
+      'கட்டணம் முடிந்து நிர்வாகி அனுமதிக்கும் வரை உங்கள் நிகழ்வு பொது ஊட்டத்தில் தோன்றாது.',
     'myEvents.paymentHowItWorks': 'கட்டணம் எவ்வாறு செயல்படுகிறது',
     'myEvents.paymentInstrCard':
-      'அட்டை கட்டணம்: அடுத்த திரையில் அட்டை விவரங்களை உள்ளிடவும் (இப்போது டெமோ). கட்டணத்திற்குப் பிறகு நிகழ்வு தானாக வெளியிடப்படும்.',
+      'கீழே அட்டை விவரங்களை உள்ளிடவும். கட்டணம் வெற்றிகரமான பிறகு நிர்வாகி உங்கள் நிகழ்வை மதிப்பாய்வு செய்வார். அனுமதிக்குப் பிறகே ஊட்டத்தில் தோன்றும்.',
     'myEvents.paymentInstrOffline':
-      'ஆஃப்லைன் கட்டணம்: பணம் அல்லது வங்கி பரிமாற்றம் — பேமெண்ட் ஸ்லிப்பை அனுப்புங்கள். நிர்வாகி உறுதிப்படுத்தும் வரை நிகழ்வு மறைக்கப்படும்.',
+      'ஆஃப்லைன் கட்டணம் இனி கிடைக்காது.',
     'myEvents.paymentInstrAlt':
-      'நிகழ்வு விவரங்களை மின்னஞ்சல் அல்லது WhatsApp மூலமாகவும் அனுப்பலாம். கட்டணம் வரும் வரை ஊட்டத்தில் மறைக்கப்படும்.',
+      'நிகழ்வு விவரங்களை மின்னஞ்சல் அல்லது WhatsApp மூலமாகவும் அனுப்பலாம். கட்டணம் பெற்று அனுமதிக்கும் வரை ஊட்டத்தில் மறைக்கப்படும்.',
     'myEvents.cardPay': 'அட்டை கட்டணம்',
-    'myEvents.cardPaySub': 'அட்டை விவரங்களை உள்ளிட்டு செலுத்துங்கள் — வெற்றியானால் நிகழ்வு வெளியிடப்படும்.',
-    'myEvents.cardFormTitle': 'அட்டையால் செலுத்துங்கள்',
+    'myEvents.cardPaySub': 'அட்டையால் செலுத்துங்கள் — நிர்வாக அனுமதிக்குப் பிறகு நிகழ்வு வெளியிடப்படும்.',
+    'myEvents.cardFormTitle': 'கட்டணத்திற்குச் செல்',
     'myEvents.cardFormLede':
-      'கீழே அட்டை விவரங்களை உள்ளிடவும். டெமோவுக்கு “மாதிரி அட்டையை நிரப்பு” பயன்படுத்தவும். கட்டணத்திற்குப் பிறகு நிகழ்வு உடனடியாக வெளியிடப்படும்.',
+      'கீழே அட்டை விவரங்களை உள்ளிடவும். டெமோவுக்கு “மாதிரி அட்டையை நிரப்பு” பயன்படுத்தவும். கட்டணத்திற்குப் பிறகு நிகழ்வு நிர்வாக அனுமதிக்காக காத்திருக்கும்.',
     'myEvents.fillSampleCard': 'மாதிரி அட்டையை நிரப்பு',
     'myEvents.cardName': 'அட்டையில் உள்ள பெயர்',
     'myEvents.cardNamePh': 'எ.கா. Jane Demo',
@@ -555,7 +563,7 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'myEvents.payAmount': '{{amount}} USD செலுத்து',
     'myEvents.backToMethods': 'கட்டண முறைகளுக்குத் திரும்பு',
     'myEvents.cardSubmitSuccess':
-      'அட்டை கட்டணம் வெற்றி. உங்கள் நிகழ்வு இப்போது ஊட்டத்தில் நேரலையில் உள்ளது.',
+      'கட்டணம் வெற்றி. உங்கள் நிகழ்வு நிர்வாக அனுமதிக்காக காத்திருக்கிறது; அனுமதிக்குப் பிறகு ஊட்டத்தில் தோன்றும்.',
     'myEvents.cardPayFailed': 'கட்டணம் தோல்வி. மீண்டும் முயற்சிக்கவும்.',
     'myEvents.offlinePay': 'ஆஃப்லைன் கட்டணம்',
     'myEvents.offlinePaySub':
@@ -564,9 +572,11 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
       'நிர்வாகி ஒப்புதலுக்கு சமர்ப்பிக்கப்பட்டது. கீழே உள்ள குறிப்பெண்ணைப் பயன்படுத்தி கட்டணம் செலுத்துங்கள் — உறுதிப்படுத்தப்பட்ட பிறகு ஊட்டத்தில் தோன்றும்.',
     'myEvents.paymentReference': 'உங்கள் குறிப்பெண்',
     'myEvents.offlineEmailHint': 'இந்த வழிமுறைகளை உங்கள் மின்னஞ்சலுக்கும் அனுப்பியுள்ளோம்.',
+    'myEvents.approvalEmailHint': 'உறுதிப்படுத்தலை உங்கள் மின்னஞ்சலுக்கும் அனுப்பியுள்ளோம்.',
     'myEvents.verifying': 'கட்டணத்தை சரிபார்க்கிறது…',
     'myEvents.paySuccess': 'கட்டணம் வெற்றி',
-    'myEvents.paySuccessLede': 'உங்கள் நிகழ்வு பொது ஊட்டத்தில் வெளியிடப்பட்டது.',
+    'myEvents.paySuccessLede':
+      'உங்கள் கட்டணம் பெறப்பட்டது. நிர்வாகி அனுமதித்த பிறகு நிகழ்வு பொது ஊட்டத்தில் தோன்றும்.',
     'myEvents.payFailed': 'கட்டணப் பிரச்சினை',
     'myEvents.viewEvent': 'உங்கள் நிகழ்வைப் பார்க்க',
 
@@ -620,13 +630,13 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
       '*விதிமுறைகள் பொருந்தும் · விருப்ப அம்சங்கள் தேர்ந்தெடுக்கும் தொகுப்பைப் பொறுத்தது.',
     'pricing.paymentTitle': 'கட்டணம் & வெளியீடு',
     'pricing.paymentIntro':
-      'நிகழ்வை உருவாக்கும்போது அட்டை அல்லது ஆஃப்லைன் கட்டணம் செலுத்தலாம். கட்டணம் உறுதிப்பட்ட பிறகே நிகழ்வுகள் பொது ஊட்டத்தில் காட்டப்படும்.',
+      'நிகழ்வை உருவாக்கும்போது அட்டையால் ஆன்லைனில் செலுத்துங்கள். கட்டணம் உறுதிப்பட்டு நிர்வாகி அனுமதித்த பிறகே நிகழ்வுகள் பொது ஊட்டத்தில் காட்டப்படும்.',
     'pricing.paymentCard':
-      'அட்டை (Stripe): ஆன்லைனில் கார்டில் செலுத்துங்கள். கட்டணம் வெற்றிகரமானால் நிகழ்வு தானாகவே வெளியிடப்படும்.',
+      'அட்டை (Stripe): ஆன்லைனில் கார்டில் செலுத்துங்கள். கட்டணம் வெற்றிகரமான பிறகு நிர்வாகி மதிப்பாய்வு செய்து ஊட்டத்தில் வெளியிடுவார்.',
     'pricing.paymentOffline':
-      'ஆஃப்லைன்: பணமாக அல்லது வங்கி பரிமாற்றம் செய்து கட்டணச் சீட்டை அனுப்புங்கள். நிர்வாகர் கட்டணத்தை உறுதிப்படுத்தி வெளியிடும் வரை நிகழ்வு மறைக்கப்பட்டிருக்கும்.',
+      'வாடிக்கையாளர் உருவாக்கும் நிகழ்வுகளுக்கு ஆஃப்லைன் கட்டணம் இனி கிடைக்காது.',
     'pricing.paymentAlt':
-      'மாற்று வழி: மின்னஞ்சல் அல்லது WhatsApp மூலம் விவரங்களை அனுப்புங்கள் — நாங்கள் நிகழ்வை உருவாக்கலாம். கட்டணம் பெறும் வரை அது மறைக்கப்பட்டிருக்கும்.',
+      'மாற்று வழி: மின்னஞ்சல் அல்லது WhatsApp மூலம் விவரங்களை அனுப்புங்கள் — நாங்கள் நிகழ்வை உருவாக்கலாம். கட்டணம் பெற்று அனுமதிக்கும் வரை அது மறைக்கப்பட்டிருக்கும்.',
 
     'pricing.slug.birthday': 'பிறந்தநாள்',
     'pricing.slug.puberty-ceremony': 'வயது வளர்ச்சி விழா',

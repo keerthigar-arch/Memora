@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { formatUsd } from '../../constants/display-plans';
-import { ApiService } from '../../services/api.service';
+import { ApiService, isAwaitingApprovalPaymentResult } from '../../services/api.service';
 import { LanguageService } from '../../services/language.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 
@@ -14,10 +14,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   template: `
     <div class="pay-page container">
       <a routerLink="/my-events" class="back">← {{ 'myEvents.back' | t }}</a>
-      <h1>{{ step() === 'card' ? ('myEvents.cardFormTitle' | t) : ('myEvents.paymentTitle' | t) }}</h1>
-      <p class="lede">
-        {{ step() === 'card' ? ('myEvents.cardFormLede' | t) : ('myEvents.paymentLede' | t) }}
-      </p>
+      <h1>{{ 'myEvents.cardFormTitle' | t }}</h1>
+      <p class="lede">{{ 'myEvents.cardFormLede' | t }}</p>
 
       <div class="summary">
         <div class="row"><span>Duration</span><strong>{{ label() }}</strong></div>
@@ -30,7 +28,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <div class="ref-box" role="status">
             <span class="ref-label">{{ 'myEvents.paymentReference' | t }}</span>
             <strong class="ref-code">{{ paymentReference() }}</strong>
-            <p class="ref-hint">{{ 'myEvents.offlineEmailHint' | t }}</p>
+            <p class="ref-hint">{{ 'myEvents.approvalEmailHint' | t }}</p>
           </div>
         }
       }
@@ -38,32 +36,15 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <p class="err" role="alert">{{ error() }}</p>
       }
 
-      @if (step() === 'choose') {
+      @if (!message()) {
         <div class="instructions" role="note">
           <h2 class="instructions-title">{{ 'myEvents.paymentHowItWorks' | t }}</h2>
           <ul class="instructions-list">
             <li>{{ 'myEvents.paymentInstrCard' | t }}</li>
-            <li>{{ 'myEvents.paymentInstrOffline' | t }}</li>
             <li>{{ 'myEvents.paymentInstrAlt' | t }}</li>
           </ul>
         </div>
 
-        <div class="choices">
-          <button type="button" class="choice card-pay" (click)="showCardForm()" [disabled]="busy()">
-            <span class="choice-title">{{ 'myEvents.cardPay' | t }}</span>
-            <span class="choice-sub">{{ 'myEvents.cardPaySub' | t }}</span>
-          </button>
-          <button type="button" class="choice offline-pay" (click)="payOffline()" [disabled]="busy()">
-            @if (busy()) {
-              <span class="btn-spinner choice-spinner" aria-hidden="true"></span>
-            }
-            <span class="choice-title">{{ 'myEvents.offlinePay' | t }}</span>
-            <span class="choice-sub">{{ 'myEvents.offlinePaySub' | t }}</span>
-          </button>
-        </div>
-      }
-
-      @if (step() === 'card') {
         <div class="card-panel">
           <div class="card-visual" [class.flipped]="showBack">
             <div class="card-front">
@@ -167,11 +148,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 <span class="btn-spinner" aria-hidden="true"></span>
                 {{ 'myEvents.paying' | t }}
               } @else {
-                {{ 'myEvents.payAmount' | t: { amount: usd(price()) } }}
+                {{ 'myEvents.proceedPayment' | t }}
               }
-            </button>
-            <button type="button" class="back-choice" (click)="backToChoices()" [disabled]="busy()">
-              {{ 'myEvents.backToMethods' | t }}
             </button>
           </div>
         </div>
@@ -218,27 +196,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       }
       .summary .row { display: flex; justify-content: space-between; margin-bottom: 0.35rem; font-size: 0.9rem; }
       .summary .total { font-weight: 700; color: #0d3d32; margin-bottom: 0; }
-      .choices { display: flex; flex-direction: column; gap: 0.75rem; }
-      .choice {
-        text-align: left;
-        padding: 1rem 1.1rem;
-        border-radius: 14px;
-        border: 1.5px solid rgba(26, 95, 74, 0.18);
-        background: #fff;
-        cursor: pointer;
-        transition: border-color 0.2s, box-shadow 0.2s;
-        display: grid;
-        gap: 0.15rem;
-      }
-      .choice .choice-spinner {
-        margin-bottom: 0.35rem;
-        border-color: rgba(26, 95, 74, 0.2);
-        border-top-color: #1a5f4a;
-      }
-      .choice:disabled { opacity: 0.6; cursor: not-allowed; }
-      .choice:not(:disabled):hover { border-color: #1a5f4a; box-shadow: 0 6px 20px rgba(13, 61, 50, 0.08); }
-      .choice-title { display: block; font-weight: 800; color: #0f2922; }
-      .choice-sub { display: block; margin-top: 0.25rem; font-size: 0.82rem; color: #5a6f68; }
       .ok { color: #166534; background: #f0fdf4; padding: 0.75rem; border-radius: 10px; }
       .ref-box {
         margin-top: 0.75rem;
@@ -391,16 +348,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         gap: 0.5rem;
       }
       .pay-btn:disabled { opacity: 0.65; cursor: not-allowed; }
-      .back-choice {
-        border: none;
-        background: transparent;
-        color: #1a5f4a;
-        font: inherit;
-        font-size: 0.88rem;
-        font-weight: 600;
-        cursor: pointer;
-        padding: 0.4rem;
-      }
     `
   ]
 })
@@ -412,7 +359,6 @@ export class MyEventPaymentComponent implements OnInit {
   error = signal('');
   message = signal('');
   paymentReference = signal('');
-  step = signal<'choose' | 'card'>('choose');
   fieldError = signal<'name' | 'number' | 'expiry' | 'cvv' | ''>('');
 
   cardName = '';
@@ -446,18 +392,6 @@ export class MyEventPaymentComponent implements OnInit {
   formattedCardDisplay(): string {
     const raw = this.cardNumber.padEnd(16, '•');
     return raw.replace(/(.{4})/g, '$1 ').trim();
-  }
-
-  showCardForm(): void {
-    this.error.set('');
-    this.fieldError.set('');
-    this.step.set('card');
-  }
-
-  backToChoices(): void {
-    this.fieldError.set('');
-    this.error.set('');
-    this.step.set('choose');
   }
 
   fillSample(): void {
@@ -514,37 +448,24 @@ export class MyEventPaymentComponent implements OnInit {
     this.api.confirmPaymentMock(this.draftId).subscribe({
       next: (res) => {
         this.busy.set(false);
+        if (isAwaitingApprovalPaymentResult(res)) {
+          this.message.set(res.message || this.i18n.t('myEvents.cardSubmitSuccess'));
+          if (res.referenceCode) {
+            this.paymentReference.set(res.referenceCode);
+          }
+          setTimeout(() => void this.router.navigate(['/my-events']), 4500);
+          return;
+        }
         if (!res?.id) {
           this.error.set(this.i18n.t('myEvents.cardPayFailed'));
           return;
         }
         this.message.set(this.i18n.t('myEvents.cardSubmitSuccess'));
-        void this.router.navigate(['/event', res.id]);
+        void this.router.navigate(['/my-events']);
       },
       error: (e) => {
         this.busy.set(false);
         this.error.set(e.error?.message || this.i18n.t('myEvents.cardPayFailed'));
-      }
-    });
-  }
-
-  payOffline(): void {
-    if (!this.draftId) return;
-    this.busy.set(true);
-    this.error.set('');
-    this.paymentReference.set('');
-    this.api.submitOfflinePayment(this.draftId).subscribe({
-      next: (res) => {
-        this.busy.set(false);
-        this.message.set(this.i18n.t('myEvents.offlineSubmitSuccess'));
-        if (res?.referenceCode) {
-          this.paymentReference.set(res.referenceCode);
-        }
-        setTimeout(() => void this.router.navigate(['/my-events']), 4500);
-      },
-      error: (err) => {
-        this.busy.set(false);
-        this.error.set(err.error?.message || 'Could not submit offline payment.');
       }
     });
   }

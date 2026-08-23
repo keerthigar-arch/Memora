@@ -152,10 +152,16 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
             </thead>
             <tbody>
               @for (d of filteredOfflineDrafts(); track 'offline-' + d.id) {
-                <tr class="row-offline">
+                <tr class="row-offline" [class.row-card]="isCardDraft(d)">
                   <td class="mono ref-cell">{{ d.referenceCode || ('#' + d.id) }}</td>
                   <td>
-                    <span class="source-badge source-offline">Customer offline</span>
+                    <span
+                      class="source-badge"
+                      [class.source-card]="isCardDraft(d)"
+                      [class.source-offline]="!isCardDraft(d)"
+                    >
+                      {{ isCardDraft(d) ? 'Customer card' : 'Customer offline' }}
+                    </span>
                   </td>
                   <td>
                     <span class="pill">{{ d.paymentReceived ? 'Received — publish' : 'Awaiting payment' }}</span>
@@ -165,22 +171,24 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                   <td class="date-cell muted">{{ (d.offlineSubmittedAt || d.createdAt) | date: 'medium' }}</td>
                   <td>
                     <div class="action-stack">
-                      <label class="check-wrap">
-                        <input
-                          type="checkbox"
-                          [checked]="!!d.paymentReceived"
-                          [disabled]="!!d.paymentReceived || customerDraftSavingId() === d.id"
-                          (change)="markCustomerDraftReceived(d, $any($event.target).checked)"
-                        />
-                        <span class="check-label">
-                          @if (customerDraftSavingId() === d.id) {
-                            <span class="btn-spinner check-spinner" aria-hidden="true"></span>
-                            Saving…
-                          } @else {
-                            Received
-                          }
-                        </span>
-                      </label>
+                      @if (!isCardDraft(d)) {
+                        <label class="check-wrap">
+                          <input
+                            type="checkbox"
+                            [checked]="!!d.paymentReceived"
+                            [disabled]="!!d.paymentReceived || customerDraftSavingId() === d.id"
+                            (change)="markCustomerDraftReceived(d, $any($event.target).checked)"
+                          />
+                          <span class="check-label">
+                            @if (customerDraftSavingId() === d.id) {
+                              <span class="btn-spinner check-spinner" aria-hidden="true"></span>
+                              Saving…
+                            } @else {
+                              Received
+                            }
+                          </span>
+                        </label>
+                      }
                       <a [routerLink]="['/pending-event', d.id]" class="btn btn-outline btn-sm">
                         {{ d.paymentReceived ? 'Publish' : 'Review' }}
                       </a>
@@ -905,6 +913,10 @@ export class PricingPaymentsComponent implements OnInit {
 
   isCardPaid(e: CustomerPaidEventDto): boolean {
     return (e.paymentMethod || '').toLowerCase() === 'card';
+  }
+
+  isCardDraft(d: CustomerDraftListDto): boolean {
+    return (d.paymentMethod || '').toLowerCase() === 'card';
   }
 
   customerEventUrl(eventId: number): string {

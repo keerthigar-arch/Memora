@@ -50,7 +50,7 @@ SELECT
   'Birthday',
   DATE_ADD(CURDATE(), INTERVAL 14 DAY),
   'Colombo', 'Sri Lanka',
-  'USD', 0, 300.0000, 1.000000,
+  'USD', 0, 200.0000, 1.000000,
   'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=800',
   'Priya Nair', @priya_id, DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 2 HOUR),
   1, 'Public', 30, DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 30 DAY), 1
@@ -69,7 +69,7 @@ SELECT
   DATE_ADD(CURDATE(), INTERVAL 30 DAY),
   DATE_SUB(CURDATE(), INTERVAL 3650 DAY),
   'London', 'United Kingdom',
-  'USD', 0, 450.0000, 1.000000,
+  'USD', 0, 350.0000, 1.000000,
   'https://images.unsplash.com/photo-1519741497674-611481863552?w=800',
   'James Carter', @james_id, DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 90 MINUTE),
   1, 'Public', 90, DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 90 DAY), 1
@@ -89,7 +89,7 @@ SELECT
   DATE_SUB(CURDATE(), INTERVAL 25550 DAY),
   DATE_SUB(CURDATE(), INTERVAL 30 DAY),
   'Kandy', 'Sri Lanka',
-  'USD', 0, 750.0000, 1.000000,
+  'USD', 0, 500.0000, 1.000000,
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
   'Priya Nair', @priya_id, DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 45 MINUTE),
   1, 'Public', 180, DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 180 DAY), 1
@@ -113,7 +113,7 @@ SELECT
   DATE_ADD(CURDATE(), INTERVAL 21 DAY),
   'Manchester', 'United Kingdom',
   'https://images.unsplash.com/photo-1515488042361-ee00e8170cb6?w=800',
-  'James Carter', 'Public', 30, 300.0000,
+  'James Carter', 'Public', 30, 200.0000,
   0, 1, DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 20 MINUTE), 'Offline',
   DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 25 MINUTE)
 WHERE NOT EXISTS (SELECT 1 FROM `PendingEvents` WHERE `Title` = 'Baby Noah''s Naming Day — offline demo');
@@ -131,7 +131,7 @@ SELECT
   DATE_ADD(CURDATE(), INTERVAL 60 DAY),
   'Colombo', 'Sri Lanka',
   'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800',
-  'Priya Nair', 'Public', 90, 450.0000,
+  'Priya Nair', 'Public', 90, 350.0000,
   0, 1, DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 10 MINUTE), 'Offline',
   DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 15 MINUTE)
 WHERE NOT EXISTS (SELECT 1 FROM `PendingEvents` WHERE `Title` = 'Rohan & Meera Wedding — offline demo');

@@ -127,6 +127,8 @@ export interface CustomerDraftDetailDto {
   ownerDisplayName?: string | null;
   ownerEmail?: string | null;
   invitedEmails?: string | null;
+  confirmationDocumentUrl?: string | null;
+  referenceCode?: string | null;
 }
 
 export interface WishDto {

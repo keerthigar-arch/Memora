@@ -414,6 +414,10 @@ using (var scope = app.Services.CreateScope())
         "ALTER TABLE `Events` ADD COLUMN `VideoUrls` longtext NULL");
     await AddColumnIfMissingAsync("PendingEvents", "VideoPathsJson",
         "ALTER TABLE `PendingEvents` ADD COLUMN `VideoPathsJson` longtext NULL");
+    await AddColumnIfMissingAsync("PendingEvents", "ConfirmationDocumentPath",
+        "ALTER TABLE `PendingEvents` ADD COLUMN `ConfirmationDocumentPath` varchar(500) NULL");
+    await AddColumnIfMissingAsync("Events", "ConfirmationDocumentUrl",
+        "ALTER TABLE `Events` ADD COLUMN `ConfirmationDocumentUrl` varchar(500) NULL");
 
     await CreateIndexIfMissingAsync("PendingEvents", "IX_PendingEvents_ReferenceCode",
         "CREATE UNIQUE INDEX `IX_PendingEvents_ReferenceCode` ON `PendingEvents` (`ReferenceCode`)");
