@@ -16,7 +16,9 @@ import { environment } from '../../../environments/environment';
   template: `
     <section class="payment-hero">
       <div class="container">
-        <a routerLink="/create-event" class="back-link">← Back to create event</a>
+        <div class="page-back-bar page-back-bar--flush">
+          <a routerLink="/create-event" class="page-back page-back--on-dark">← Back</a>
+        </div>
         <h1>Complete Payment</h1>
         <p>Your event will be displayed for the selected duration after payment.</p>
       </div>

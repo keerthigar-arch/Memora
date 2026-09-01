@@ -28,7 +28,9 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     <div class="create-page">
       <header class="create-hero">
         <div class="container create-hero-inner">
-          <a routerLink="/events" class="back-link">← Back to event management</a>
+          <div class="page-back-bar page-back-bar--flush">
+            <a routerLink="/events" class="page-back page-back--on-dark">← Back</a>
+          </div>
           <div class="create-hero-copy">
             <p class="create-kicker">Compose</p>
             <h1>Create an event</h1>
@@ -124,26 +126,6 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
           </div>
         }
 
-        <!-- Wedding / anniversary ceremony date -->
-        @if (eventType === 'Anniversary' || eventType === 'Wedding') {
-          <div class="form-group">
-            <label>{{ eventType === 'Wedding' ? 'Wedding date' : 'Anniversary (wedding) date' }} *</label>
-            <app-date-picker
-              [(ngModel)]="weddingDate"
-              name="weddingDate"
-              required
-              placeholder="Choose ceremony date"
-              ariaLabel="Ceremony date"
-              #weddingDateInput="ngModel"
-            ></app-date-picker>
-            @if (weddingDateInput.invalid && (weddingDateInput.dirty || weddingDateInput.touched)) {
-              <div class="validation-error">
-                @if (weddingDateInput.errors?.['required']) { <small>Wedding date is required.</small> }
-              </div>
-            }
-          </div>
-        }
-
         </section>
 
         <section class="form-section" aria-labelledby="sec-story">
@@ -185,7 +167,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
 
         <section class="form-section" aria-labelledby="sec-place">
           <div class="form-section-head">
-            <h2 id="sec-place" class="form-section-title">Place &amp; currency</h2>
+            <h2 id="sec-place" class="form-section-title">Place &amp; country</h2>
             <p class="form-section-hint">Country for locale preferences, then location for the listing.</p>
           </div>
         <div class="form-group">
@@ -419,7 +401,6 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
             (ngModelChange)="onVisibilityChange($event)">
             <option value="">Select visibility</option>
             <option value="Public">Public — anyone with the link</option>
-            <option value="Private">Private — only you</option>
             <option value="InviteOnly">Invite Only — you and invited emails</option>
           </select>
           @if (visibilityInput.invalid && (visibilityInput.dirty || visibilityInput.touched)) {
@@ -532,10 +513,10 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 </span>
                 <div class="media-copy">
                   <div class="media-title">Gallery</div>
-                  <p class="media-sub">Up to 8 photos · max 5MB each</p>
+                  <p class="media-sub">Up to 4 photos · max 5MB each</p>
                 </div>
                 @if (galleryPreviews().length > 0) {
-                  <span class="media-chip">{{ galleryPreviews().length }} / 8</span>
+                  <span class="media-chip">{{ galleryPreviews().length }} / 4</span>
                 }
               </div>
               <label class="media-drop media-drop-compact">
@@ -572,14 +553,14 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 </span>
                 <div class="media-copy">
                   <div class="media-title">Videos</div>
-                  <p class="media-sub">Up to 3 files · MP4 / WEBM / MOV · max 100MB each</p>
+                  <p class="media-sub">Up to 1 file · MP4 / WEBM / MOV · max 100MB</p>
                 </div>
                 @if (videoPreviews().length > 0) {
-                  <span class="media-chip">{{ videoPreviews().length }} / 3</span>
+                  <span class="media-chip">{{ videoPreviews().length }} / 1</span>
                 }
               </div>
               <label class="media-drop media-drop-compact">
-                <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple (change)="onVideosChange($event)" />
+                <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" (change)="onVideosChange($event)" />
                 <div class="media-drop-empty media-drop-empty-sm">
                   <span class="media-drop-lead">Add event videos</span>
                   <span class="media-drop-meta">Shown on the event detail page</span>
@@ -668,24 +649,9 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       padding: 0 1.5rem;
       gap: 0.85rem;
     }
-    .back-link {
-      align-self: flex-start;
-      display: inline-flex;
-      align-items: center;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.82);
-      text-decoration: none;
-      padding: 0.2rem 0;
-      transition: color 0.15s ease;
-    }
-    .back-link:hover {
-      color: #fff;
-    }
-    .back-link:focus-visible {
-      outline: 2px solid #fff;
-      outline-offset: 3px;
-      border-radius: 4px;
+    .create-hero-inner > .page-back-bar {
+      align-self: stretch;
+      text-align: left;
     }
     .create-hero-copy {
       max-width: 40rem;
@@ -1547,10 +1513,10 @@ export class CreateEventComponent implements OnInit, OnDestroy {
       validFiles.push(file);
     }
 
-    const room = Math.max(0, 8 - this.galleryImages.length);
+    const room = Math.max(0, 4 - this.galleryImages.length);
     const accepted = validFiles.slice(0, room);
     if (validFiles.length > room) {
-      this.error.set('Maximum 8 gallery images allowed. Extra files were skipped.');
+      this.error.set('Maximum 4 gallery images allowed. Extra files were skipped.');
       this.cdr.markForCheck();
     } else if (hasInvalid) {
       this.error.set('Some files were skipped (invalid type or size > 5MB).');
@@ -1591,10 +1557,10 @@ export class CreateEventComponent implements OnInit, OnDestroy {
       validFiles.push(file);
     }
 
-    const room = Math.max(0, 3 - this.videos.length);
+    const room = Math.max(0, 1 - this.videos.length);
     const accepted = validFiles.slice(0, room);
     if (validFiles.length > room) {
-      this.error.set('Maximum 3 videos allowed. Extra files were skipped.');
+      this.error.set('Maximum 1 video allowed. Extra files were skipped.');
       this.cdr.markForCheck();
     } else if (hasInvalid) {
       this.error.set('Some videos were skipped (only MP4/WEBM/MOV up to 100MB).');
@@ -1662,7 +1628,7 @@ export class CreateEventComponent implements OnInit, OnDestroy {
   // ?????? Event type change ??? clear irrelevant dates ????????????????????????????????????????????????????????????????????????????????????
   onEventTypeChange(type: string): void {
     if (type !== 'Obituary' && type !== 'Remembrance') { this.birthDate = ''; this.deathDate = ''; }
-    if (type !== 'Anniversary' && type !== 'Wedding') { this.weddingDate = ''; }
+    this.weddingDate = '';
   }
 
   // ?????? Duration label ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
@@ -1694,7 +1660,6 @@ export class CreateEventComponent implements OnInit, OnDestroy {
       (!this.birthDate || !this.deathDate)
     )
       return false;
-    if ((this.eventType === 'Anniversary' || this.eventType === 'Wedding') && !this.weddingDate) return false;
     // InviteOnly emails
     if (this.visibility === 'InviteOnly') {
       if (!this.invitedEmails.trim() || this.invitedEmails.length > 500) return false;
@@ -1736,9 +1701,6 @@ export class CreateEventComponent implements OnInit, OnDestroy {
     if (this.eventType === 'Obituary' || this.eventType === 'Remembrance') {
       if (this.birthDate) formData.append('birthDate', this.birthDate);
       if (this.deathDate) formData.append('deathDate', this.deathDate);
-    }
-    if ((this.eventType === 'Anniversary' || this.eventType === 'Wedding') && this.weddingDate) {
-      formData.append('weddingDate', this.weddingDate);
     }
     if (this.visibility === 'InviteOnly' && this.invitedEmails.trim()) {
       formData.append('invitedEmails', this.invitedEmails.trim());

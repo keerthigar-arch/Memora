@@ -193,7 +193,8 @@ export class ApiService {
     search?: string,
     fromDate?: string,
     toDate?: string,
-    country?: string
+    country?: string,
+    published?: boolean
   ): Observable<PagedResult<AdminEventListDto>> {
     let params = new HttpParams()
       .set('page', String(clampPage(page)))
@@ -203,6 +204,7 @@ export class ApiService {
     if (fromDate) params = params.set('fromDate', fromDate);
     if (toDate) params = params.set('toDate', toDate);
     if (country?.trim()) params = params.set('country', country.trim());
+    if (published !== undefined) params = params.set('published', String(published));
     return this.http.get<PagedResult<AdminEventListDto>>(`${API}/events/mine`, { params });
   }
 

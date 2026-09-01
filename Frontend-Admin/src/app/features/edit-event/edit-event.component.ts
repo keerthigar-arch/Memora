@@ -36,11 +36,13 @@ type EditMediaItem = {
   template: `
     <section class="create-hero">
       <div class="container">
-        <a
-          [routerLink]="isDraft() ? '/payments' : '/events'"
-          class="back-link"
-          (click)="onLeaveClick($event)"
-        >← {{ isDraft() ? 'Back to payments' : 'Back to events' }}</a>
+        <div class="page-back-bar page-back-bar--flush">
+          <a
+            [routerLink]="isDraft() ? '/payments' : '/events'"
+            class="page-back page-back--on-dark"
+            (click)="onLeaveClick($event)"
+          >← Back</a>
+        </div>
         <h1>{{ isDraft() ? 'Edit pending event' : 'Edit Event' }}</h1>
         <p>{{ isDraft() ? 'Update this customer event before publishing.' : 'Update your memory record.' }}</p>
       </div>
@@ -106,19 +108,6 @@ type EditMediaItem = {
             </div>
           }
 
-          @if (eventType === 'Anniversary' || eventType === 'Wedding') {
-            <div class="form-group">
-              <label>{{ eventType === 'Wedding' ? 'Wedding date' : 'Anniversary (wedding) date' }} *</label>
-              <app-date-picker
-                [(ngModel)]="weddingDate"
-                name="weddingDate"
-                required
-                placeholder="Choose ceremony date"
-                ariaLabel="Ceremony date"
-              ></app-date-picker>
-            </div>
-          }
-
           <div class="form-group">
             <label>Title *</label>
             <input [(ngModel)]="title" name="title" required />
@@ -155,7 +144,6 @@ type EditMediaItem = {
             <label>Privacy / Visibility</label>
             <select [(ngModel)]="visibility" name="visibility" (ngModelChange)="onVisibilityChange($event)">
               <option value="Public">Public — Anyone can view</option>
-              <option value="Private">Private — Only you</option>
               <option value="InviteOnly">Invite Only — Only you and invited people</option>
             </select>
           </div>
@@ -221,10 +209,10 @@ type EditMediaItem = {
                 </span>
                 <div class="media-copy">
                   <div class="media-title">Gallery</div>
-                  <p class="media-sub">Keep, remove, or add · up to 8 photos · max 5MB each</p>
+                  <p class="media-sub">Keep, remove, or add · up to 4 photos · max 5MB each</p>
                 </div>
                 @if (galleryItems().length > 0) {
-                  <span class="media-chip">{{ galleryItems().length }} / 8</span>
+                  <span class="media-chip">{{ galleryItems().length }} / 4</span>
                 }
               </div>
               <label class="media-drop media-drop-compact">
@@ -256,14 +244,14 @@ type EditMediaItem = {
                 </span>
                 <div class="media-copy">
                   <div class="media-title">Videos</div>
-                  <p class="media-sub">Keep, remove, or add · up to 3 files · MP4 / WEBM / MOV · max 100MB each</p>
+                  <p class="media-sub">Keep, remove, or add · up to 1 file · MP4 / WEBM / MOV · max 100MB</p>
                 </div>
                 @if (videoItems().length > 0) {
-                  <span class="media-chip">{{ videoItems().length }} / 3</span>
+                  <span class="media-chip">{{ videoItems().length }} / 1</span>
                 }
               </div>
               <label class="media-drop media-drop-compact">
-                <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple (change)="onVideosChange($event)" />
+                <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" (change)="onVideosChange($event)" />
                 <div class="media-drop-empty media-drop-empty-sm">
                   <span class="media-drop-lead">Add event videos</span>
                   <span class="media-drop-meta">Shown on the event detail page</span>
@@ -627,8 +615,8 @@ export class EditEventComponent implements OnInit, OnDestroy {
         this.eventDate = ev.eventDate?.split('T')[0] ?? '';
         this.birthDate = ev.birthDate?.split('T')[0] ?? '';
         this.deathDate = ev.deathDate?.split('T')[0] ?? '';
-        this.weddingDate = ev.weddingDate?.split('T')[0] ?? '';
-        this.visibility = ev.visibility ?? 'Public';
+        this.weddingDate = '';
+        this.visibility = ev.visibility === 'Private' ? 'Public' : (ev.visibility ?? 'Public');
         this.invitedEmails = (ev.invitedEmails ?? []).join(', ');
         this.location = ev.location ?? '';
         this.country = ev.country ?? '';
@@ -663,8 +651,8 @@ export class EditEventComponent implements OnInit, OnDestroy {
         this.eventDate = d.eventDate?.split('T')[0] ?? '';
         this.birthDate = d.birthDate?.split('T')[0] ?? '';
         this.deathDate = d.deathDate?.split('T')[0] ?? '';
-        this.weddingDate = d.weddingDate?.split('T')[0] ?? '';
-        this.visibility = d.visibility ?? 'Public';
+        this.weddingDate = '';
+        this.visibility = d.visibility === 'Private' ? 'Public' : (d.visibility ?? 'Public');
         this.invitedEmails = d.invitedEmails ?? '';
         this.location = d.location ?? '';
         this.country = d.country ?? '';
@@ -789,10 +777,10 @@ export class EditEventComponent implements OnInit, OnDestroy {
       validFiles.push(file);
     }
 
-    const room = Math.max(0, 8 - this.galleryItems().length);
+    const room = Math.max(0, 4 - this.galleryItems().length);
     const accepted = validFiles.slice(0, room);
     if (validFiles.length > room) {
-      this.error.set('Maximum 8 gallery images allowed. Extra files were skipped.');
+      this.error.set('Maximum 4 gallery images allowed. Extra files were skipped.');
     } else if (hasInvalid) {
       this.error.set('Some files were skipped (invalid type or size > 5MB).');
     } else {
@@ -835,10 +823,10 @@ export class EditEventComponent implements OnInit, OnDestroy {
       validFiles.push(file);
     }
 
-    const room = Math.max(0, 3 - this.videoItems().length);
+    const room = Math.max(0, 1 - this.videoItems().length);
     const accepted = validFiles.slice(0, room);
     if (validFiles.length > room) {
-      this.error.set('Maximum 3 videos allowed. Extra files were skipped.');
+      this.error.set('Maximum 1 video allowed. Extra files were skipped.');
     } else if (hasInvalid) {
       this.error.set('Some videos were skipped (only MP4/WEBM/MOV up to 100MB).');
     } else {
@@ -876,7 +864,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
 
   onEventTypeChange(type: string) {
     if (type !== 'Obituary' && type !== 'Remembrance') { this.birthDate = ''; this.deathDate = ''; }
-    if (type !== 'Anniversary' && type !== 'Wedding') { this.weddingDate = ''; }
+    this.weddingDate = '';
   }
 
   submit() {
@@ -889,10 +877,6 @@ export class EditEventComponent implements OnInit, OnDestroy {
       (!this.birthDate || !this.deathDate)
     ) {
       this.error.set('Birth date and Date of Passing are required for this event type.');
-      return;
-    }
-    if ((this.eventType === 'Anniversary' || this.eventType === 'Wedding') && !this.weddingDate) {
-      this.error.set('Wedding date is required for this event type.');
       return;
     }
     if (this.visibility === 'InviteOnly' && !this.invitedEmails.trim()) {
@@ -915,9 +899,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
       if (this.birthDate) formData.append('birthDate', this.birthDate);
       if (this.deathDate) formData.append('deathDate', this.deathDate);
     }
-    if ((this.eventType === 'Anniversary' || this.eventType === 'Wedding') && this.weddingDate)
-      formData.append('weddingDate', this.weddingDate);
-    formData.append('visibility', this.visibility);
+    formData.append('visibility', this.visibility === 'Private' ? 'Public' : this.visibility);
     if (this.visibility === 'InviteOnly' && this.invitedEmails.trim()) {
       formData.append('invitedEmails', this.invitedEmails.trim());
     }

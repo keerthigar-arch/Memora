@@ -100,10 +100,18 @@ import { environment } from '../../../environments/environment';
             <div class="event-card card" [class.customer-event]="ev.ownerRole === 'Customer'">
               @if (ev.isPublished) {
                 <a [href]="publicEventUrl(ev.id)" class="card-image-link">
-                  <div class="card-image" [class.has-image]="!!ev.mainImageUrl" [style.background-image]="ev.mainImageUrl ? 'url(' + ev.mainImageUrl + ')' : null"></div>
+                  <div class="card-image event-card-thumb">
+                    @if (ev.mainImageUrl) {
+                      <img class="event-card-thumb__img" [src]="ev.mainImageUrl" [alt]="ev.title" loading="lazy" decoding="async" />
+                    }
+                  </div>
                 </a>
               } @else {
-                <div class="card-image" [class.has-image]="!!ev.mainImageUrl" [style.background-image]="ev.mainImageUrl ? 'url(' + ev.mainImageUrl + ')' : null"></div>
+                <div class="card-image event-card-thumb">
+                  @if (ev.mainImageUrl) {
+                    <img class="event-card-thumb__img" [src]="ev.mainImageUrl" [alt]="ev.title" loading="lazy" decoding="async" />
+                  }
+                </div>
               }
               <div class="card-content">
                 <div class="badges-row">
@@ -363,14 +371,7 @@ import { environment } from '../../../environments/environment';
     }
     .card-image-link { display: block; text-decoration: none; }
     .card-image {
-      aspect-ratio: 16/10;
-      background-size: cover;
-      background-position: center;
-      background-color: #d7e3de;
-      background-image: linear-gradient(135deg, #d7e3de 0%, #b9cdc5 100%);
-    }
-    .card-image.has-image {
-      background-image: none;
+      position: relative;
     }
     .card-content { padding: 1.25rem; flex: 1; display: flex; flex-direction: column; }
     .badges-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; align-items: center; }

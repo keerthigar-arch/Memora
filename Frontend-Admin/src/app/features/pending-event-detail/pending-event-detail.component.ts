@@ -12,7 +12,9 @@ import { NotificationService } from '../../services/notification.service';
   template: `
     <section class="detail-hero">
       <div class="container hero-inner">
-        <a routerLink="/payments" class="back-link">← Back to payments</a>
+        <div class="page-back-bar page-back-bar--flush">
+          <a routerLink="/payments" class="page-back page-back--on-dark">← Back</a>
+        </div>
         @if (draft()) {
           <span class="status-pill">
             {{ draft()!.paymentReceived
@@ -35,13 +37,15 @@ import { NotificationService } from '../../services/notification.service';
     } @else if (error()) {
       <div class="container state-box">
         <p>{{ error() }}</p>
-        <a routerLink="/events" class="btn btn-primary">Back to events</a>
+        <a routerLink="/payments" class="page-back">← Back</a>
       </div>
     } @else if (draft()) {
       <div class="container detail-layout">
         <div class="detail-main card">
           @if (draft()!.mainImageUrl) {
-            <div class="hero-image" [style.background-image]="'url(' + draft()!.mainImageUrl + ')'"></div>
+            <div class="hero-image event-card-thumb">
+              <img class="event-card-thumb__img" [src]="draft()!.mainImageUrl" [alt]="draft()!.title" loading="lazy" decoding="async" />
+            </div>
           }
           <div class="detail-body">
             <div class="badges">
@@ -57,9 +61,6 @@ import { NotificationService } from '../../services/notification.service';
               }
               @if (draft()!.deathDate) {
                 <div><dt>Date of passing</dt><dd>{{ draft()!.deathDate | date: 'fullDate' }}</dd></div>
-              }
-              @if (draft()!.weddingDate) {
-                <div><dt>Wedding date</dt><dd>{{ draft()!.weddingDate | date: 'fullDate' }}</dd></div>
               }
               @if (draft()!.location) {
                 <div><dt>Location</dt><dd>{{ draft()!.location }}</dd></div>
@@ -216,9 +217,7 @@ import { NotificationService } from '../../services/notification.service';
         box-shadow: 0 8px 24px rgba(8, 38, 30, 0.06);
       }
       .hero-image {
-        height: 260px;
-        background-size: cover;
-        background-position: center;
+        flex-shrink: 0;
       }
       .detail-body { padding: 1.25rem 1.35rem 1.5rem; }
       .badges {

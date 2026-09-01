@@ -19,10 +19,10 @@ public class EventsController : ControllerBase
     private readonly PricingService _pricing;
     private readonly EventInviteEmailService _inviteEmail;
 
-    // Media rules: main image required (<=5MB image), gallery optional (<=8 images, 5MB each),
-    // videos optional (<=3 files, mp4/webm/mov, 100MB each). Files live on disk; DB stores paths only.
-    private const int MaxGalleryImages = 8;
-    private const int MaxVideos = 3;
+    // Media rules: main image required (<=5MB image), gallery optional (<=4 images, 5MB each),
+    // videos optional (<=1 file, mp4/webm/mov, 100MB). Files live on disk; DB stores paths only.
+    private const int MaxGalleryImages = 4;
+    private const int MaxVideos = 1;
     private const long MaxImageBytes = 5L * 1024 * 1024;
     private const long MaxVideoBytes = 100L * 1024 * 1024;
     private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
@@ -339,7 +339,8 @@ public class EventsController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? fromDate = null,
         [FromQuery] string? toDate = null,
-        [FromQuery] string? country = null)
+        [FromQuery] string? country = null,
+        [FromQuery] bool? published = null)
     {
         (page, pageSize) = Paging.Normalize(page, pageSize, defaultPageSize: 12, maxPageSize: Paging.MaxPageSize);
 
@@ -378,6 +379,11 @@ public class EventsController : ControllerBase
             query = query.Where(e => e.EventDate.Date >= fromDt.Date);
         if (DateTime.TryParse(toDate, out var toDt))
             query = query.Where(e => e.EventDate.Date <= toDt.Date);
+
+        if (published.HasValue)
+            query = published.Value
+                ? query.Where(e => e.IsPublished)
+                : query.Where(e => !e.IsPublished);
 
         var total = await query.CountAsync();
         var baseUrl = _fileStorage.GetBaseUrl(Request);

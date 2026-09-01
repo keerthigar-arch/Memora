@@ -1,6 +1,8 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
+  inject,
   NgZone,
   OnDestroy,
   OnInit,
@@ -11,9 +13,10 @@ import {
   untracked
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { ApiService, AdminEventListDto, CustomerDraftListDto, RecentWishSidebarDto } from '../../services/api.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ApiService, AdminEventListDto, CustomerDraftListDto } from '../../services/api.service';
 import { EventStatsService } from '../../services/event-stats.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { LanguageService } from '../../services/language.service';
@@ -37,6 +40,34 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
 
     <section class="filters-wrap">
       <div class="container filters">
+        <div class="status-switch" role="tablist" [attr.aria-label]="'myEvents.title' | t">
+          <button
+            type="button"
+            role="tab"
+            class="status-tab"
+            [class.active]="statusTab() === 'published'"
+            [attr.aria-selected]="statusTab() === 'published'"
+            (click)="setStatusTab('published')"
+          >
+            <span class="status-tab-icon published-icon" aria-hidden="true"></span>
+            <span class="status-tab-label">{{ 'myEvents.tabPublished' | t }}</span>
+            <span class="status-tab-count">{{ publishedCount() }}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="status-tab"
+            [class.active]="statusTab() === 'pending'"
+            [attr.aria-selected]="statusTab() === 'pending'"
+            (click)="setStatusTab('pending')"
+          >
+            <span class="status-tab-icon pending-icon" aria-hidden="true"></span>
+            <span class="status-tab-label">{{ 'myEvents.tabPending' | t }}</span>
+            <span class="status-tab-count">{{ pendingCount() }}</span>
+          </button>
+          <span class="status-switch-indicator" [class.pending]="statusTab() === 'pending'"></span>
+        </div>
+
         <div class="search-row panel">
           <label class="search-input-wrap" [attr.aria-label]="'feed.searchAria' | t">
             <span class="search-icon" aria-hidden="true">⌕</span>
@@ -109,63 +140,83 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     <section class="feed">
       <div class="feed-layout container">
         <div class="feed-main">
-          @if (paymentDrafts().length > 0 || pendingDrafts().length > 0) {
-            <div class="drafts-strip">
-              @if (paymentDrafts().length > 0) {
-                <div class="drafts-group">
-                  <h2 class="strip-title">{{ 'myEvents.drafts' | t }}</h2>
-                  <div class="drafts-row">
-                    @for (d of paymentDrafts(); track d.id) {
-                      <a [routerLink]="['/my-events/payment', d.id]" class="draft-chip">
-                        <span class="draft-chip-title">{{ d.title }}</span>
-                        <span class="draft-chip-meta">{{ lang.eventTypeLabel(d.eventType) }} · {{ formatUsd(d.amountPaid) }}</span>
-                      </a>
-                    }
-                  </div>
-                </div>
-              }
-              @if (pendingDrafts().length > 0) {
-                <div class="drafts-group">
-                  <h2 class="strip-title">{{ 'myEvents.pendingApproval' | t }}</h2>
-                  <div class="drafts-row">
-                    @for (d of pendingDrafts(); track d.id) {
-                      <div class="draft-chip draft-chip--pending">
-                        <span class="draft-chip-title">{{ d.title }}</span>
-                        <span class="draft-chip-meta">{{ 'myEvents.offlineSubmitted' | t }}</span>
-                      </div>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-          }
-
           @if (error()) {
             <div class="error-state"><p>{{ 'feed.error' | t }}</p></div>
-          } @else if (loading() && events().length === 0) {
+          } @else if (loading() && events().length === 0 && !hasPendingDraftCards()) {
             <div class="loading"><div class="spinner"></div><p>{{ 'myEvents.loading' | t }}</p></div>
-          } @else if (isEmpty()) {
+          } @else if (isTabEmpty()) {
             <div class="empty-state">
               <span class="empty-icon">✦</span>
-              <h3>{{ 'myEvents.noneAvailable' | t }}</h3>
+              @if (statusTab() === 'published') {
+                <h3>{{ 'myEvents.noPublished' | t }}</h3>
+              } @else {
+                <h3>{{ 'myEvents.noPending' | t }}</h3>
+              }
               <p>{{ 'myEvents.emptyHint' | t }}</p>
-              <a routerLink="/my-events/create" class="btn btn-primary">{{ 'myEvents.create' | t }}</a>
-            </div>
-          } @else if (events().length === 0) {
-            <div class="empty-state">
-              <span class="empty-icon">✦</span>
-              <h3>{{ 'myEvents.noPublished' | t }}</h3>
-              <p>{{ 'feed.emptyHint' | t }}</p>
+              @if (statusTab() === 'pending') {
+                <a routerLink="/my-events/create" class="btn btn-primary">{{ 'myEvents.create' | t }}</a>
+              }
             </div>
           } @else {
             <div class="event-grid">
+              @if (statusTab() === 'pending') {
+                @for (d of filteredPaymentDrafts(); track d.id) {
+                  <a [routerLink]="['/my-events/payment', d.id]" class="event-card event-card--draft">
+                    <div class="card-image event-card-thumb">
+                      @if (d.mainImageUrl) {
+                        <img class="event-card-thumb__img" [src]="d.mainImageUrl" [alt]="d.title" loading="lazy" decoding="async" />
+                      }
+                      <span class="event-type-badge" [ngClass]="getEventTypeClass(d.eventType)">
+                        {{ lang.eventTypeLabel(d.eventType) }}
+                      </span>
+                      <span class="status-badge status-badge--pay">{{ 'myEvents.continuePayment' | t }}</span>
+                    </div>
+                    <div class="card-content">
+                      <h3>{{ d.title }}</h3>
+                      <div class="meta-row">
+                        <span class="meta-pill">{{ d.eventDate | date:'mediumDate':'':lang.dateLocale() }}</span>
+                        <span class="meta-pill">{{ formatUsd(d.amountPaid) }}</span>
+                      </div>
+                      <div class="card-footer">
+                        <span class="author">{{ 'myEvents.drafts' | t }}</span>
+                        <span class="time-ago">{{ lang.formatTimeAgo(d.createdAt) }}</span>
+                      </div>
+                    </div>
+                  </a>
+                }
+                @for (d of filteredPendingDrafts(); track d.id) {
+                  <div class="event-card event-card--draft event-card--static">
+                    <div class="card-image event-card-thumb">
+                      @if (d.mainImageUrl) {
+                        <img class="event-card-thumb__img" [src]="d.mainImageUrl" [alt]="d.title" loading="lazy" decoding="async" />
+                      }
+                      <span class="event-type-badge" [ngClass]="getEventTypeClass(d.eventType)">
+                        {{ lang.eventTypeLabel(d.eventType) }}
+                      </span>
+                    </div>
+                    <div class="card-content">
+                      <h3>{{ d.title }}</h3>
+                      <div class="meta-row">
+                        <span class="meta-pill">{{ d.eventDate | date:'mediumDate':'':lang.dateLocale() }}</span>
+                      </div>
+                      <div class="card-footer">
+                        <span class="author">{{ 'myEvents.hidden' | t }}</span>
+                        <span class="time-ago">{{ lang.formatTimeAgo(d.createdAt) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                }
+              }
               @for (ev of events(); track ev.id) {
-                <a [routerLink]="['/event', ev.id]" [queryParams]="{ from: 'my-events' }" class="event-card">
-                  <div class="card-image" [class.has-image]="!!ev.mainImageUrl" [style.background-image]="ev.mainImageUrl ? 'url(' + ev.mainImageUrl + ')' : null">
+                <a [routerLink]="['/event', ev.id]" [queryParams]="eventLinkQueryParams()" class="event-card">
+                  <div class="card-image event-card-thumb">
+                    @if (ev.mainImageUrl) {
+                      <img class="event-card-thumb__img" [src]="ev.mainImageUrl" [alt]="ev.title" loading="lazy" decoding="async" />
+                    }
                     <span class="event-type-badge" [ngClass]="getEventTypeClass(ev.eventType)">
                       {{ lang.eventTypeLabel(ev.eventType) }}
                     </span>
-                    @if (!ev.isPublished) {
+                    @if (statusTab() === 'pending') {
                       <span class="status-badge">{{ 'myEvents.hidden' | t }}</span>
                     }
                   </div>
@@ -179,11 +230,8 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                     @if ((ev.eventType === 'Obituary' || ev.eventType === 'Funeral' || ev.eventType === 'Remembrance') && ev.birthDate && ev.deathDate) {
                       <p class="dates">{{ 'feed.bornPassed' | t:{ born: (ev.birthDate | date:'mediumDate':'':lang.dateLocale()) ?? '', passed: (ev.deathDate | date:'mediumDate':'':lang.dateLocale()) ?? '' } }}</p>
                     }
-                    @if ((ev.eventType === 'Anniversary' || ev.eventType === 'Wedding') && ev.weddingDate) {
-                      <p class="dates">{{ 'feed.weddingDateLine' | t:{ kind: lang.eventTypeLabel(ev.eventType === 'Wedding' ? 'Wedding' : 'Anniversary'), d: (ev.weddingDate | date:'mediumDate':'':lang.dateLocale()) ?? '' } }}</p>
-                    }
                     <div class="card-footer">
-                      <span class="author">{{ ev.isPublished ? ('myEvents.live' | t) : ('myEvents.hidden' | t) }}</span>
+                      <span class="author">{{ statusTab() === 'published' ? ('myEvents.live' | t) : ('myEvents.hidden' | t) }}</span>
                       <span class="time-ago">{{ lang.formatTimeAgo(ev.createdAt) }}</span>
                     </div>
                   </div>
@@ -191,7 +239,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
               }
             </div>
 
-            @if (loading() && events().length > 0) {
+            @if (loading() && (events().length > 0 || hasPendingDraftCards())) {
               <div class="feed-loading-more"><div class="spinner spinner-inline"></div><span>{{ 'feed.loadingMore' | t }}</span></div>
             }
             @if (hasMore()) {
@@ -199,51 +247,6 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
             }
           }
         </div>
-
-        <aside class="sidebar sidebar-wishes" [attr.aria-label]="'myEvents.sidebarAria' | t">
-          <div class="sidebar-inner">
-            <div class="sidebar-card sidebar-card--wishes">
-              <div class="sidebar-title-block">
-                <h3 class="sidebar-title" id="my-wishes-heading">
-                  <span class="sidebar-title-sparkle" aria-hidden="true">✦</span>
-                  <span class="sidebar-title-text">{{ 'myEvents.recentWishes' | t }}</span>
-                  <span class="sidebar-title-sparkle sidebar-title-sparkle--delay" aria-hidden="true">✦</span>
-                </h3>
-                <div class="sidebar-title-underline" aria-hidden="true"></div>
-              </div>
-                @if (!recentWishesLoaded()) {
-                  <div class="sidebar-loading">
-                    <div class="spinner spinner-inline"></div>
-                    <p class="sidebar-muted">{{ 'feed.sidebarLoading' | t }}</p>
-                  </div>
-                } @else if (recentWishes().length === 0) {
-                <p class="sidebar-muted">{{ 'myEvents.noWishes' | t }}</p>
-              } @else {
-                <ul class="wish-list">
-                  @for (w of recentWishes(); track w.id) {
-                    <li>
-                      <a [routerLink]="['/event', w.eventId]" class="wish-item">
-                        <div class="wish-thumb" [class.has-image]="!!w.eventImageUrl" [style.background-image]="w.eventImageUrl ? 'url(' + w.eventImageUrl + ')' : null" role="img" [attr.aria-label]="w.eventTitle"></div>
-                        <div class="wish-item-body">
-                          <span class="wish-event-title">{{ w.eventTitle }}</span>
-                          <span class="wish-sender">{{ w.senderName }}</span>
-                          <p class="wish-snippet">{{ w.messagePreview }}</p>
-                          <span class="wish-time">{{ lang.formatTimeAgo(w.createdAt) }}</span>
-                        </div>
-                      </a>
-                    </li>
-                  }
-                </ul>
-              }
-            </div>
-
-            <div class="sidebar-card sidebar-card--host">
-              <h4 class="sidebar-host-title">{{ 'myEvents.createAnother' | t }}</h4>
-              <p class="sidebar-host-text">{{ 'myEvents.createAnotherBody' | t }}</p>
-              <a routerLink="/my-events/create" class="sidebar-host-btn">{{ 'myEvents.create' | t }}</a>
-            </div>
-          </div>
-        </aside>
       </div>
     </section>
   `,
@@ -274,6 +277,91 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     }
     .filters-wrap { background: linear-gradient(180deg, #f7f9fc 0%, #fcfdff 100%); border-bottom: 1px solid #e7edf6; }
     .filters { padding: 0.45rem 1.5rem 0.4rem; display: grid; gap: 0.4rem; }
+    .status-switch {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.35rem;
+      max-width: 32rem;
+      margin: 0 auto 0.55rem;
+      padding: 0.35rem;
+      border-radius: 999px;
+      background: #eef4f1;
+      border: 1px solid rgba(13, 61, 50, 0.1);
+      box-shadow: inset 0 1px 2px rgba(13, 61, 50, 0.06);
+    }
+    .status-switch-indicator {
+      position: absolute;
+      top: 0.35rem;
+      left: 0.35rem;
+      width: calc(50% - 0.35rem);
+      height: calc(100% - 0.7rem);
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0d3d32 0%, #1f6a53 100%);
+      box-shadow: 0 4px 12px rgba(13, 61, 50, 0.22);
+      transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .status-switch-indicator.pending {
+      transform: translateX(calc(100% + 0.35rem));
+      background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+      box-shadow: 0 4px 12px rgba(180, 83, 9, 0.25);
+    }
+    .status-tab {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.65rem 0.85rem;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: #4b635c;
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: color 180ms ease;
+    }
+    .status-tab.active { color: #fff; }
+    .status-tab-icon {
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-tab-icon.published-icon {
+      background: #0d3d32;
+      box-shadow: 0 0 0 2px rgba(13, 61, 50, 0.15);
+    }
+    .status-tab.active .status-tab-icon.published-icon {
+      background: #fff;
+      box-shadow: none;
+    }
+    .status-tab-icon.pending-icon {
+      background: #d97706;
+      box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2);
+    }
+    .status-tab.active .status-tab-icon.pending-icon {
+      background: #fff;
+      box-shadow: none;
+    }
+    .status-tab-count {
+      min-width: 1.35rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: rgba(13, 61, 50, 0.1);
+      color: inherit;
+    }
+    .status-tab.active .status-tab-count {
+      background: rgba(255, 255, 255, 0.22);
+    }
+    .status-tab-label { white-space: nowrap; }
     .panel { background: #fff; border: 1px solid #e2e9f3; border-radius: 14px; box-shadow: 0 5px 16px rgba(15, 23, 42, 0.04); }
     .search-row { display: grid; grid-template-columns: 1fr auto; gap: 0.6rem; padding: 0.5rem; align-items: center; }
     .search-input-wrap { min-height: 44px; border: 1px solid #d5ddea; border-radius: 10px; padding: 0 0.78rem; display: flex; align-items: center; gap: 0.55rem; background: #fbfcff; }
@@ -294,7 +382,6 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .date-input { min-height: 36px; border: 1px solid #d4ddec; border-radius: 10px; padding: 0 0.72rem; background: #fff; }
     .btn-sm-picker { min-height: 36px; padding: 0.45rem 0.75rem; font-size: 0.8rem; }
     .feed { padding: 0.7rem 0 2.2rem; }
-    .feed-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 280px); gap: 1.25rem; align-items: start; }
     .feed-main { min-width: 0; }
     .drafts-strip { margin-bottom: 1rem; display: grid; gap: 0.75rem; }
     .strip-title { margin: 0 0 0.45rem; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #5a6f68; }
@@ -306,7 +393,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .event-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.15rem; }
     .event-card { display: block; text-decoration: none; color: inherit; border: 1px solid #e4e8ef; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 8px 22px rgba(16, 24, 40, 0.05); transition: transform 0.25s ease, box-shadow 0.25s ease; }
     .event-card:hover { transform: translateY(-4px); box-shadow: 0 14px 30px rgba(16, 24, 40, 0.09); }
-    .card-image { aspect-ratio: 16/10; background-size: cover; background-position: center; position: relative; background-color: #d7e3de; background-image: linear-gradient(135deg, #d7e3de 0%, #b9cdc5 100%); }
+    .card-image { position: relative; }
     .event-type-badge { position: absolute; left: 0.75rem; top: 0.75rem; border-radius: 999px; padding: 0.3rem 0.65rem; font-size: 0.74rem; font-weight: 700; color: #fff; background: rgba(0,0,0,0.45); }
     .event-type-badge.birthday { background: linear-gradient(135deg, #4f46e5, #3730a3); }
     .event-type-badge.puberty { background: linear-gradient(135deg, #6366f1, #4338ca); }
@@ -315,7 +402,21 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .event-type-badge.obituary { background: linear-gradient(135deg, #475569, #1f2937); }
     .event-type-badge.remembrance { background: linear-gradient(135deg, #5b577a, #3d3554); }
     .event-type-badge.other { background: linear-gradient(135deg, #0891b2, #155e75); }
-    .status-badge { position: absolute; right: 0.75rem; top: 0.75rem; border-radius: 999px; padding: 0.25rem 0.55rem; font-size: 0.68rem; font-weight: 700; background: rgba(0,0,0,0.55); color: #fff; text-transform: uppercase; }
+    .status-badge {
+      position: absolute;
+      right: 0.75rem;
+      top: 0.75rem;
+      border-radius: 999px;
+      padding: 0.25rem 0.55rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      text-transform: uppercase;
+    }
+    .event-card--draft { border-color: rgba(26, 95, 74, 0.22); }
+    .event-card--static { cursor: default; }
+    .status-badge--pay { background: rgba(13, 61, 50, 0.82); }
     .card-content { padding: 0.95rem; }
     .card-content h3 { margin: 0; font-size: 1.03rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .card-content p { margin: 0.55rem 0 0.65rem; color: #5f6b7f; font-size: 0.88rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -331,36 +432,6 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .feed-loading-more { display: flex; align-items: center; justify-content: center; gap: 0.65rem; margin-top: 1.35rem; color: #647084; font-size: 0.875rem; }
     .spinner-inline { width: 22px; height: 22px; border-width: 3px; margin: 0; }
     .feed-scroll-sentinel { height: 1px; width: 100%; margin-top: 0.5rem; opacity: 0; pointer-events: none; }
-    .sidebar-inner { display: flex; flex-direction: column; gap: 1rem; }
-    .sidebar-card { background: #fff; border: 1px solid #e4e9f1; border-radius: 14px; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04); padding: 0.85rem 0.95rem; }
-    .sidebar-card--wishes { position: sticky; top: 5.5rem; }
-    .sidebar-title-block { margin: 0 0 0.75rem; padding: 0.4rem 0.35rem 0.55rem; }
-    .sidebar-title { margin: 0; display: flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.88rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; }
-    .sidebar-title-text { color: #1a5f4a; }
-    .sidebar-title-sparkle { color: #d4a012; font-size: 0.72em; }
-    .sidebar-title-underline { height: 3px; margin-top: 0.45rem; border-radius: 999px; background: linear-gradient(90deg, transparent, rgba(26, 95, 74, 0.35) 15%, rgba(232, 185, 26, 0.65) 50%, rgba(26, 95, 74, 0.35) 85%, transparent); }
-    .sidebar-muted { margin: 0; font-size: 0.82rem; color: #64748b; line-height: 1.45; }
-    .sidebar-loading { display: flex; align-items: center; gap: 0.55rem; }
-    .wish-list { list-style: none; margin: 0; padding: 0; }
-    .wish-list li { border-bottom: 1px solid #eef2f7; }
-    .wish-list li:last-child { border-bottom: none; }
-    .wish-item { display: flex; gap: 0.65rem; padding: 0.65rem 0.45rem; margin: 0 -0.45rem; border-radius: 11px; text-decoration: none; color: inherit; align-items: flex-start; transition: background-color 0.2s ease; }
-    .wish-item:hover { background: rgba(236, 246, 241, 0.95); }
-    .wish-thumb { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; background-size: cover; background-position: center; background-color: #d7e3de; background-image: linear-gradient(135deg, #d7e3de 0%, #b9cdc5 100%); border: 1px solid #e2e8f0; }
-    .wish-item-body { min-width: 0; flex: 1; }
-    .wish-event-title { font-size: 0.82rem; font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.1rem; }
-    .wish-sender { font-size: 0.76rem; font-weight: 600; color: var(--primary, #1a5f4a); }
-    .wish-snippet { margin: 0.15rem 0 0.2rem; font-size: 0.78rem; color: #64748b; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .wish-time { font-size: 0.72rem; color: #94a3b8; }
-    .sidebar-host-title { margin: 0 0 0.45rem; font-size: 0.88rem; font-weight: 800; color: #0f2922; }
-    .sidebar-host-text { margin: 0 0 0.75rem; font-size: 0.8rem; line-height: 1.45; color: #5c6f6a; }
-    .sidebar-host-btn { display: block; text-align: center; padding: 0.5rem 0.75rem; border-radius: 10px; font-size: 0.8rem; font-weight: 700; color: #fff; text-decoration: none; background: linear-gradient(135deg, #0d3d32 0%, #1f6a53 100%); }
-    @media (max-width: 1100px) {
-      .feed-layout { grid-template-columns: 1fr; }
-      .sidebar-card--wishes { position: static; }
-      .feed-main { order: 1; }
-      .sidebar-wishes { order: 2; }
-    }
     @media (max-width: 900px) { .filter-toolbar { grid-template-columns: 1fr; } }
     @media (max-width: 600px) {
       .search-row { grid-template-columns: 1fr; }
@@ -372,8 +443,6 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
 export class MyEventsComponent implements OnInit, OnDestroy {
   events = signal<AdminEventListDto[]>([]);
   drafts = signal<CustomerDraftListDto[]>([]);
-  recentWishes = signal<RecentWishSidebarDto[]>([]);
-  recentWishesLoaded = signal(false);
   loading = signal(false);
   error = signal(false);
   page = signal(1);
@@ -381,6 +450,9 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   filter = signal('');
   dateRange = signal<'all' | 'thisYear' | 'lastYear' | 'custom'>('all');
   showCustomDatePicker = signal(false);
+  statusTab = signal<'published' | 'pending'>('published');
+  publishedCount = signal(0);
+  pendingEventsCount = signal(0);
   searchTerm = '';
   fromDate = '';
   toDate = '';
@@ -389,22 +461,28 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   paymentDrafts = computed(() => this.drafts().filter((d) => !d.awaitingOfflineApproval));
   pendingDrafts = computed(() => this.drafts().filter((d) => d.awaitingOfflineApproval));
 
+  pendingCount = computed(
+    () => this.paymentDrafts().length + this.pendingDrafts().length + this.pendingEventsCount()
+  );
+
+  filteredPaymentDrafts = computed(() => this.filterDrafts(this.paymentDrafts()));
+  filteredPendingDrafts = computed(() => this.filterDrafts(this.pendingDrafts()));
+
   hasMore = computed(() => {
     const items = this.events().length;
     const tot = this.total();
     return tot > 0 && items < tot;
   });
 
-  isEmpty = computed(
-    () =>
-      !this.loading() &&
-      this.events().length === 0 &&
-      this.paymentDrafts().length === 0 &&
-      this.pendingDrafts().length === 0
-  );
+  isTabEmpty = computed(() => {
+    if (this.loading()) return false;
+    if (this.statusTab() === 'published') return this.events().length === 0;
+    return this.events().length === 0 && !this.hasPendingDraftCards();
+  });
 
   readonly formatUsd = formatUsd;
 
+  private readonly destroyRef = inject(DestroyRef);
   private intersectionObserver: IntersectionObserver | null = null;
 
   @ViewChild('feedScrollSentinel')
@@ -430,14 +508,22 @@ export class MyEventsComponent implements OnInit, OnDestroy {
     private api: ApiService,
     private stats: EventStatsService,
     readonly lang: LanguageService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private route: ActivatedRoute,
+    private router: Router
   ) {
+    const tab = this.route.snapshot.queryParamMap.get('tab');
+    if (tab === 'pending') {
+      this.statusTab.set('pending');
+    }
+
     effect(
       () => {
         this.stats.selectedCountry();
         untracked(() => {
           this.page.set(1);
           this.events.set([]);
+          this.loadTabCounts();
           this.loadEvents();
         });
       },
@@ -446,24 +532,75 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.api.getMyDrafts().subscribe({
-      next: (list) => this.drafts.set(list),
-      error: () => this.drafts.set([])
+    this.loadDrafts();
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const next: 'published' | 'pending' = params.get('tab') === 'pending' ? 'pending' : 'published';
+      if (this.statusTab() === next) return;
+      this.statusTab.set(next);
+      this.page.set(1);
+      this.events.set([]);
+      this.loadEvents();
     });
-    this.api.getMyRecentWishes(10).subscribe({
-      next: (w) => {
-        this.recentWishes.set(w ?? []);
-        this.recentWishesLoaded.set(true);
-      },
-      error: () => {
-        this.recentWishes.set([]);
-        this.recentWishesLoaded.set(true);
-      }
-    });
+  }
+
+  eventLinkQueryParams(): Record<string, string> {
+    const params: Record<string, string> = { from: 'my-events' };
+    if (this.statusTab() === 'pending') params['tab'] = 'pending';
+    return params;
   }
 
   ngOnDestroy(): void {
     this.intersectionObserver?.disconnect();
+  }
+
+  setStatusTab(tab: 'published' | 'pending') {
+    if (this.statusTab() === tab) return;
+    this.statusTab.set(tab);
+    this.page.set(1);
+    this.events.set([]);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: tab === 'pending' ? 'pending' : null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
+    this.loadEvents();
+  }
+
+  hasPendingDraftCards(): boolean {
+    return this.statusTab() === 'pending' && (this.filteredPaymentDrafts().length > 0 || this.filteredPendingDrafts().length > 0);
+  }
+
+  private filterDrafts(list: CustomerDraftListDto[]): CustomerDraftListDto[] {
+    const type = this.filter();
+    const term = this.searchTerm.trim().toLowerCase();
+    return list.filter((d) => {
+      if (type) {
+        const types = type === 'Obituary' ? ['Obituary', 'Funeral'] : [type];
+        if (!types.includes(d.eventType)) return false;
+      }
+      if (term && !d.title.toLowerCase().includes(term)) return false;
+      return true;
+    });
+  }
+
+  private loadDrafts() {
+    this.api.getMyDrafts().subscribe({
+      next: (list) => this.drafts.set(list),
+      error: () => this.drafts.set([])
+    });
+  }
+
+  private loadTabCounts() {
+    const country = this.stats.selectedCountry()?.trim() || undefined;
+    this.api.getMyEvents(1, 1, undefined, undefined, undefined, undefined, country, true).subscribe({
+      next: (res) => this.publishedCount.set(res.total),
+      error: () => this.publishedCount.set(0)
+    });
+    this.api.getMyEvents(1, 1, undefined, undefined, undefined, undefined, country, false).subscribe({
+      next: (res) => this.pendingEventsCount.set(res.total),
+      error: () => this.pendingEventsCount.set(0)
+    });
   }
 
   setFilter(type: string) {
@@ -548,6 +685,7 @@ export class MyEventsComponent implements OnInit, OnDestroy {
     this.error.set(false);
     this.loading.set(true);
     const country = this.stats.selectedCountry()?.trim() || undefined;
+    const published = this.statusTab() === 'published';
     this.api
       .getMyEvents(
         this.page(),
@@ -556,13 +694,19 @@ export class MyEventsComponent implements OnInit, OnDestroy {
         this.searchTerm?.trim() || undefined,
         this.fromDate || undefined,
         this.toDate || undefined,
-        country
+        country,
+        published
       )
       .subscribe({
         next: (res) => {
           const items = this.page() === 1 ? res.items : [...this.events(), ...res.items];
           this.events.set(items);
           this.total.set(res.total);
+          if (published) {
+            this.publishedCount.set(res.total);
+          } else {
+            this.pendingEventsCount.set(res.total);
+          }
           this.loading.set(false);
         },
         error: () => {

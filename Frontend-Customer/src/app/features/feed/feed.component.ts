@@ -3,7 +3,6 @@ import {
   ElementRef,
   NgZone,
   OnDestroy,
-  OnInit,
   ViewChild,
   computed,
   effect,
@@ -13,7 +12,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { ApiService, EventListDto, RecentWishSidebarDto } from '../../services/api.service';
+import { ApiService, EventListDto } from '../../services/api.service';
 import { EventStatsService } from '../../services/event-stats.service';
 import { environment } from '../../../environments/environment';
 import { LanguageService } from '../../services/language.service';
@@ -119,7 +118,10 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
             <div class="event-grid">
               @for (ev of events(); track ev.id) {
                 <a [routerLink]="['/event', ev.id]" class="event-card">
-                  <div class="card-image" [class.has-image]="!!ev.mainImageUrl" [style.background-image]="ev.mainImageUrl ? 'url(' + ev.mainImageUrl + ')' : null">
+                  <div class="card-image event-card-thumb">
+                    @if (ev.mainImageUrl) {
+                      <img class="event-card-thumb__img" [src]="ev.mainImageUrl" [alt]="ev.title" loading="lazy" decoding="async" />
+                    }
                     <span class="event-type-badge" [ngClass]="getEventTypeClass(ev.eventType)">
                       {{ i18n.eventTypeLabel(ev.eventType) }}
                     </span>
@@ -141,15 +143,6 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                           | t:{
                               born: (ev.birthDate | date:'mediumDate':'':i18n.dateLocale()) ?? '',
                               passed: (ev.deathDate | date:'mediumDate':'':i18n.dateLocale()) ?? ''
-                            }
-                      }}</p>
-                    }
-                    @if ((ev.eventType === 'Anniversary' || ev.eventType === 'Wedding') && ev.weddingDate) {
-                      <p class="dates">{{
-                        'feed.weddingDateLine'
-                          | t:{
-                              kind: i18n.eventTypeLabel(ev.eventType === 'Wedding' ? 'Wedding' : 'Anniversary'),
-                              d: (ev.weddingDate | date:'mediumDate':'':i18n.dateLocale()) ?? ''
                             }
                       }}</p>
                     }
@@ -175,63 +168,6 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
             }
           }
         </div>
-
-        <aside class="sidebar sidebar-wishes" [attr.aria-label]="'feed.sidebarAria' | t">
-          <div class="sidebar-inner">
-            <div class="sidebar-card sidebar-card--wishes">
-            <div class="sidebar-title-block">
-              <h3 class="sidebar-title" id="recent-wishes-heading">
-                <span class="sidebar-title-sparkle" aria-hidden="true">✦</span>
-                <span class="sidebar-title-text">{{ 'feed.recentWishes' | t }}</span>
-                <span class="sidebar-title-sparkle sidebar-title-sparkle--delay" aria-hidden="true">✦</span>
-              </h3>
-              <div class="sidebar-title-glitter" aria-hidden="true">
-                <span class="glitter g1"></span>
-                <span class="glitter g2"></span>
-                <span class="glitter g3"></span>
-                <span class="glitter g4"></span>
-                <span class="glitter g5"></span>
-              </div>
-              <div class="sidebar-title-underline" aria-hidden="true"></div>
-            </div>
-            @if (!recentWishesLoaded()) {
-              <div class="sidebar-loading">
-                <div class="spinner spinner-inline"></div>
-                <p class="sidebar-muted">{{ 'feed.sidebarLoading' | t }}</p>
-              </div>
-            } @else if (recentWishes().length === 0) {
-              <p class="sidebar-muted">{{ 'feed.noWishes' | t }}</p>
-            } @else {
-              <ul class="wish-list">
-                @for (w of recentWishes(); track w.id) {
-                  <li>
-                    <a [routerLink]="['/event', w.eventId]" class="wish-item">
-                      <div
-                        class="wish-thumb"
-                        [class.has-image]="!!w.eventImageUrl"
-                        [style.background-image]="w.eventImageUrl ? 'url(' + w.eventImageUrl + ')' : null"
-                        role="img"
-                        [attr.aria-label]="w.eventTitle"
-                      ></div>
-                      <div class="wish-item-body">
-                        <span class="wish-event-title">{{ w.eventTitle }}</span>
-                        <span class="wish-sender">{{ w.senderName }}</span>
-                        <p class="wish-snippet">{{ w.messagePreview }}</p>
-                        <span class="wish-time">{{ i18n.formatTimeAgo(w.createdAt) }}</span>
-                      </div>
-                    </a>
-                  </li>
-                }
-              </ul>
-            }
-            </div>
-
-            <div class="sidebar-column-fill" aria-hidden="true">
-              <span class="sidebar-fill-mark">✦</span>
-              <p class="sidebar-fill-tagline">{{ 'feed.tagline' | t }}</p>
-            </div>
-          </div>
-        </aside>
       </div>
     </section>
 
@@ -383,10 +319,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
 
     .feed { padding: 0.7rem 0 2.2rem; }
     .feed-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(240px, 280px);
-      gap: 1.25rem;
-      align-items: stretch;
+      display: block;
     }
     .sidebar-inner {
       display: flex;
@@ -711,12 +644,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     }
     .event-card:hover { transform: translateY(-4px); box-shadow: 0 14px 30px rgba(16, 24, 40, 0.09); }
     .card-image {
-      aspect-ratio: 16/10;
-      background-size: cover;
-      background-position: center;
       position: relative;
-      background-color: #d7e3de;
-      background-image: linear-gradient(135deg, #d7e3de 0%, #b9cdc5 100%);
     }
     .event-type-badge {
       position: absolute;
@@ -856,10 +784,8 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     }
   `]
 })
-export class FeedComponent implements OnInit, OnDestroy {
+export class FeedComponent implements OnDestroy {
   events = signal<EventListDto[]>([]);
-  recentWishes = signal<RecentWishSidebarDto[]>([]);
-  recentWishesLoaded = signal(false);
   loading = signal(false);
   error = signal(false);
   page = signal(1);
@@ -925,19 +851,6 @@ export class FeedComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.intersectionObserver?.disconnect();
     this.intersectionObserver = null;
-  }
-
-  ngOnInit() {
-    this.api.getRecentWishes(10).subscribe({
-      next: (w) => {
-        this.recentWishes.set(w ?? []);
-        this.recentWishesLoaded.set(true);
-      },
-      error: () => {
-        this.recentWishes.set([]);
-        this.recentWishesLoaded.set(true);
-      }
-    });
   }
 
   setFilter(type: string) {

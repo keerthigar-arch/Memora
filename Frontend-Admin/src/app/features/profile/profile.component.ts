@@ -19,7 +19,9 @@ import { AuthService, UserProfile } from '../../services/auth.service';
         <header class="profile-hero" aria-labelledby="admin-profile-heading">
           <div class="hero-backdrop" aria-hidden="true"></div>
           <div class="container profile-hero-inner">
-            <a routerLink="/events" class="back-link">← Back to events</a>
+            <div class="page-back-bar">
+              <a routerLink="/events" class="page-back page-back--on-dark">← Back</a>
+            </div>
             <div class="hero-shell">
               <div class="hero-head">
                 <p class="hero-kicker">Memora Admin</p>
@@ -211,17 +213,8 @@ import { AuthService, UserProfile } from '../../services/auth.service';
       position: relative;
       z-index: 1;
     }
-    .profile-hero-inner > .back-link {
-      display: inline-block;
-      margin-bottom: 0.85rem;
-      color: rgba(255, 255, 255, 0.88);
-      font-size: 0.875rem;
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .profile-hero-inner > .back-link:hover {
-      color: #fff;
-      text-decoration: underline;
+    .profile-hero-inner > .page-back-bar {
+      margin-bottom: 0.15rem;
     }
     .hero-shell {
       max-width: 1040px;

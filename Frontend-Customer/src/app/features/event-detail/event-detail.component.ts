@@ -3,11 +3,13 @@ import { CommonModule, Location } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService, EventDetailDto } from '../../services/api.service';
+import { LanguageService } from '../../services/language.service';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
   selector: 'app-event-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe],
   template: `
     <div class="detail-page">
       @if (loading()) {
@@ -16,29 +18,33 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
           <p>Loading this moment…</p>
         </div>
       } @else if (event()) {
-        <header class="hero" [class.hero-has-image]="!!event()!.mainImageUrl">
+        <div class="container detail-hero-wrap">
+          <div class="page-back-bar page-back-bar--flush">
+            <a href="#" class="page-back" (click)="goBack($event)">← {{ 'nav.back' | t }}</a>
+          </div>
+          <header class="hero" [class.hero-has-image]="!!event()!.mainImageUrl">
           @if (event()!.mainImageUrl) {
-            <div
-              class="hero-media"
-              [style.background-image]="'url(' + event()!.mainImageUrl + ')'"
-              role="img"
-              [attr.aria-label]="event()!.title"
-            ></div>
+            <div class="hero-media">
+              <img
+                class="hero-media__img"
+                [src]="event()!.mainImageUrl"
+                [alt]="event()!.title"
+              />
+            </div>
             <div class="hero-scrim" aria-hidden="true"></div>
           } @else {
             <div class="hero-fallback" aria-hidden="true"></div>
           }
 
-          <div class="container hero-content">
-            <a href="#" class="back-link" (click)="goBack($event)">{{ backLabel() }}</a>
+          <div class="hero-content">
             <span class="event-type-badge" [ngClass]="getEventTypeClass(event()!.eventType)">
-              {{ getEventTypeLabel(event()!.eventType) }}
+              {{ lang.eventTypeLabel(event()!.eventType) }}
             </span>
             <h1>{{ event()!.title }}</h1>
             <p class="hero-meta">
               <span>{{ event()!.createdBy }}</span>
               <span class="dot" aria-hidden="true">·</span>
-              <span>{{ event()!.eventDate | date: 'longDate' }}</span>
+              <span>{{ event()!.eventDate | date: 'longDate':undefined:lang.dateLocale() }}</span>
               @if (event()!.location) {
                 <span class="dot" aria-hidden="true">·</span>
                 <span>{{ event()!.location }}</span>
@@ -51,6 +57,7 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
             }
           </div>
         </header>
+        </div>
 
         <div class="container detail-shell">
           <article class="story-panel">
@@ -63,8 +70,8 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
               <div class="life-dates">
                 @if (event()!.birthDate) {
                   <div class="life-date">
-                    <span class="life-label">Born</span>
-                    <span class="life-value">{{ event()!.birthDate | date: 'longDate' }}</span>
+                    <span class="life-label">{{ 'life.born' | t }}</span>
+                    <span class="life-value">{{ event()!.birthDate | date: 'longDate':undefined:lang.dateLocale() }}</span>
                   </div>
                 }
                 @if (event()!.birthDate && event()!.deathDate) {
@@ -72,18 +79,10 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
                 }
                 @if (event()!.deathDate) {
                   <div class="life-date">
-                    <span class="life-label">Passed</span>
-                    <span class="life-value">{{ event()!.deathDate | date: 'longDate' }}</span>
+                    <span class="life-label">{{ 'life.passed' | t }}</span>
+                    <span class="life-value">{{ event()!.deathDate | date: 'longDate':undefined:lang.dateLocale() }}</span>
                   </div>
                 }
-              </div>
-            }
-            @if ((event()!.eventType === 'Anniversary' || event()!.eventType === 'Wedding') && event()!.weddingDate) {
-              <div class="life-dates">
-                <div class="life-date">
-                  <span class="life-label">{{ event()!.eventType === 'Wedding' ? 'Wedding' : 'Anniversary' }}</span>
-                  <span class="life-value">{{ event()!.weddingDate | date: 'longDate' }}</span>
-                </div>
               </div>
             }
 
@@ -103,11 +102,11 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
                   <p class="media-kicker">Cover</p>
                   <button
                     type="button"
-                    class="featured-cover"
+                    class="featured-cover event-media-frame event-media-frame--cover"
                     (click)="openLightbox(event()!.mainImageUrl!)"
                     [attr.aria-label]="'Open cover photo for ' + event()!.title"
                   >
-                    <img [src]="event()!.mainImageUrl" [alt]="event()!.title" />
+                    <img class="event-media-frame__img" [src]="event()!.mainImageUrl" [alt]="event()!.title" />
                     <span class="featured-hint">Click to enlarge</span>
                   </button>
                 </div>
@@ -123,11 +122,11 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
                     @for (url of galleryUrls(); track url; let i = $index) {
                       <button
                         type="button"
-                        class="gallery-item"
+                        class="gallery-item event-media-frame event-media-frame--thumb"
                         (click)="openLightbox(url, i)"
                         [attr.aria-label]="'Open gallery photo ' + (i + 1)"
                       >
-                        <span class="gallery-thumb" [style.background-image]="'url(' + url + ')'"></span>
+                        <img class="event-media-frame__img" [src]="url" alt="Gallery photo {{ i + 1 }}" loading="lazy" decoding="async" />
                       </button>
                     }
                   </div>
@@ -143,16 +142,18 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
                   <div class="video-grid">
                     @for (url of videoUrls(); track url; let i = $index) {
                       <figure class="video-card">
-                        <video
-                          class="video-item"
-                          controls
-                          playsinline
-                          preload="metadata"
-                          (play)="ensureVideoAudible($event)"
-                          (loadedmetadata)="ensureVideoAudible($event)"
-                        >
-                          <source [src]="url" [type]="guessVideoMime(url)" />
-                        </video>
+                        <div class="event-media-frame event-media-frame--video">
+                          <video
+                            class="event-media-frame__video"
+                            controls
+                            playsinline
+                            preload="metadata"
+                            (play)="ensureVideoAudible($event)"
+                            (loadedmetadata)="ensureVideoAudible($event)"
+                          >
+                            <source [src]="url" [type]="guessVideoMime(url)" />
+                          </video>
+                        </div>
                         <figcaption>Video {{ i + 1 }}</figcaption>
                       </figure>
                     }
@@ -165,17 +166,17 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
           <section class="wishes-panel" aria-labelledby="wishes-heading">
             <div class="section-head">
               <h2 id="wishes-heading" class="section-title">
-                {{ getWishesSectionTitle() }}
+                {{ lang.wishesSectionTitle(event()!.eventType) }}
                 <span class="wish-count">{{ event()!.wishes.length }}</span>
               </h2>
-              <p class="section-lede">{{ getWishesIntro() }}</p>
+              <p class="section-lede">{{ lang.t(wishesIntroKey(event()!.eventType)) }}</p>
             </div>
 
             <form class="wish-form" (ngSubmit)="submitWish()">
               <div class="form-row">
                 <label class="field">
                   <span class="field-label">Your name</span>
-                  <input [(ngModel)]="senderName" name="sender" [placeholder]="getSenderPlaceholder()" required />
+                  <input [(ngModel)]="senderName" name="sender" [placeholder]="lang.wishSenderPlaceholder(event()!.eventType)" required />
                 </label>
               </div>
               <label class="field">
@@ -184,7 +185,7 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
                   [(ngModel)]="wishMessage"
                   name="message"
                   rows="4"
-                  [placeholder]="getMessagePlaceholder()"
+                  [placeholder]="lang.wishMessagePlaceholder(event()!.eventType)"
                   required
                 ></textarea>
               </label>
@@ -210,9 +211,9 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
               >
                 @if (saving()) {
                   <span class="btn-spinner" aria-hidden="true"></span>
-                  Sending…
+                  {{ 'detail.sending' | t }}
                 } @else {
-                  {{ getSubmitButtonLabel() }}
+                  {{ lang.wishSubmitLabel(event()!.eventType) }}
                 }
               </button>
             </form>
@@ -227,8 +228,8 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
                     </header>
                     <p>{{ w.message }}</p>
                     @if (w.mediaUrl) {
-                      <button type="button" class="wish-attach" (click)="openLightbox(w.mediaUrl!)">
-                        <img [src]="w.mediaUrl" alt="Attachment from {{ w.senderName }}" />
+                      <button type="button" class="wish-attach event-media-frame event-media-frame--thumb" (click)="openLightbox(w.mediaUrl!)">
+                        <img class="event-media-frame__img" [src]="w.mediaUrl" alt="Attachment from {{ w.senderName }}" loading="lazy" decoding="async" />
                       </button>
                     }
                   </article>
@@ -241,9 +242,9 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
         </div>
       } @else {
         <div class="state-block">
-          <h2>Event not found</h2>
-          <p>This page may have been removed or is no longer public.</p>
-          <a routerLink="/" class="btn btn-primary">Back to Feed</a>
+          <h2>{{ 'detail.notFound' | t }}</h2>
+          <p>{{ 'detail.notFoundLede' | t }}</p>
+          <a routerLink="/" class="btn btn-primary">{{ 'detail.backHome' | t }}</a>
         </div>
       }
     </div>
@@ -314,10 +315,18 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
       inset: 0;
     }
     .hero-media {
-      background-size: cover;
-      background-position: center;
       transform: scale(1.02);
       animation: heroZoom 12s ease-out both;
+    }
+    .hero-media__img {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      object-fit: cover;
+      object-position: center top;
     }
     @keyframes heroZoom {
       from { transform: scale(1.08); }
@@ -344,14 +353,9 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
       max-width: 920px;
       margin: 0 auto;
     }
-    .back-link {
-      display: inline-block;
-      margin-bottom: 1rem;
-      color: rgba(255, 255, 255, 0.88);
-      font-size: 0.875rem;
-      font-weight: 600;
+    .detail-hero-wrap .hero {
+      border-radius: 0;
     }
-    .back-link:hover { color: #fff; }
     .hero-content .event-type-badge {
       margin-bottom: 0.75rem;
     }
@@ -502,17 +506,12 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
       border-radius: 14px;
       overflow: hidden;
       cursor: zoom-in;
-      background: #0f2922;
       box-shadow: 0 12px 32px rgba(15, 41, 34, 0.18);
     }
-    .featured-cover img {
-      display: block;
-      width: 100%;
-      max-height: min(62vh, 520px);
-      object-fit: cover;
+    .featured-cover .event-media-frame__img {
       transition: transform 0.45s ease;
     }
-    .featured-cover:hover img { transform: scale(1.03); }
+    .featured-cover:hover .event-media-frame__img { transform: scale(1.03); }
     .featured-hint {
       position: absolute;
       left: 1rem;
@@ -545,20 +544,11 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
       border-radius: 12px;
       overflow: hidden;
       cursor: zoom-in;
-      background: #e8eeeb;
-      aspect-ratio: 1;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .gallery-item:hover {
       transform: translateY(-2px);
       box-shadow: 0 10px 24px rgba(13, 61, 50, 0.14);
-    }
-    .gallery-thumb {
-      display: block;
-      width: 100%;
-      height: 100%;
-      background-size: cover;
-      background-position: center;
     }
 
     .video-grid {
@@ -572,13 +562,6 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
       overflow: hidden;
       background: #0f2922;
       border: 1px solid rgba(26, 95, 74, 0.16);
-    }
-    .video-item {
-      display: block;
-      width: 100%;
-      aspect-ratio: 16 / 10;
-      object-fit: cover;
-      background: #000;
     }
     .video-card figcaption {
       padding: 0.55rem 0.85rem;
@@ -715,14 +698,8 @@ import { ApiService, EventDetailDto } from '../../services/api.service';
       border: none;
       background: transparent;
       cursor: zoom-in;
-      display: block;
-    }
-    .wish-attach img {
-      display: block;
-      max-width: min(100%, 280px);
-      max-height: 200px;
+      width: min(100%, 200px);
       border-radius: 10px;
-      object-fit: cover;
     }
     .wish-empty {
       margin: 0;
@@ -813,18 +790,22 @@ export class EventDetailComponent implements OnInit {
   lightboxUrl = signal<string | null>(null);
   lightboxIndex = signal(-1);
   private fromMyEvents = false;
+  private myEventsTab: 'published' | 'pending' = 'published';
 
   constructor(
     private route: ActivatedRoute,
     private api: ApiService,
     private location: Location,
-    private router: Router
+    private router: Router,
+    readonly lang: LanguageService
   ) {}
 
   ngOnInit() {
     this.fromMyEvents =
       (this.route.snapshot.queryParamMap.get('from') || '').toLowerCase() === 'my-events' ||
       (typeof document !== 'undefined' && (document.referrer || '').includes('/my-events'));
+    const tabParam = this.route.snapshot.queryParamMap.get('tab');
+    this.myEventsTab = tabParam === 'pending' ? 'pending' : 'published';
     this.id = Number(this.route.snapshot.paramMap.get('id'));
     this.api.getEvent(this.id).subscribe({
       next: (ev) => {
@@ -850,14 +831,12 @@ export class EventDetailComponent implements OnInit {
     });
   }
 
-  backLabel(): string {
-    return this.fromMyEvents ? '← Back to My Events' : '← Back to Feed';
-  }
-
   goBack(event: Event): void {
     event.preventDefault();
     if (this.fromMyEvents) {
-      void this.router.navigateByUrl('/my-events');
+      void this.router.navigate(['/my-events'], {
+        queryParams: this.myEventsTab === 'pending' ? { tab: 'pending' } : {}
+      });
       return;
     }
     if (window.history.length > 1) {
@@ -879,48 +858,10 @@ export class EventDetailComponent implements OnInit {
     return 'other';
   }
 
-  getEventTypeLabel(type: string): string {
-    if (type === 'Funeral') return 'Obituary';
-    const map: Record<string, string> = {
-      Birthday: 'Birthday',
-      'Puberty Ceremony': 'Puberty Ceremony',
-      Wedding: 'Wedding',
-      Anniversary: 'Anniversary',
-      Obituary: 'Obituary',
-      Remembrance: 'Remembrance',
-      Other: 'Other'
-    };
-    return map[type] ?? type;
-  }
-
-  getWishesSectionTitle(): string {
-    const t = this.event()?.eventType?.toLowerCase();
-    if (t === 'obituary' || t === 'funeral' || t === 'remembrance') return 'Tributes & Condolences';
-    return 'Wishes';
-  }
-
-  getWishesIntro(): string {
-    const t = this.event()?.eventType?.toLowerCase();
-    if (t === 'obituary' || t === 'funeral' || t === 'remembrance') {
-      return 'Share a memory or offer condolences for the family.';
-    }
-    return 'Leave a warm message for everyone celebrating this moment.';
-  }
-
-  getSenderPlaceholder(): string {
-    return 'Your name';
-  }
-
-  getMessagePlaceholder(): string {
-    const t = this.event()?.eventType?.toLowerCase();
-    if (t === 'obituary' || t === 'funeral' || t === 'remembrance') return 'Share a memory or offer condolences…';
-    return 'Your wish or congratulatory message…';
-  }
-
-  getSubmitButtonLabel(): string {
-    const t = this.event()?.eventType?.toLowerCase();
-    if (t === 'obituary' || t === 'funeral' || t === 'remembrance') return 'Post Tribute';
-    return 'Send Wish';
+  wishesIntroKey(eventType: string | undefined): string {
+    const t = eventType?.toLowerCase();
+    if (t === 'obituary' || t === 'funeral' || t === 'remembrance') return 'wishes.introMemorial';
+    return 'wishes.introCelebration';
   }
 
   onWishMediaChange(e: Event) {

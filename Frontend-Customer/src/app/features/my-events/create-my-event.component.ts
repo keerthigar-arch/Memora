@@ -17,7 +17,9 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     <div class="create-page">
       <header class="create-hero">
         <div class="container create-hero-inner">
-          <a routerLink="/my-events" class="back-link">← {{ 'myEvents.back' | t }}</a>
+          <div class="page-back-bar page-back-bar--flush">
+            <a routerLink="/my-events" class="page-back page-back--on-dark">← {{ 'nav.back' | t }}</a>
+          </div>
           <div class="create-hero-copy">
             <p class="create-kicker">{{ 'myEvents.composeKicker' | t }}</p>
             <h1>{{ 'myEvents.createTitle' | t }}</h1>
@@ -88,18 +90,6 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                     ariaLabel="Date of passing"
                   ></app-date-picker>
                 </div>
-              </div>
-            }
-            @if (eventType === 'Wedding' || eventType === 'Anniversary') {
-              <div class="form-group">
-                <label>{{ eventType === 'Wedding' ? 'Wedding date' : 'Anniversary (wedding) date' }} *</label>
-                <app-date-picker
-                  [(ngModel)]="weddingDate"
-                  name="weddingDate"
-                  required
-                  placeholder="Choose ceremony date"
-                  ariaLabel="Ceremony date"
-                ></app-date-picker>
               </div>
             }
           </section>
@@ -278,7 +268,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                     <p class="media-sub">{{ 'myEvents.fileDropGallery' | t }}</p>
                   </div>
                   @if (galleryPreviews().length > 0) {
-                    <span class="media-chip">{{ galleryPreviews().length }} / 8</span>
+                    <span class="media-chip">{{ galleryPreviews().length }} / 4</span>
                   }
                 </div>
                 <label class="media-drop media-drop-compact">
@@ -318,11 +308,11 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                     <p class="media-sub">{{ 'myEvents.fileDropVideos' | t }}</p>
                   </div>
                   @if (videoPreviews().length > 0) {
-                    <span class="media-chip">{{ videoPreviews().length }} / 3</span>
+                    <span class="media-chip">{{ videoPreviews().length }} / 1</span>
                   }
                 </div>
                 <label class="media-drop media-drop-compact">
-                  <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple (change)="onVideos($event)" />
+                  <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" (change)="onVideos($event)" />
                   <div class="media-drop-empty media-drop-empty-sm">
                     <span class="media-drop-lead">Add event videos</span>
                     <span class="media-drop-meta">Shown on the event detail page</span>
@@ -442,14 +432,10 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       padding: 0 1.5rem;
       gap: 0.85rem;
     }
-    .back-link {
-      align-self: flex-start;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.82);
-      text-decoration: none;
+    .create-hero-inner > .page-back-bar {
+      align-self: stretch;
+      text-align: left;
     }
-    .back-link:hover { color: #fff; }
     .create-hero-copy { max-width: 40rem; }
     .create-kicker {
       margin: 0 0 0.4rem;
@@ -1068,9 +1054,7 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
       this.birthDate = '';
       this.deathDate = '';
     }
-    if (type !== 'Wedding' && type !== 'Anniversary') {
-      this.weddingDate = '';
-    }
+    this.weddingDate = '';
     if (!this.needsConfirmationDocument()) {
       this.removeConfirmationDocument();
     }
@@ -1162,10 +1146,10 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
       validFiles.push(file);
     }
 
-    const room = Math.max(0, 8 - this.galleryImages.length);
+    const room = Math.max(0, 4 - this.galleryImages.length);
     const accepted = validFiles.slice(0, room);
     if (validFiles.length > room) {
-      this.error.set('Maximum 8 gallery images allowed. Extra files were skipped.');
+      this.error.set('Maximum 4 gallery images allowed. Extra files were skipped.');
     } else if (hasInvalid) {
       this.error.set('Some files were skipped (invalid type or size > 5MB).');
     } else {
@@ -1200,10 +1184,10 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
       validFiles.push(file);
     }
 
-    const room = Math.max(0, 3 - this.videos.length);
+    const room = Math.max(0, 1 - this.videos.length);
     const accepted = validFiles.slice(0, room);
     if (validFiles.length > room) {
-      this.error.set('Maximum 3 videos allowed. Extra files were skipped.');
+      this.error.set('Maximum 1 video allowed. Extra files were skipped.');
     } else if (hasInvalid) {
       this.error.set('Some videos were skipped (only MP4/WEBM/MOV up to 100MB).');
     } else {
@@ -1265,7 +1249,6 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
     if ((this.eventType === 'Obituary' || this.eventType === 'Remembrance') && (!this.birthDate || !this.deathDate)) {
       return false;
     }
-    if ((this.eventType === 'Wedding' || this.eventType === 'Anniversary') && !this.weddingDate) return false;
     if (this.visibility === 'InviteOnly' && !this.invitedEmails.trim()) return false;
     if (!this.mainImage) return false;
     if (this.needsConfirmationDocument() && !this.confirmationDocFile) return false;
@@ -1293,9 +1276,6 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
     if (this.eventType === 'Obituary' || this.eventType === 'Remembrance') {
       fd.append('birthDate', this.birthDate);
       fd.append('deathDate', this.deathDate);
-    }
-    if ((this.eventType === 'Wedding' || this.eventType === 'Anniversary') && this.weddingDate) {
-      fd.append('weddingDate', this.weddingDate);
     }
     if (this.visibility === 'InviteOnly' && this.invitedEmails.trim()) {
       fd.append('invitedEmails', this.invitedEmails.trim());

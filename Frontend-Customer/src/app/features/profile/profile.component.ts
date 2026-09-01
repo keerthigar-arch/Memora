@@ -20,7 +20,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <header class="profile-hero" aria-labelledby="customer-profile-heading">
           <div class="hero-backdrop" aria-hidden="true"></div>
           <div class="container profile-hero-inner">
-            <a routerLink="/" class="back-link">← {{ 'detail.back' | t }}</a>
             <div class="hero-shell">
               <div class="hero-head">
                 <p class="hero-kicker">Memora</p>
@@ -266,18 +265,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .profile-hero-inner {
       position: relative;
       z-index: 1;
-    }
-    .profile-hero-inner > .back-link {
-      display: inline-block;
-      margin-bottom: 0.85rem;
-      color: rgba(255, 255, 255, 0.88);
-      font-size: 0.875rem;
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .profile-hero-inner > .back-link:hover {
-      color: #fff;
-      text-decoration: underline;
     }
     .hero-shell {
       max-width: 1040px;

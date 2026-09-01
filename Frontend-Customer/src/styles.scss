@@ -292,3 +292,102 @@ a {
 @keyframes memora-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Fixed frames for user-uploaded event images (any resolution → consistent frame) */
+.event-card-thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background-color: #d7e3de;
+  background-image: linear-gradient(135deg, #d7e3de 0%, #b9cdc5 100%);
+}
+.event-card-thumb__img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  object-position: center;
+}
+.event-card-thumb .event-type-badge,
+.event-card-thumb .status-badge {
+  z-index: 2;
+}
+
+.event-media-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  background: #0f2922;
+}
+.event-media-frame--cover {
+  aspect-ratio: 16 / 10;
+  max-height: min(62vh, 520px);
+  background: #e8eeeb;
+}
+.event-media-frame--thumb {
+  aspect-ratio: 1;
+  background: #e8eeeb;
+}
+.event-media-frame--video {
+  aspect-ratio: 16 / 10;
+  background: #000;
+}
+.event-media-frame__img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  object-position: center;
+}
+.event-media-frame__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Consistent page back control — above parent content, container-aligned */
+.page-back-bar {
+  padding-top: 0.4rem;
+  padding-bottom: 0.35rem;
+}
+.page-back-bar--flush {
+  padding-top: 0.35rem;
+  padding-bottom: 0.2rem;
+}
+.page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  color: var(--primary-dark);
+  transition: color 0.15s ease;
+}
+.page-back:hover {
+  color: var(--primary);
+}
+.page-back:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.page-back--on-dark {
+  color: rgba(255, 255, 255, 0.9);
+}
+.page-back--on-dark:hover {
+  color: #fff;
+}
+.page-back--on-dark:focus-visible {
+  outline-color: #fff;
+}

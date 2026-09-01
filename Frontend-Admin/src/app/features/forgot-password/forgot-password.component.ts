@@ -78,7 +78,7 @@ import { AuthService } from '../../services/auth.service';
           </form>
 
           <p class="back-wrap">
-            <a routerLink="/login" class="link-back">← Back to sign in</a>
+            <a routerLink="/login" class="page-back">← Back</a>
           </p>
         </div>
       </div>

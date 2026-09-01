@@ -91,7 +91,9 @@ public class PricingService
             PackageDays: packageDays,
             RecommendedIndex: 1,
             Matrix: matrix,
-            PaymentMethods: new[] { "Mastercard", "Visa", "PayPal", "American Express", "Bank Transfer", "Western Union" },
+            PaymentMethods: new[] { "Mastercard", "Visa", "American Express", "Bank Transfer", "Western Union" }
+                .Where(m => !m.Contains("PayPal", StringComparison.OrdinalIgnoreCase))
+                .ToArray(),
             ContentSections: contentSections
         );
     }

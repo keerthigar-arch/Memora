@@ -31,7 +31,7 @@ type ViewState = 'loading' | 'invalid' | 'form' | 'submitting';
           </p>
           <a routerLink="/forgot-password" class="btn btn-primary btn-lg">Request new link</a>
           <p class="back-wrap">
-            <a routerLink="/login" class="link-back">← Back to sign in</a>
+            <a routerLink="/login" class="page-back">← Back</a>
           </p>
         }
 
@@ -69,7 +69,7 @@ type ViewState = 'loading' | 'invalid' | 'form' | 'submitting';
             </button>
           </form>
           <p class="back-wrap">
-            <a routerLink="/login" class="link-back">← Back to sign in</a>
+            <a routerLink="/login" class="page-back">← Back</a>
           </p>
         }
       </div>
