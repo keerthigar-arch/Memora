@@ -43,15 +43,201 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-html[data-memora-lang='ta'] body {
-  font-family: var(--font-tamil);
+/* Tamil typography — Noto Sans Tamil reads larger than DM Sans at equal px (see tamilui.com/foundations/typography) */
+html[data-memora-lang='ta'] {
+  font-size: 93.75%; /* 15px body base — aligned with BBC Tamil / professional portals */
 }
 
+html[data-memora-lang='ta'] body {
+  font-family: var(--font-tamil);
+  line-height: 1.65;
+}
+
+html[data-memora-lang='ta'] h1,
+html[data-memora-lang='ta'] h2,
+html[data-memora-lang='ta'] h3,
+html[data-memora-lang='ta'] h4,
+html[data-memora-lang='ta'] h5,
+html[data-memora-lang='ta'] h6 {
+  font-family: var(--font-tamil);
+  font-weight: 600;
+  line-height: 1.38;
+}
+
+html[data-memora-lang='ta'] h1 { font-size: 2rem; }
+html[data-memora-lang='ta'] h2 { font-size: 1.625rem; }
+html[data-memora-lang='ta'] h3 { font-size: 1.22rem; }
+
+html[data-memora-lang='ta'] .btn,
+html[data-memora-lang='ta'] .form-group input,
+html[data-memora-lang='ta'] .form-group textarea,
+html[data-memora-lang='ta'] .form-group select,
 html[data-memora-lang='ta'] .event-type-badge,
 html[data-memora-lang='ta'] .description,
 html[data-memora-lang='ta'] .wish-card p,
 html[data-memora-lang='ta'] .wish-snippet {
   font-family: var(--font-tamil);
+}
+
+html[data-memora-lang='ta'] p,
+html[data-memora-lang='ta'] li,
+html[data-memora-lang='ta'] .description,
+html[data-memora-lang='ta'] .card-content p,
+html[data-memora-lang='ta'] .footer-lede,
+html[data-memora-lang='ta'] .footer-tagline {
+  line-height: 1.65;
+}
+
+/* Tamil has no case — drop spaced uppercase labels */
+html[data-memora-lang='ta'] :where(
+  .showcase-kicker,
+  .hero-kicker,
+  .group-label,
+  .strip-title,
+  .sidebar-title,
+  .sidebar-fill-tagline,
+  .event-type-badge,
+  .footer-heading,
+  .contact-label,
+  .field label,
+  .date-field,
+  .status-tab-label
+) {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+/* Chrome & filters — tighter for longer Tamil labels */
+html[data-memora-lang='ta'] .nav .nav-link,
+html[data-memora-lang='ta'] .nav .nav-btn {
+  padding: 0.38rem 0.68rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+html[data-memora-lang='ta'] .filter-btn {
+  font-size: 0.75rem;
+  padding: 0.26rem 0.52rem;
+  line-height: 1.35;
+}
+
+html[data-memora-lang='ta'] .lang-btn {
+  font-size: 0.625rem;
+  padding: 0.32rem 0.48rem;
+}
+
+html[data-memora-lang='ta'] .showcase h2 {
+  font-size: clamp(1.02rem, 1.9vw, 1.38rem);
+  line-height: 1.35;
+}
+
+html[data-memora-lang='ta'] .showcase p,
+html[data-memora-lang='ta'] .showcase-kicker {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+html[data-memora-lang='ta'] .event-type-badge {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.6rem;
+}
+
+html[data-memora-lang='ta'] :where(
+  .pricing-hero h1,
+  .contact-hero h1,
+  .page-hero h1,
+  .create-hero h1,
+  .auth-hero h1,
+  .order-hero h1
+) {
+  font-family: var(--font-tamil);
+  line-height: 1.32;
+}
+
+html[data-memora-lang='ta'] .page-hero h1 {
+  font-size: 1.22rem;
+}
+
+html[data-memora-lang='ta'] .create-hero h1 {
+  font-size: clamp(1.05rem, 2.1vw, 1.42rem);
+}
+
+html[data-memora-lang='ta'] :where(
+  .pricing-hero h1,
+  .contact-hero h1
+) {
+  font-size: clamp(1.15rem, 2.3vw, 1.42rem);
+  line-height: 1.32;
+}
+
+html[data-memora-lang='ta'] .hero-content h1,
+html[data-memora-lang='ta'] .hero-head h1 {
+  font-size: clamp(1.45rem, 3.5vw, 2.15rem);
+  line-height: 1.28;
+  letter-spacing: 0;
+}
+
+html[data-memora-lang='ta'] .section-title,
+html[data-memora-lang='ta'] .form-section-title {
+  font-family: var(--font-tamil);
+  font-size: 1.18rem;
+  line-height: 1.35;
+}
+
+html[data-memora-lang='ta'] .card-content h3 {
+  font-size: 0.95rem;
+  line-height: 1.38;
+}
+
+html[data-memora-lang='ta'] .card-content p {
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+html[data-memora-lang='ta'] .hero-lede {
+  font-size: 0.8rem;
+  line-height: 1.58;
+  max-width: 48ch;
+}
+
+html[data-memora-lang='ta'] :where(
+  .hotline-label,
+  .hero-cta,
+  .auth-label,
+  .auth-tab
+) {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+html[data-memora-lang='ta'] .auth-title {
+  font-family: var(--font-tamil);
+  font-size: 1.28rem;
+  line-height: 1.32;
+}
+
+html[data-memora-lang='ta'] .auth-lede {
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+html[data-memora-lang='ta'] .nav {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+html[data-memora-lang='ta'] .status-tab {
+  min-height: 2.65rem;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+html[data-memora-lang='ta'] .status-tab-label {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: center;
 }
 
 h1, h2, h3, h4, h5, h6 {
