@@ -767,11 +767,45 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .lightbox-prev { left: 1rem; }
     .lightbox-next { right: 1rem; }
 
-    @media (max-width: 767px) {
+    @media (max-width: 768px) {
       .detail-shell { margin-top: -1rem; gap: 1rem; }
+      .hero-content {
+        padding: 1.5rem 0 1.75rem;
+      }
+      .hero-content h1 {
+        font-size: clamp(1.35rem, 5vw, 1.85rem);
+      }
       .gallery-grid { grid-template-columns: repeat(2, 1fr); }
       .life-rule { display: none; }
       .lightbox-nav { display: none; }
+      .story-panel,
+      .media-panel,
+      .wishes-panel {
+        padding: 1.15rem;
+      }
+      .wish-submit {
+        min-width: 0;
+        width: 100%;
+      }
+      .wish-card-head {
+        flex-wrap: wrap;
+        gap: 0.25rem 0.5rem;
+      }
+      .wish-card-head time {
+        white-space: normal;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .hero:not(.hero-has-image) .hero-content {
+        padding-top: 2rem;
+      }
+      .gallery-grid {
+        grid-template-columns: 1fr;
+      }
+      .meta-pill {
+        font-size: 0.72rem;
+      }
     }
   `]
 })

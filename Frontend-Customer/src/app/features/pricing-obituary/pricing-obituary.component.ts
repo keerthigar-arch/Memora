@@ -590,6 +590,68 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       border-color: rgba(26, 95, 74, 0.22);
     }
 
+    @media (max-width: 1024px) {
+      .pricing-shell {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .hero-wrap {
+        padding: 0 var(--container-pad, 1rem);
+      }
+      .pricing-hero h1,
+      .contact-hero h1 {
+        font-size: clamp(1.15rem, 4.5vw, 1.42rem);
+      }
+      .panel-head,
+      .prose-card,
+      .payment-card {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+      .plans-table th,
+      .plans-table td {
+        padding: 0.65rem 0.85rem;
+        font-size: 0.875rem;
+      }
+      .payment-chips {
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .plans-table thead {
+        display: none;
+      }
+      .plans-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.35rem 0.75rem;
+        align-items: center;
+        padding: 0.65rem 0.85rem;
+        border-bottom: 1px solid rgba(26, 95, 74, 0.08);
+      }
+      .plans-table tbody th,
+      .plans-table tbody td {
+        padding: 0;
+        border: none;
+      }
+      .plans-table tbody th[scope='row'] {
+        text-align: left;
+      }
+      .plans-table tbody td {
+        text-align: right;
+      }
+      .hotline-number {
+        font-size: 1.15rem;
+      }
+      .chip {
+        flex: 1 1 calc(50% - 0.35rem);
+        min-width: 0;
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .hero-glow {
         animation: none;

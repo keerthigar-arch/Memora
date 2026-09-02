@@ -774,7 +774,7 @@ import { environment } from '../../../environments/environment';
     }
     .summary-chip strong { color: #274d43; }
     .main { min-height: calc(100vh - 160px); padding: 0.55rem 0 1.6rem; }
-    @media (max-width: 960px) {
+    @media (max-width: 1024px) {
       .header-inner {
         flex-direction: column;
         gap: 0.75rem;
@@ -783,6 +783,7 @@ import { environment } from '../../../environments/environment';
       .nav {
         width: 100%;
         flex-wrap: wrap;
+        justify-content: center;
         border-radius: 16px;
       }
       .profile-chevron {
@@ -790,6 +791,10 @@ import { environment } from '../../../environments/environment';
       }
       .profile-trigger {
         padding: 4px;
+      }
+      .profile-dropdown {
+        width: min(240px, calc(100vw - 2rem));
+        right: 0;
       }
       .showcase {
         padding: 0.75rem 0;
@@ -804,6 +809,78 @@ import { environment } from '../../../environments/environment';
       }
       .gallery-card {
         width: 168px;
+      }
+      .country-summary-bar {
+        padding: 0.45rem 0;
+      }
+      .summary-chips {
+        justify-content: center;
+      }
+    }
+    @media (max-width: 768px) {
+      .top-bar .container {
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        font-size: 0.75rem;
+      }
+      .header-inner {
+        padding: 0.65rem var(--container-pad, 1rem);
+      }
+      .wordmark {
+        font-size: 1.4rem;
+      }
+      .nav .nav-link {
+        padding: 0.4rem 0.65rem;
+        font-size: 0.8125rem;
+      }
+      .nav-btn {
+        padding: 0.45rem 0.75rem;
+        font-size: 0.8125rem;
+      }
+      .lang-switch {
+        margin-inline-end: 0;
+      }
+      .main {
+        min-height: calc(100vh - 140px);
+        padding: 0.4rem 0 1.25rem;
+      }
+    }
+    @media (max-width: 480px) {
+      .logo {
+        padding: 0.1rem 0.2rem;
+      }
+      .wordmark {
+        font-size: 1.25rem;
+      }
+      .brand-icon {
+        width: 1.15rem;
+        height: 1.15rem;
+        margin-right: 0.35rem;
+      }
+      .nav {
+        gap: 0.3rem;
+        padding: 0.3rem;
+      }
+      .nav .nav-link {
+        padding: 0.38rem 0.55rem;
+        font-size: 0.75rem;
+      }
+      .lang-btn {
+        font-size: 0.625rem;
+        padding: 0.3rem 0.42rem;
+      }
+      .showcase h2 {
+        font-size: clamp(1rem, 4.5vw, 1.22rem);
+      }
+      .showcase p {
+        font-size: 0.8rem;
+      }
+      .gallery-card {
+        width: 140px;
+      }
+      .summary-chip {
+        font-size: 0.75rem;
+        padding: 0.22rem 0.55rem;
       }
     }
   `]

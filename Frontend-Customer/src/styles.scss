@@ -15,12 +15,17 @@
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'DM Sans', 'Noto Sans Tamil', system-ui, sans-serif;
   --font-tamil: 'Noto Sans Tamil', 'DM Sans', system-ui, sans-serif;
+
+  /* Responsive tokens — mobile-first (480 / 768 / 1024) */
+  --container-pad: 1.5rem;
+  --container-max: 1200px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -41,6 +46,17 @@ body {
   background-position: center top, center, center, center;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+img,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+video {
+  max-width: 100%;
 }
 
 /* Tamil typography — Noto Sans Tamil reads larger than DM Sans at equal px (see tamilui.com/foundations/typography) */
@@ -394,9 +410,10 @@ a {
 }
 
 .container {
-  max-width: 1200px;
+  width: 100%;
+  max-width: var(--container-max);
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 var(--container-pad);
 }
 
 .card {
@@ -576,4 +593,47 @@ a {
 }
 .page-back--on-dark:focus-visible {
   outline-color: #fff;
+}
+
+/* —— Responsive layout (phones / tablets / iPad) —— */
+@media (max-width: 1024px) {
+  :root {
+    --container-pad: 1.25rem;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --container-pad: 1rem;
+  }
+
+  h1 { font-size: clamp(1.5rem, 5vw, 2rem); }
+  h2 { font-size: clamp(1.25rem, 4vw, 1.6rem); }
+  h3 { font-size: clamp(1.1rem, 3vw, 1.25rem); }
+
+  .btn {
+    min-height: 2.35rem;
+  }
+
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 16px; /* prevent iOS zoom on focus */
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --container-pad: 0.875rem;
+  }
+
+  .btn-sm {
+    min-height: 1.85rem;
+    padding: 0.32rem 0.65rem;
+  }
+
+  .btn-lg {
+    min-height: 2.5rem;
+    padding: 0.65rem 1rem;
+  }
 }

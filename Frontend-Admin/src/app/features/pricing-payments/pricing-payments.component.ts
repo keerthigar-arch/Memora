@@ -552,9 +552,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       }
       .pay-table {
         width: 100%;
-        border-collapse: collapse;
-        font-size: 0.875rem;
-        min-width: 920px;
+        min-width: 0;
       }
       .pay-table thead {
         background: linear-gradient(180deg, rgba(26, 95, 74, 0.12), rgba(26, 95, 74, 0.05));
@@ -769,13 +767,22 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
         .filters-card {
           padding: 0.9rem 1rem;
         }
+        .filters-row--controls {
+          grid-template-columns: 1fr;
+        }
         .pay-table {
-          min-width: 720px;
           font-size: 0.8125rem;
         }
         .pay-table th,
         .pay-table td {
           padding: 0.65rem 0.75rem;
+        }
+        .ref-cell,
+        .date-cell,
+        .direct-cell,
+        .th-date {
+          white-space: normal;
+          word-break: break-word;
         }
       }
 
@@ -817,9 +824,6 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       @media (max-width: 480px) {
         .page-head {
           padding-top: 1rem;
-        }
-        .pay-table {
-          min-width: 640px;
         }
         .action-stack {
           width: 100%;

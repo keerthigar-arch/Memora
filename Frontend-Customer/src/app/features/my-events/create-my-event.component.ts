@@ -998,6 +998,28 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     }
     @keyframes spinBtn { to { transform: rotate(360deg); } }
     .submit-hint { margin: 0; font-size: 0.8125rem; color: var(--create-muted); }
+
+    @media (max-width: 480px) {
+      .create-hero {
+        padding: 0.85rem 0;
+      }
+      .form-shell {
+        padding: 1rem var(--container-pad, 0.875rem) 2rem;
+      }
+      .create-form {
+        padding: 1rem;
+      }
+      .submit-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .btn-submit,
+      .btn-cancel {
+        width: 100%;
+        min-width: 0;
+        justify-content: center;
+      }
+    }
   `]
 })
 export class CreateMyEventComponent implements OnInit, OnDestroy {

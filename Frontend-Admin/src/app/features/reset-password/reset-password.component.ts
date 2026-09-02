@@ -203,6 +203,28 @@ type ViewState = 'loading' | 'invalid' | 'form' | 'submitting';
     .link-back:hover {
       text-decoration: underline;
     }
+
+    @media (max-width: 767px) {
+      .admin-login-content {
+        max-width: 100%;
+        padding: 0 var(--container-pad, 1rem);
+      }
+      .auth-form {
+        padding: 1.5rem 1.25rem;
+      }
+      .brand-title {
+        font-size: clamp(1.75rem, 8vw, 2.5rem);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .admin-login-page {
+        padding: 1.25rem 0.75rem;
+      }
+      .auth-form {
+        padding: 1.25rem 1rem;
+      }
+    }
   `]
 })
 export class ResetPasswordComponent implements OnInit {

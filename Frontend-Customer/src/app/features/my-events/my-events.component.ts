@@ -361,7 +361,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .status-tab.active .status-tab-count {
       background: rgba(255, 255, 255, 0.22);
     }
-    .status-tab-label { white-space: nowrap; }
+    .status-tab-label { white-space: normal; text-align: center; line-height: 1.35; }
     .panel { background: #fff; border: 1px solid #e2e9f3; border-radius: 14px; box-shadow: 0 5px 16px rgba(15, 23, 42, 0.04); }
     .search-row { display: grid; grid-template-columns: 1fr auto; gap: 0.6rem; padding: 0.5rem; align-items: center; }
     .search-input-wrap { min-height: 44px; border: 1px solid #d5ddea; border-radius: 10px; padding: 0 0.78rem; display: flex; align-items: center; gap: 0.55rem; background: #fbfcff; }
@@ -432,11 +432,35 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .feed-loading-more { display: flex; align-items: center; justify-content: center; gap: 0.65rem; margin-top: 1.35rem; color: #647084; font-size: 0.875rem; }
     .spinner-inline { width: 22px; height: 22px; border-width: 3px; margin: 0; }
     .feed-scroll-sentinel { height: 1px; width: 100%; margin-top: 0.5rem; opacity: 0; pointer-events: none; }
-    @media (max-width: 900px) { .filter-toolbar { grid-template-columns: 1fr; } }
-    @media (max-width: 600px) {
+    @media (max-width: 1024px) { .filter-toolbar { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) {
+      .hero-inner {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+      }
+      .btn-create {
+        width: 100%;
+        justify-content: center;
+        white-space: normal;
+        text-align: center;
+      }
       .search-row { grid-template-columns: 1fr; }
       .search-action { width: 100%; min-width: 0; }
+      .filters { padding: 0.4rem var(--container-pad, 1rem); }
+      .status-switch { max-width: none; }
+    }
+    @media (max-width: 480px) {
       .date-inputs { grid-template-columns: 1fr; }
+      .status-tab {
+        padding: 0.5rem 0.45rem;
+        font-size: 0.78rem;
+        gap: 0.3rem;
+      }
+      .filter-btn {
+        font-size: 0.72rem;
+        padding: 0.24rem 0.5rem;
+      }
     }
   `]
 })

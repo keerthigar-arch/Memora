@@ -513,7 +513,7 @@ import { environment } from '../../../environments/environment';
         font-size: 0.8rem;
         gap: 0.3rem;
       }
-      .source-tab-label { font-size: 0.78rem; }
+      .source-tab-label { font-size: 0.78rem; white-space: normal; text-align: center; line-height: 1.3; }
       .source-tab-count {
         min-width: 1.15rem;
         padding: 0.08rem 0.35rem;

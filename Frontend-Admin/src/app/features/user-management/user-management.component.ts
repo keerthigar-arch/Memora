@@ -254,10 +254,10 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
       }
       .user-table {
         width: 100%;
-        table-layout: fixed;
+        table-layout: auto;
         border-collapse: collapse;
         font-size: 0.875rem;
-        min-width: 720px;
+        min-width: 0;
       }
       .user-table thead {
         background: linear-gradient(180deg, rgba(26, 95, 74, 0.12), rgba(26, 95, 74, 0.05));
@@ -393,12 +393,17 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
           padding: 0.9rem 1rem;
         }
         .user-table {
-          min-width: 640px;
           font-size: 0.8125rem;
         }
         .user-table th,
         .user-table td {
           padding: 0.65rem 0.75rem;
+        }
+        .th-date {
+          white-space: normal;
+        }
+        .email-cell {
+          word-break: break-word;
         }
       }
 
@@ -432,9 +437,6 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
       @media (max-width: 480px) {
         .page-head {
           padding-top: 1rem;
-        }
-        .user-table {
-          min-width: 560px;
         }
         .avatar,
         .avatar-ph {

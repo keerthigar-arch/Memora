@@ -348,13 +348,25 @@ import { NotificationService } from '../../services/notification.service';
       @media (max-width: 767px) {
         .detail-hero { padding: 1.5rem var(--container-pad, 1rem); }
         .detail-body { padding: 1rem; }
+        .doc-block-missing {
+          margin: 1.25rem -1rem -1.25rem;
+          padding: 1rem;
+        }
         .meta-grid {
           grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+        }
+        .hero-meta,
+        .meta-value {
+          word-break: break-word;
         }
       }
 
       @media (max-width: 480px) {
         .meta-grid { grid-template-columns: 1fr; }
+        .doc-block-missing {
+          margin: 1rem -0.75rem -1rem;
+          padding: 0.85rem 0.75rem;
+        }
       }
     `
   ]

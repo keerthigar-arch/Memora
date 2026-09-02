@@ -434,10 +434,26 @@ const REMEMBER_EMAIL_KEY = 'memora_customer_login_email';
       cursor: not-allowed;
       transform: none;
     }
-    @media (max-width: 480px) {
+    @media (max-width: 768px) {
+      :host {
+        padding: 0.75rem;
+        align-items: flex-end;
+      }
       .auth-shell {
+        max-width: 100%;
+        max-height: min(92vh, 100%);
+        border-radius: 16px 16px 0 0;
+      }
+    }
+    @media (max-width: 480px) {
+      :host {
+        padding: 0;
+        align-items: stretch;
+      }
+      .auth-shell {
+        max-height: 100vh;
+        border-radius: 0;
         padding: 1.5rem 1.2rem 1.2rem;
-        border-radius: 16px;
       }
       .auth-title {
         font-size: 1.28rem;

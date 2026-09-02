@@ -642,7 +642,7 @@ type ContactItem = {
       transform: translateX(100%);
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 1024px) {
       .contact-grid {
         grid-template-columns: 1fr;
       }
@@ -650,7 +650,11 @@ type ContactItem = {
         order: -1;
       }
     }
-
+    @media (max-width: 768px) {
+      .contact-hero {
+        padding: 1.25rem 0;
+      }
+    }
     @media (max-width: 560px) {
       .form-grid {
         grid-template-columns: 1fr;

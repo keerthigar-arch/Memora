@@ -677,6 +677,15 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    @media (max-width: 768px) {
+      .profile-body {
+        padding: 1rem var(--container-pad, 1rem);
+      }
+      .profile-card {
+        padding: 1rem;
+      }
+    }
+
     @media (max-width: 600px) {
       .details-grid { grid-template-columns: 1fr; }
       .hero-identity-card {
@@ -699,7 +708,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         min-width: 0;
       }
     }
-    @media (min-width: 768px) {
+    @media (min-width: 1024px) {
       .hero-identity-card {
         grid-template-columns: auto 1fr auto;
         grid-template-rows: auto;

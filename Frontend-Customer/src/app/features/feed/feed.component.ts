@@ -762,25 +762,26 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       opacity: 0;
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 1024px) {
       .filter-toolbar { grid-template-columns: 1fr; }
     }
-    @media (max-width: 1100px) {
-      .feed-layout {
-        grid-template-columns: 1fr;
-        align-items: start;
-      }
-      .sidebar-inner { min-height: 0; }
-      .sidebar-column-fill { display: none; }
-      .sidebar-card--wishes { position: static; }
-      .feed-main { order: 1; }
-      .sidebar-wishes { order: 2; }
-    }
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       .search-row { grid-template-columns: 1fr; }
       .search-action { width: 100%; min-width: 0; }
+      .filters { padding: 0.4rem var(--container-pad, 1rem); }
+    }
+    @media (max-width: 480px) {
       .date-inputs { grid-template-columns: 1fr; }
-      .filters { padding-top: 0.4rem; }
+      .filter-btn {
+        font-size: 0.72rem;
+        padding: 0.24rem 0.5rem;
+      }
+      .group-label {
+        font-size: 0.65rem;
+      }
+      .event-grid {
+        gap: 0.75rem;
+      }
     }
   `]
 })
