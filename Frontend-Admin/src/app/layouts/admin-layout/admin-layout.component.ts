@@ -22,7 +22,7 @@ import { NotificationService } from '../../services/notification.service';
       <div class="top-bar">
         <div class="container top-bar-inner">
           <span class="top-bar-24">24/7 Support</span>
-          <a href="tel:+18001234567" class="top-bar-phone">+1 800-123-4567</a>
+          <a href="tel:+442079460123" class="top-bar-phone">+44 20 7946 0123</a>
         </div>
       </div>
 

@@ -56,7 +56,7 @@ import { AuthService } from '../../services/auth.service';
                 <a href="mailto:support@memora.com" class="footer-link">support&#64;memora.com</a>
               </li>
               <li>
-                <a href="tel:+18001234567" class="footer-link">+1 800-123-4567</a>
+                <a href="tel:+442079460123" class="footer-link">+44 20 7946 0123</a>
               </li>
               <li><span class="footer-meta">24/7 administrator support</span></li>
             </ul>

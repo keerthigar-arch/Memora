@@ -397,8 +397,9 @@ export const MESSAGES: Record<Lang, Record<string, string>> = {
     'lang.ta': 'தமிழ்',
 
     'showcase.kicker': 'Memora நினைவுகள்',
-    'showcase.title': 'அழகிய நினைவுகள், என்றும் பிரகாசம்',
-    'showcase.subtitle': 'கொண்டாட்டங்களும் இரங்கல்களும் — ஒவ்வொரு தருணத்திற்கும் ஒரு அமைதியான இடம்.',
+    'showcase.title': 'அழகிய நினைவுகள், காலம் கடந்தும் ஒளிரும்',
+    'showcase.subtitle':
+      'கொண்டாட்டங்களிலிருந்து நினைவேந்தல்கள் வரை — ஒவ்வொரு அர்த்தமுள்ள தருணத்திற்கும் மனதைத் தொடும் ஒரு அழகிய இடம்.',
 
     'country.loading': 'ஏற்றுகிறது…',
     'country.all': 'அனைத்து நாடுகள்',

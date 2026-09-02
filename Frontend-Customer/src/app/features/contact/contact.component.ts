@@ -694,13 +694,13 @@ export class ContactComponent {
       country: 'Sri Lanka',
       hotline: '94112345678',
       displayNumber: '+94 11 234 5678',
-      note: 'Sample line · Mon–Sun 9:00–18:00 (Colombo)'
+      note: 'Mon–Sun 9:00–18:00 (Colombo)'
     },
     {
       country: 'United Kingdom',
       hotline: '442079460123',
       displayNumber: '+44 20 7946 0123',
-      note: 'Sample line · Mon–Fri 9:00–17:00 (London)'
+      note: 'Mon–Fri 9:00–17:00 (London)'
     }
   ];
   name = '';

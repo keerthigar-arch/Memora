@@ -27,7 +27,7 @@ import { environment } from '../../../environments/environment';
     <div class="top-bar">
       <div class="container">
         <span class="top-bar-24">24/7</span>
-        <a href="tel:+18001234567" class="top-bar-phone">+1 800-123-4567</a>
+        <a href="tel:+442079460123" class="top-bar-phone">+44 20 7946 0123</a>
       </div>
     </div>
 
@@ -157,28 +157,11 @@ import { environment } from '../../../environments/environment';
         </div>
         <div class="gallery-window" aria-hidden="true">
           <div class="gallery-track">
-            <span class="gallery-card i1"></span>
-            <span class="gallery-card i2"></span>
-            <span class="gallery-card i3"></span>
-            <span class="gallery-card i4"></span>
-            <span class="gallery-card i5"></span>
-            <span class="gallery-card i6"></span>
-            <span class="gallery-card i8"></span>
-            <span class="gallery-card i4"></span>
-            <span class="gallery-card i2"></span>
-            <span class="gallery-card i6"></span>
-            <span class="gallery-card i1"></span>
-            <span class="gallery-card i7"></span>
-            <span class="gallery-card i5"></span>
-            <span class="gallery-card i3"></span>
-            <span class="gallery-card i5"></span>
-            <span class="gallery-card i2"></span>
-            <span class="gallery-card i7"></span>
-            <span class="gallery-card i1"></span>
-            <span class="gallery-card i4"></span>
-            <span class="gallery-card i8"></span>
-            <span class="gallery-card i3"></span>
-            <span class="gallery-card i6"></span>
+            @for (src of showcaseTrack; track $index) {
+              <span class="gallery-card">
+                <img [src]="src" alt="" width="400" height="300" decoding="async" loading="lazy" />
+              </span>
+            }
           </div>
         </div>
       </div>
@@ -472,25 +455,23 @@ import { environment } from '../../../environments/environment';
       animation-play-state: paused;
     }
     .gallery-card {
-      width: 174px;
+      width: 200px;
       aspect-ratio: 4 / 3;
       border-radius: 11px;
-      background-size: cover;
-      background-position: center;
       border: 1px solid rgba(255, 255, 255, 0.35);
       box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
       flex: 0 0 auto;
       position: relative;
       overflow: hidden;
+      background: rgba(0, 0, 0, 0.15);
     }
-    .i1 { background-image: url('/assets/Indian+Wedding+Couple+Photoshoot+_+Mint+Room+Studios+Toronto-30.webp'); } /* wedding */
-    .i2 { background-image: url('/assets/Pre+wedding+Photoshoot+Chennai+local+Train+Vintage+vibe.webp'); } /* wedding */
-    .i3 { background-image: url('/assets/Oonjal_-_pinterest_480x480.webp'); } /* wedding */
-    .i4 { background-image: url('/assets/relationship-romantic-birthday-cakes-for-boyfriend_1245d4fc-1e47-4dcb-8a41-5eb0a88b5d38.webp'); } /* birthday */
-    .i5 { background-image: url('/assets/pngtree-couple-celebrating-birthday-with-cake-outdoors-during-golden-sunset-image_18416861.webp'); } /* birthday */
-    .i6 { background-image: url('/assets/free-photos-a-lovely-moment-of-a-couple-celebrating-a-birthday-together-they-are-both-smiling-and-sitting-at-a-d-th-100374893.jpg'); } /* birthday */
-    .i7 { background-image: url('/assets/obituary-card-1.png'); } /* obituary */
-    .i8 { background-image: url('/assets/obituary-card-2.png'); } /* obituary */
+    .gallery-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
     @keyframes galleryMove {
       from { transform: translateX(0); }
       to { transform: translateX(calc(-50% - 0.275rem)); }
@@ -822,13 +803,32 @@ import { environment } from '../../../environments/environment';
         text-align: center;
       }
       .gallery-card {
-        width: 150px;
+        width: 168px;
       }
     }
   `]
 })
 export class CustomerLayoutComponent implements OnInit {
   readonly env = environment;
+
+  private static readonly SHOWCASE_IMAGES = [
+    'assets/showcase/wedding-1.jpg',
+    'assets/showcase/wedding-2.jpg',
+    'assets/showcase/wedding-3.jpg',
+    'assets/showcase/hindu-wedding.jpg',
+    'assets/showcase/hindu-puberty.jpg',
+    'assets/showcase/birthday-1.jpg',
+    'assets/showcase/birthday-2.jpg',
+    'assets/showcase/celebration-1.jpg',
+    'assets/showcase/memorial-1.jpg',
+    'assets/showcase/memorial-2.jpg'
+  ] as const;
+
+  /** Duplicated for seamless infinite scroll (animation moves -50%). */
+  readonly showcaseTrack = [
+    ...CustomerLayoutComponent.SHOWCASE_IMAGES,
+    ...CustomerLayoutComponent.SHOWCASE_IMAGES
+  ];
 
   profileMenuOpen = signal(false);
   profileImageUrl = computed(() => this.auth.currentUser()?.profileImageUrl ?? null);

@@ -99,7 +99,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 </span>
                 <div class="contact-body">
                   <span class="contact-label">{{ 'footer.phoneLabel' | t }}</span>
-                  <a href="tel:+441234567890" class="contact-value">+44 1234 567 890</a>
+                  <a href="tel:+442079460123" class="contact-value">+44 20 7946 0123</a>
                 </div>
               </li>
               <li class="contact-item">
