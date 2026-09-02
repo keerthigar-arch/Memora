@@ -13,235 +13,380 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   template: `
     <div class="detail-page">
       @if (loading()) {
-        <div class="state-block">
+        <div class="state-block container">
           <div class="spinner"></div>
-          <p>Loading this moment…</p>
+          <p>{{ 'detail.loadingMoment' | t }}</p>
         </div>
       } @else if (event()) {
-        <div class="container detail-hero-wrap">
-          <div class="page-back-bar page-back-bar--flush">
-            <a href="#" class="page-back" (click)="goBack($event)">← {{ 'nav.back' | t }}</a>
-          </div>
-          <header class="hero" [class.hero-has-image]="!!event()!.mainImageUrl">
-          @if (event()!.mainImageUrl) {
-            <div class="hero-media">
-              <img
-                class="hero-media__img"
-                [src]="event()!.mainImageUrl"
-                [alt]="event()!.title"
-              />
-            </div>
-            <div class="hero-scrim" aria-hidden="true"></div>
-          } @else {
-            <div class="hero-fallback" aria-hidden="true"></div>
-          }
+        <section class="detail-hero">
+          <div class="container">
+            <a href="#" class="back-link" (click)="goBack($event)">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              {{ 'nav.back' | t }}
+            </a>
 
-          <div class="hero-content">
-            <span class="event-type-badge" [ngClass]="getEventTypeClass(event()!.eventType)">
-              {{ lang.eventTypeLabel(event()!.eventType) }}
-            </span>
-            <h1>{{ event()!.title }}</h1>
-            <p class="hero-meta">
-              <span>{{ event()!.createdBy }}</span>
-              <span class="dot" aria-hidden="true">·</span>
-              <span>{{ event()!.eventDate | date: 'longDate':undefined:lang.dateLocale() }}</span>
-              @if (event()!.location) {
-                <span class="dot" aria-hidden="true">·</span>
-                <span>{{ event()!.location }}</span>
-              }
-            </p>
-            @if (event()!.mainImageUrl) {
-              <button type="button" class="view-cover-btn" (click)="openLightbox(event()!.mainImageUrl!)">
-                View cover photo
-              </button>
-            }
-          </div>
-        </header>
-        </div>
-
-        <div class="container detail-shell">
-          <article class="story-panel">
-            @if (
-              (event()!.eventType === 'Obituary' ||
-                event()!.eventType === 'Funeral' ||
-                event()!.eventType === 'Remembrance') &&
-              (event()!.birthDate || event()!.deathDate)
-            ) {
-              <div class="life-dates">
-                @if (event()!.birthDate) {
-                  <div class="life-date">
-                    <span class="life-label">{{ 'life.born' | t }}</span>
-                    <span class="life-value">{{ event()!.birthDate | date: 'longDate':undefined:lang.dateLocale() }}</span>
-                  </div>
-                }
-                @if (event()!.birthDate && event()!.deathDate) {
-                  <span class="life-rule" aria-hidden="true"></span>
-                }
-                @if (event()!.deathDate) {
-                  <div class="life-date">
-                    <span class="life-label">{{ 'life.passed' | t }}</span>
-                    <span class="life-value">{{ event()!.deathDate | date: 'longDate':undefined:lang.dateLocale() }}</span>
-                  </div>
-                }
-              </div>
-            }
-
-            <h2 class="section-title">The story</h2>
-            <p class="description">{{ event()!.description }}</p>
-          </article>
-
-          @if (event()!.mainImageUrl || galleryUrls().length || videoUrls().length) {
-            <section class="media-panel" aria-labelledby="media-heading">
-              <div class="section-head">
-                <h2 id="media-heading" class="section-title">Photos &amp; videos</h2>
-                <p class="section-lede">Every image and video shared with this event.</p>
-              </div>
-
-              @if (event()!.mainImageUrl) {
-                <div class="featured-block">
-                  <p class="media-kicker">Cover</p>
-                  <button
-                    type="button"
-                    class="featured-cover event-media-frame event-media-frame--cover"
-                    (click)="openLightbox(event()!.mainImageUrl!)"
-                    [attr.aria-label]="'Open cover photo for ' + event()!.title"
-                  >
-                    <img class="event-media-frame__img" [src]="event()!.mainImageUrl" [alt]="event()!.title" />
-                    <span class="featured-hint">Click to enlarge</span>
-                  </button>
-                </div>
-              }
-
-              @if (galleryUrls().length) {
-                <div class="gallery-block">
-                  <div class="media-row-head">
-                    <p class="media-kicker">Gallery</p>
-                    <span class="media-count">{{ galleryUrls().length }} photo{{ galleryUrls().length === 1 ? '' : 's' }}</span>
-                  </div>
-                  <div class="gallery-grid">
-                    @for (url of galleryUrls(); track url; let i = $index) {
-                      <button
-                        type="button"
-                        class="gallery-item event-media-frame event-media-frame--thumb"
-                        (click)="openLightbox(url, i)"
-                        [attr.aria-label]="'Open gallery photo ' + (i + 1)"
-                      >
-                        <img class="event-media-frame__img" [src]="url" alt="Gallery photo {{ i + 1 }}" loading="lazy" decoding="async" />
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
-
-              @if (videoUrls().length) {
-                <div class="video-block">
-                  <div class="media-row-head">
-                    <p class="media-kicker">Videos</p>
-                    <span class="media-count">{{ videoUrls().length }} video{{ videoUrls().length === 1 ? '' : 's' }}</span>
-                  </div>
-                  <div class="video-grid">
-                    @for (url of videoUrls(); track url; let i = $index) {
-                      <figure class="video-card">
-                        <div class="event-media-frame event-media-frame--video">
-                          <video
-                            class="event-media-frame__video"
-                            controls
-                            playsinline
-                            preload="metadata"
-                            (play)="ensureVideoAudible($event)"
-                            (loadedmetadata)="ensureVideoAudible($event)"
-                          >
-                            <source [src]="url" [type]="guessVideoMime(url)" />
-                          </video>
-                        </div>
-                        <figcaption>Video {{ i + 1 }}</figcaption>
-                      </figure>
-                    }
-                  </div>
-                </div>
-              }
-            </section>
-          }
-
-          <section class="wishes-panel" aria-labelledby="wishes-heading">
-            <div class="section-head">
-              <h2 id="wishes-heading" class="section-title">
-                {{ lang.wishesSectionTitle(event()!.eventType) }}
-                <span class="wish-count">{{ event()!.wishes.length }}</span>
-              </h2>
-              <p class="section-lede">{{ lang.t(wishesIntroKey(event()!.eventType)) }}</p>
-            </div>
-
-            <form class="wish-form" (ngSubmit)="submitWish()">
-              <div class="form-row">
-                <label class="field">
-                  <span class="field-label">Your name</span>
-                  <input [(ngModel)]="senderName" name="sender" [placeholder]="lang.wishSenderPlaceholder(event()!.eventType)" required />
-                </label>
-              </div>
-              <label class="field">
-                <span class="field-label">Message</span>
-                <textarea
-                  [(ngModel)]="wishMessage"
-                  name="message"
-                  rows="4"
-                  [placeholder]="lang.wishMessagePlaceholder(event()!.eventType)"
-                  required
-                ></textarea>
-              </label>
-
-              <div class="wish-media-row">
-                @if (wishMediaPreview()) {
-                  <div class="wish-preview-wrap">
-                    <img [src]="wishMediaPreview()" alt="Wish photo preview" class="wish-media-preview" />
-                    <button type="button" class="wish-preview-remove" (click)="clearWishMedia()">Remove</button>
-                  </div>
-                }
-                <label class="file-chip">
-                  <input type="file" accept="image/*" (change)="onWishMediaChange($event)" hidden />
-                  <span aria-hidden="true">+</span>
-                  Add photo
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                class="btn btn-primary wish-submit"
-                [disabled]="saving() || !senderName.trim() || !wishMessage.trim()"
-              >
-                @if (saving()) {
-                  <span class="btn-spinner" aria-hidden="true"></span>
-                  {{ 'detail.sending' | t }}
+            <div class="hero-layout">
+              <div class="hero-photo-col">
+                @if (event()!.mainImageUrl) {
+                  <figure class="hero-photo-card">
+                    <button
+                      type="button"
+                      class="hero-photo-btn"
+                      (click)="openLightbox(event()!.mainImageUrl!)"
+                      [attr.aria-label]="('detail.viewCover' | t) + ' — ' + event()!.title"
+                    >
+                      <img
+                        class="hero-photo-img"
+                        [src]="event()!.mainImageUrl"
+                        [alt]="event()!.title"
+                        decoding="async"
+                      />
+                      <span class="hero-photo-zoom" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" stroke-linecap="round" />
+                        </svg>
+                      </span>
+                    </button>
+                  </figure>
                 } @else {
-                  {{ lang.wishSubmitLabel(event()!.eventType) }}
-                }
-              </button>
-            </form>
-
-            @if (event()!.wishes.length) {
-              <div class="wish-list">
-                @for (w of event()!.wishes; track w.id) {
-                  <article class="wish-card">
-                    <header class="wish-card-head">
-                      <strong>{{ w.senderName }}</strong>
-                      <time [attr.datetime]="w.createdAt">{{ w.createdAt | date: 'mediumDate' }}</time>
-                    </header>
-                    <p>{{ w.message }}</p>
-                    @if (w.mediaUrl) {
-                      <button type="button" class="wish-attach event-media-frame event-media-frame--thumb" (click)="openLightbox(w.mediaUrl!)">
-                        <img class="event-media-frame__img" [src]="w.mediaUrl" alt="Attachment from {{ w.senderName }}" loading="lazy" decoding="async" />
-                      </button>
-                    }
-                  </article>
+                  <div class="hero-photo-card hero-photo-card--empty" aria-hidden="true"></div>
                 }
               </div>
-            } @else {
-              <p class="wish-empty">Be the first to leave a message.</p>
-            }
-          </section>
+
+              <div class="hero-info-col">
+                <span class="type-badge" [ngClass]="getEventTypeClass(event()!.eventType)">
+                  {{ lang.eventTypeLabel(event()!.eventType) }}
+                </span>
+                <h1 class="hero-title">{{ event()!.title }}</h1>
+
+                @if (isMemorial(event()!) && (event()!.birthDate || event()!.deathDate)) {
+                  <div class="life-ribbon">
+                    @if (event()!.birthDate) {
+                      <span class="life-span">
+                        <em>{{ 'life.born' | t }}</em>
+                        {{ event()!.birthDate | date: 'longDate':undefined:lang.dateLocale() }}
+                      </span>
+                    }
+                    @if (event()!.birthDate && event()!.deathDate) {
+                      <span class="life-dot" aria-hidden="true">✦</span>
+                    }
+                    @if (event()!.deathDate) {
+                      <span class="life-span">
+                        <em>{{ 'life.passed' | t }}</em>
+                        {{ event()!.deathDate | date: 'longDate':undefined:lang.dateLocale() }}
+                      </span>
+                    }
+                  </div>
+                }
+
+                <div class="hero-meta">
+                  <div class="meta-chip">
+                    <span class="meta-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
+                      </svg>
+                    </span>
+                    <span class="meta-text">{{ event()!.eventDate | date: 'longDate':undefined:lang.dateLocale() }}</span>
+                  </div>
+                  @if (event()!.location) {
+                    <div class="meta-chip">
+                      <span class="meta-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" />
+                        </svg>
+                      </span>
+                      <span class="meta-text">{{ event()!.location }}</span>
+                    </div>
+                  }
+                  <div class="meta-chip">
+                    <span class="meta-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                      </svg>
+                    </span>
+                    <span class="meta-text">{{ event()!.createdBy }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="container body-wrap">
+          <div class="body-grid">
+            <main class="main-col">
+              <article class="content-card story-card">
+                <header class="card-head">
+                  <div class="card-head-icon" aria-hidden="true">✦</div>
+                  <div>
+                    <h2>{{ 'detail.story' | t }}</h2>
+                  </div>
+                </header>
+                <div class="prose">{{ event()!.description }}</div>
+              </article>
+
+              @if (galleryUrls().length || videoUrls().length) {
+                <article class="content-card media-card" aria-labelledby="media-heading">
+                  <header class="card-head">
+                    <div class="card-head-icon card-head-icon--media" aria-hidden="true">◈</div>
+                    <div>
+                      <h2 id="media-heading">{{ 'detail.mediaTitle' | t }}</h2>
+                      <p class="card-sub">{{ 'detail.mediaLede' | t }}</p>
+                    </div>
+                  </header>
+
+                  @if (galleryUrls().length) {
+                    <div class="media-block">
+                      <div class="media-label-row">
+                        <h3>{{ 'detail.gallery' | t }}</h3>
+                        <span class="media-badge">
+                          @if (galleryUrls().length === 1) {
+                            {{ 'detail.photoCountOne' | t }}
+                          } @else {
+                            {{ 'detail.photoCount' | t:{ n: galleryUrls().length } }}
+                          }
+                        </span>
+                      </div>
+                      <div class="photo-mosaic" [attr.data-count]="galleryUrls().length">
+                        @for (url of galleryUrls(); track url; let i = $index) {
+                          <button
+                            type="button"
+                            class="mosaic-cell event-media-frame event-media-frame--thumb"
+                            (click)="openLightbox(url, i)"
+                            [attr.aria-label]="('detail.gallery' | t) + ' ' + (i + 1)"
+                          >
+                            <img class="event-media-frame__img" [src]="url" alt="" loading="lazy" decoding="async" />
+                            <span class="mosaic-hover" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" />
+                              </svg>
+                            </span>
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
+
+                  @if (videoUrls().length) {
+                    <div class="media-block">
+                      <div class="media-label-row">
+                        <h3>{{ 'detail.videos' | t }}</h3>
+                        <span class="media-badge">
+                          @if (videoUrls().length === 1) {
+                            {{ 'detail.videoCountOne' | t }}
+                          } @else {
+                            {{ 'detail.videoCount' | t:{ n: videoUrls().length } }}
+                          }
+                        </span>
+                      </div>
+                      <div class="video-list">
+                        @for (url of videoUrls(); track url; let i = $index) {
+                          <figure class="video-frame">
+                            <div class="event-media-frame event-media-frame--video">
+                              <video
+                                class="event-media-frame__video"
+                                controls
+                                playsinline
+                                preload="metadata"
+                                (play)="ensureVideoAudible($event)"
+                                (loadedmetadata)="ensureVideoAudible($event)"
+                              >
+                                <source [src]="url" [type]="guessVideoMime(url)" />
+                              </video>
+                            </div>
+                            <figcaption>{{ 'detail.videoCaption' | t:{ n: i + 1 } }}</figcaption>
+                          </figure>
+                        }
+                      </div>
+                    </div>
+                  }
+                </article>
+              }
+
+              <article class="content-card wishes-card" aria-labelledby="wishes-heading">
+                <header class="card-head">
+                  <div class="card-head-icon card-head-icon--wishes" aria-hidden="true">♥</div>
+                  <div>
+                    <h2 id="wishes-heading">
+                      {{ lang.wishesSectionTitle(event()!.eventType) }}
+                      <span class="wish-count">{{ event()!.wishes.length }}</span>
+                    </h2>
+                    <p class="card-sub">{{ lang.t(wishesIntroKey(event()!.eventType)) }}</p>
+                  </div>
+                </header>
+
+                <form class="wish-compose" (ngSubmit)="submitWish()">
+                  <div class="compose-grid">
+                    <label class="compose-field">
+                      <span>{{ 'detail.wishYourName' | t }}</span>
+                      <input
+                        [(ngModel)]="senderName"
+                        name="sender"
+                        [placeholder]="lang.wishSenderPlaceholder(event()!.eventType)"
+                        required
+                      />
+                    </label>
+                    <label class="compose-field compose-field--full">
+                      <span>{{ 'detail.wishYourMessage' | t }}</span>
+                      <textarea
+                        [(ngModel)]="wishMessage"
+                        name="message"
+                        rows="4"
+                        [placeholder]="lang.wishMessagePlaceholder(event()!.eventType)"
+                        required
+                      ></textarea>
+                    </label>
+                  </div>
+                  <div class="compose-actions">
+                    <div class="compose-tools">
+                      @if (wishMediaPreview()) {
+                        <div class="attach-preview">
+                          <img [src]="wishMediaPreview()" alt="" />
+                          <button type="button" class="attach-remove" (click)="clearWishMedia()">
+                            {{ 'detail.wishRemovePhoto' | t }}
+                          </button>
+                        </div>
+                      }
+                      <label class="attach-link">
+                        <input type="file" accept="image/*" (change)="onWishMediaChange($event)" hidden />
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                          <rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="10.5" r="1.5" /><path d="M21 15l-5-5L5 21" />
+                        </svg>
+                        {{ 'detail.addPhoto' | t }}
+                      </label>
+                    </div>
+                    <button
+                      type="submit"
+                      class="btn btn-primary wish-send"
+                      [disabled]="saving() || !senderName.trim() || !wishMessage.trim()"
+                    >
+                      @if (saving()) {
+                        <span class="btn-spinner" aria-hidden="true"></span>
+                        {{ 'detail.sending' | t }}
+                      } @else {
+                        {{ lang.wishSubmitLabel(event()!.eventType) }}
+                      }
+                    </button>
+                  </div>
+                </form>
+
+                @if (event()!.wishes.length) {
+                  <ul class="wish-list">
+                    @for (w of event()!.wishes; track w.id) {
+                      <li class="wish-item">
+                        <div class="wish-avatar" aria-hidden="true">{{ wishInitials(w.senderName) }}</div>
+                        <div class="wish-body">
+                          <header class="wish-head">
+                            <strong>{{ w.senderName }}</strong>
+                            <time [attr.datetime]="w.createdAt">{{ lang.formatTimeAgo(w.createdAt) }}</time>
+                          </header>
+                          <p class="wish-msg">{{ w.message }}</p>
+                          @if (w.mediaUrl) {
+                            <button
+                              type="button"
+                              class="wish-photo event-media-frame event-media-frame--thumb"
+                              (click)="openLightbox(w.mediaUrl!)"
+                            >
+                              <img class="event-media-frame__img" [src]="w.mediaUrl" alt="" loading="lazy" decoding="async" />
+                            </button>
+                          }
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <div class="wish-empty">
+                    <span class="wish-empty-icon" aria-hidden="true">♥</span>
+                    <p>{{ 'detail.wishEmpty' | t }}</p>
+                  </div>
+                }
+              </article>
+            </main>
+
+            <aside class="side-col" [attr.aria-label]="'detail.atAGlance' | t">
+              <div class="side-panel">
+                <div class="side-panel-top">
+                  <h3>{{ 'detail.atAGlance' | t }}</h3>
+                </div>
+                <div class="side-panel-body">
+                  <ul class="info-list">
+                    <li>
+                      <span class="info-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                          <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
+                        </svg>
+                      </span>
+                      <div>
+                        <span class="info-label">{{ 'detail.eventDate' | t }}</span>
+                        <span class="info-value">{{ event()!.eventDate | date: 'longDate':undefined:lang.dateLocale() }}</span>
+                      </div>
+                    </li>
+                    @if (event()!.location) {
+                      <li>
+                        <span class="info-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" />
+                          </svg>
+                        </span>
+                        <div>
+                          <span class="info-label">{{ 'detail.location' | t }}</span>
+                          <span class="info-value">{{ event()!.location }}</span>
+                        </div>
+                      </li>
+                    }
+                    @if (event()!.country) {
+                      <li>
+                        <span class="info-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="9" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                          </svg>
+                        </span>
+                        <div>
+                          <span class="info-label">{{ 'myEvents.country' | t }}</span>
+                          <span class="info-value">{{ event()!.country }}</span>
+                        </div>
+                      </li>
+                    }
+                    <li>
+                      <span class="info-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                          <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                        </svg>
+                      </span>
+                      <div>
+                        <span class="info-label">{{ 'detail.hostedBy' | t }}</span>
+                        <span class="info-value">{{ event()!.createdBy }}</span>
+                      </div>
+                    </li>
+                  </ul>
+
+                  <div class="stat-row">
+                    @if (galleryUrls().length) {
+                      <div class="stat-box">
+                        <span class="stat-num">{{ galleryUrls().length }}</span>
+                        <span class="stat-label">{{ 'detail.gallery' | t }}</span>
+                      </div>
+                    }
+                    @if (videoUrls().length) {
+                      <div class="stat-box">
+                        <span class="stat-num">{{ videoUrls().length }}</span>
+                        <span class="stat-label">{{ 'detail.videos' | t }}</span>
+                      </div>
+                    }
+                    <div class="stat-box stat-box--accent">
+                      <span class="stat-num">{{ event()!.wishes.length }}</span>
+                      <span class="stat-label">{{ lang.wishesSectionTitle(event()!.eventType) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       } @else {
-        <div class="state-block">
+        <div class="state-block container">
           <h2>{{ 'detail.notFound' | t }}</h2>
           <p>{{ 'detail.notFoundLede' | t }}</p>
           <a routerLink="/" class="btn btn-primary">{{ 'detail.backHome' | t }}</a>
@@ -265,34 +410,27 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   styles: [`
     :host {
       display: block;
-      --detail-ink: #0f2922;
-      --detail-muted: #5c726b;
-      --detail-edge: rgba(13, 61, 50, 0.12);
-      --detail-radius: 16px;
     }
 
     .detail-page {
-      padding-bottom: 3.5rem;
-      animation: pageIn 0.45s ease both;
-    }
-    @keyframes pageIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: none; }
+      min-height: 100%;
+      padding-bottom: 3rem;
     }
 
     .state-block {
       text-align: center;
-      padding: 5rem 1.5rem;
-      color: var(--detail-muted);
+      padding: 6rem 1.5rem;
+      color: var(--text-muted);
     }
     .state-block h2 {
-      color: var(--detail-ink);
+      font-family: var(--font-display);
+      color: var(--text);
       margin-bottom: 0.5rem;
     }
     .spinner {
       width: 44px;
       height: 44px;
-      border: 3px solid rgba(26, 95, 74, 0.15);
+      border: 3px solid rgba(26, 95, 74, 0.12);
       border-top-color: var(--primary);
       border-radius: 50%;
       animation: spin 0.75s linear infinite;
@@ -300,413 +438,684 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .hero {
-      position: relative;
-      min-height: clamp(280px, 48vw, 420px);
-      display: flex;
-      align-items: flex-end;
-      color: #fff;
-      overflow: hidden;
-      margin-bottom: 0;
-    }
-    .hero-media,
-    .hero-fallback {
-      position: absolute;
-      inset: 0;
-    }
-    .hero-media {
-      transform: scale(1.02);
-      animation: heroZoom 12s ease-out both;
-    }
-    .hero-media__img {
-      position: absolute;
-      inset: 0;
-      display: block;
-      width: 100%;
-      height: 100%;
-      max-width: none;
-      object-fit: cover;
-      object-position: center top;
-    }
-    @keyframes heroZoom {
-      from { transform: scale(1.08); }
-      to { transform: scale(1.02); }
-    }
-    .hero-fallback {
+    /* ── Hero: framed photo + info side-by-side ── */
+    .detail-hero {
+      padding: 0.5rem 0 1.75rem;
       background:
-        radial-gradient(ellipse 80% 70% at 70% 20%, rgba(45, 143, 115, 0.45), transparent 55%),
-        linear-gradient(145deg, #0d3d32 0%, #1a5f4a 55%, #2d8f73 100%);
+        linear-gradient(180deg, rgba(26, 95, 74, 0.05) 0%, transparent 70%);
     }
-    .hero-scrim {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(8, 28, 24, 0.25) 0%, rgba(8, 28, 24, 0.55) 45%, rgba(8, 28, 24, 0.88) 100%);
-    }
-    .hero:not(.hero-has-image) .hero-content {
-      padding-top: 3rem;
-    }
-    .hero-content {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      padding: 2rem 0 2.25rem;
-      max-width: 920px;
-      margin: 0 auto;
-    }
-    .detail-hero-wrap .hero {
-      border-radius: 0;
-    }
-    .hero-content .event-type-badge {
-      margin-bottom: 0.75rem;
-    }
-    .hero-content h1 {
-      margin: 0 0 0.65rem;
-      font-family: var(--font-display);
-      font-size: clamp(1.75rem, 4.5vw, 2.75rem);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      line-height: 1.15;
-      color: #fff;
-      text-wrap: balance;
-    }
-    .hero-meta {
-      margin: 0;
-      display: flex;
-      flex-wrap: wrap;
+    .back-link {
+      display: inline-flex;
       align-items: center;
-      gap: 0.35rem 0.45rem;
-      font-size: 0.9375rem;
-      color: rgba(255, 255, 255, 0.88);
-    }
-    .dot { opacity: 0.65; }
-    .view-cover-btn {
-      margin-top: 1.15rem;
-      border: 1px solid rgba(255, 255, 255, 0.35);
-      background: rgba(255, 255, 255, 0.12);
-      color: #fff;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+      padding: 0.4rem 0.85rem 0.4rem 0.6rem;
       border-radius: 999px;
-      padding: 0.45rem 1rem;
-      font: inherit;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
       font-size: 0.8125rem;
       font-weight: 600;
-      cursor: pointer;
-      backdrop-filter: blur(8px);
-      transition: background 0.2s ease, border-color 0.2s ease;
+      text-decoration: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
     }
-    .view-cover-btn:hover {
-      background: rgba(255, 255, 255, 0.22);
-      border-color: rgba(255, 255, 255, 0.55);
+    .back-link:hover {
+      color: var(--primary);
+      border-color: rgba(26, 95, 74, 0.25);
+      transform: translateX(-2px);
     }
-
-    .detail-shell {
-      max-width: 920px;
-      margin: -1.5rem auto 0;
+    .hero-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.5rem;
+      align-items: center;
+    }
+    .hero-photo-col {
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .hero-photo-card {
+      margin: 0;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #f3f0ea;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    .hero-photo-card--empty {
+      min-height: 280px;
+      background:
+        radial-gradient(ellipse 80% 60% at 25% 30%, rgba(212, 165, 116, 0.35) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 80% 70%, rgba(45, 143, 115, 0.3) 0%, transparent 50%),
+        linear-gradient(155deg, #0a2e26 0%, #1a5f4a 45%, #0d3d32 100%);
+    }
+    .hero-photo-btn {
       position: relative;
-      z-index: 2;
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-      padding-bottom: 1rem;
-    }
-
-    .story-panel,
-    .media-panel,
-    .wishes-panel {
-      background: #fff;
-      border: 1px solid var(--detail-edge);
-      border-radius: var(--detail-radius);
-      box-shadow: 0 10px 36px rgba(13, 61, 50, 0.06);
-      padding: clamp(1.35rem, 3vw, 2rem);
-    }
-
-    .section-head { margin-bottom: 1.25rem; }
-    .section-title {
-      margin: 0 0 0.35rem;
-      font-family: var(--font-display);
-      font-size: 1.35rem;
-      color: var(--detail-ink);
       display: flex;
       align-items: center;
-      gap: 0.55rem;
+      justify-content: center;
+      width: 100%;
+      min-height: 280px;
+      max-height: min(72vh, 620px);
+      padding: 0.75rem;
+      border: none;
+      background: #f3f0ea;
+      cursor: zoom-in;
     }
-    .section-lede {
-      margin: 0;
-      color: var(--detail-muted);
-      font-size: 0.9375rem;
-      line-height: 1.5;
+    .hero-photo-img {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: min(68vh, 580px);
+      object-fit: contain;
+      object-position: center center;
+      border-radius: 8px;
     }
-
-    .life-dates {
+    .hero-photo-zoom {
+      position: absolute;
+      right: 1rem;
+      bottom: 1rem;
+      width: 42px;
+      height: 42px;
       display: flex;
-      flex-wrap: wrap;
-      align-items: stretch;
-      gap: 1rem 1.25rem;
-      margin-bottom: 1.35rem;
-      padding: 1rem 1.15rem;
-      border-radius: 12px;
-      background: linear-gradient(135deg, rgba(26, 95, 74, 0.06), rgba(26, 95, 74, 0.02));
-      border: 1px solid rgba(26, 95, 74, 0.1);
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--primary-dark);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      transition: opacity 0.2s ease, transform 0.2s ease;
     }
-    .life-date { display: grid; gap: 0.15rem; }
-    .life-label {
-      font-size: 0.68rem;
+    .hero-photo-btn:hover .hero-photo-zoom,
+    .hero-photo-btn:focus-visible .hero-photo-zoom {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+    .hero-info-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      text-align: center;
+    }
+    .type-badge {
+      display: inline-block;
+      align-self: center;
+      margin-bottom: 0.15rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.6875rem;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
     }
-    .life-value {
-      font-size: 0.95rem;
+    .type-badge.birthday { background: linear-gradient(135deg, #6366f1, #4338ca); }
+    .type-badge.puberty { background: linear-gradient(135deg, #7c3aed, #5b21b6); }
+    .type-badge.wedding { background: linear-gradient(135deg, #ec4899, #9d174d); }
+    .type-badge.anniversary { background: linear-gradient(135deg, #db2777, #831843); }
+    .type-badge.obituary,
+    .type-badge.funeral { background: linear-gradient(135deg, #64748b, #1e293b); }
+    .type-badge.remembrance { background: linear-gradient(135deg, #7c6b9a, #4a3f5c); }
+    .type-badge.other { background: linear-gradient(135deg, #0891b2, #155e75); }
+
+    .hero-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: clamp(1.75rem, 4vw, 2.75rem);
       font-weight: 600;
-      color: var(--detail-ink);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      text-wrap: balance;
     }
-    .life-rule {
-      width: 1px;
-      align-self: stretch;
-      background: rgba(26, 95, 74, 0.18);
+    .life-ribbon {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem 1rem;
+      margin: 0.35rem 0;
+      padding: 0.65rem 1rem;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(26, 95, 74, 0.06), rgba(212, 165, 116, 0.12));
+      border: 1px solid rgba(26, 95, 74, 0.12);
     }
-
-    .description {
-      margin: 0;
-      font-size: 1.0625rem;
-      line-height: 1.75;
-      color: #2f3f39;
-      white-space: pre-wrap;
+    .life-span {
+      font-size: 0.875rem;
+      color: var(--text);
     }
-
-    .media-kicker {
-      margin: 0;
-      font-size: 0.7rem;
+    .life-span em {
+      display: block;
+      font-size: 0.625rem;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--primary);
+      font-style: normal;
+      margin-bottom: 0.1rem;
     }
-    .media-row-head {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 0.75rem;
-      margin-bottom: 0.75rem;
-    }
-    .media-count {
-      font-size: 0.8125rem;
-      color: var(--detail-muted);
-      font-weight: 600;
-    }
-
-    .featured-block { margin-bottom: 1.5rem; }
-    .featured-block .media-kicker { margin-bottom: 0.65rem; }
-    .featured-cover {
-      position: relative;
-      display: block;
-      width: 100%;
-      padding: 0;
-      border: none;
-      border-radius: 14px;
-      overflow: hidden;
-      cursor: zoom-in;
-      box-shadow: 0 12px 32px rgba(15, 41, 34, 0.18);
-    }
-    .featured-cover .event-media-frame__img {
-      transition: transform 0.45s ease;
-    }
-    .featured-cover:hover .event-media-frame__img { transform: scale(1.03); }
-    .featured-hint {
-      position: absolute;
-      left: 1rem;
-      bottom: 1rem;
-      padding: 0.35rem 0.75rem;
-      border-radius: 999px;
-      background: rgba(8, 28, 24, 0.72);
-      color: #fff;
+    .life-dot {
+      color: var(--accent);
       font-size: 0.75rem;
-      font-weight: 600;
-      opacity: 0;
-      transform: translateY(6px);
-      transition: opacity 0.2s ease, transform 0.2s ease;
+      opacity: 0.85;
     }
-    .featured-cover:hover .featured-hint,
-    .featured-cover:focus-visible .featured-hint {
-      opacity: 1;
-      transform: none;
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .meta-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.9rem;
+      border-radius: 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      max-width: 100%;
+    }
+    .meta-icon {
+      flex-shrink: 0;
+      color: var(--primary);
+      display: flex;
+    }
+    .meta-text {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.35;
     }
 
-    .gallery-block { margin-bottom: 1.5rem; }
-    .gallery-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 0.65rem;
+    /* ── Body layout ── */
+    .body-wrap {
+      padding-bottom: 1rem;
     }
-    .gallery-item {
-      padding: 0;
-      border: none;
-      border-radius: 12px;
+    .body-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    /* ── Content cards ── */
+    .content-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.5rem 1.65rem;
+      margin-bottom: 1.25rem;
+      position: relative;
       overflow: hidden;
-      cursor: zoom-in;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      animation: cardIn 0.5s ease both;
     }
-    .gallery-item:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 24px rgba(13, 61, 50, 0.14);
+  .content-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 50%, var(--primary-light) 100%);
     }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .story-card { animation-delay: 0.05s; }
+    .media-card { animation-delay: 0.1s; }
+    .wishes-card { animation-delay: 0.15s; }
 
-    .video-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    .card-head {
+      display: flex;
       gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1.25rem;
     }
-    .video-card {
-      margin: 0;
-      border-radius: 14px;
-      overflow: hidden;
-      background: #0f2922;
-      border: 1px solid rgba(26, 95, 74, 0.16);
-    }
-    .video-card figcaption {
-      padding: 0.55rem 0.85rem;
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.78);
-      background: linear-gradient(180deg, #16362d, #0f2922);
-    }
-
-    .wish-count {
-      display: inline-flex;
+    .card-head-icon {
+      flex-shrink: 0;
+      width: 42px;
+      height: 42px;
+      display: flex;
       align-items: center;
       justify-content: center;
-      min-width: 1.6rem;
-      height: 1.6rem;
-      padding: 0 0.4rem;
-      border-radius: 999px;
-      background: rgba(26, 95, 74, 0.12);
-      color: var(--primary-dark);
-      font-family: var(--font-body);
-      font-size: 0.78rem;
-      font-weight: 700;
-    }
-
-    .wish-form {
-      margin-bottom: 1.75rem;
-      padding: 1.15rem 1.2rem 1.25rem;
-      border-radius: 14px;
-      background: linear-gradient(180deg, #f7faf8 0%, #fff 100%);
+      border-radius: 12px;
+      font-size: 1.1rem;
+      background: linear-gradient(135deg, rgba(26, 95, 74, 0.12), rgba(212, 165, 116, 0.2));
+      color: var(--primary);
       border: 1px solid rgba(26, 95, 74, 0.12);
     }
-    .field { display: grid; gap: 0.35rem; margin-bottom: 0.9rem; }
-    .field-label {
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #46675f;
+    .card-head-icon--media { color: #0891b2; background: linear-gradient(135deg, rgba(8, 145, 178, 0.1), rgba(212, 165, 116, 0.15)); }
+    .card-head-icon--wishes { color: #db2777; background: linear-gradient(135deg, rgba(219, 39, 119, 0.1), rgba(212, 165, 116, 0.15)); }
+
+    .card-head h2 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
     }
-    .wish-form input,
-    .wish-form textarea {
+    .card-sub {
+      margin: 0.35rem 0 0;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .wish-count {
+      font-family: var(--font-body);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: #fff;
+    }
+
+    .prose {
+      font-size: 1.0625rem;
+      line-height: 1.85;
+      color: #3d4a47;
+      white-space: pre-wrap;
+    }
+
+    /* ── Media ── */
+    .media-block + .media-block {
+      margin-top: 1.75rem;
+      padding-top: 1.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .media-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .media-label-row h3 {
+      margin: 0;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .media-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      background: rgba(26, 95, 74, 0.08);
+      color: var(--primary);
+    }
+
+    .photo-mosaic {
+      display: grid;
+      gap: 0.65rem;
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .photo-mosaic[data-count='1'] {
+      grid-template-columns: 1fr;
+    }
+    .photo-mosaic[data-count='2'] {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .photo-mosaic[data-count='1'] .mosaic-cell:first-child {
+      aspect-ratio: 16 / 9;
+    }
+    .photo-mosaic[data-count='3'] .mosaic-cell:first-child {
+      grid-column: span 2;
+      grid-row: span 2;
+    }
+    .mosaic-cell {
+      position: relative;
+      padding: 0;
+      border: none;
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: zoom-in;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .mosaic-cell:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
+    }
+    .mosaic-hover {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(13, 61, 50, 0.45);
+      color: #fff;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    .mosaic-cell:hover .mosaic-hover {
+      opacity: 1;
+    }
+
+    .video-list {
+      display: grid;
+      gap: 1rem;
+    }
+    .video-frame {
+      margin: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+      background: #0f1a17;
+    }
+    .video-frame figcaption {
+      padding: 0.65rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.7);
+      background: linear-gradient(180deg, #1a2e28, #0f1a17);
+    }
+
+    /* ── Wishes ── */
+    .wish-compose {
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      border-radius: 12px;
+      background: linear-gradient(165deg, #f8f6f3 0%, #fff 50%, #f0faf6 100%);
+      border: 1px solid var(--border);
+    }
+    .compose-grid {
+      display: grid;
+      gap: 1rem;
+    }
+    .compose-field {
+      display: grid;
+      gap: 0.4rem;
+    }
+    .compose-field span {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .compose-field input,
+    .compose-field textarea {
       width: 100%;
       box-sizing: border-box;
-      border: 1px solid #d7e4de;
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 0.7rem 0.85rem;
       font: inherit;
+      font-size: 0.9375rem;
       background: #fff;
-      color: var(--detail-ink);
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
-    .wish-form input:focus,
-    .wish-form textarea:focus {
+    .compose-field input:focus,
+    .compose-field textarea:focus {
       outline: none;
-      border-color: var(--primary);
+      border-color: var(--primary-light);
       box-shadow: 0 0 0 3px rgba(26, 95, 74, 0.12);
     }
-    .wish-media-row {
+    .compose-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .compose-tools {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 0.75rem;
-      margin-bottom: 1rem;
     }
-    .file-chip {
+    .attach-link {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.5rem 0.9rem;
-      border-radius: 999px;
-      border: 1px dashed rgba(26, 95, 74, 0.35);
-      background: #fff;
-      color: var(--primary-dark);
-      font-size: 0.875rem;
+      gap: 0.4rem;
+      font-size: 0.8125rem;
       font-weight: 600;
+      color: var(--primary);
       cursor: pointer;
+      transition: color 0.15s ease;
     }
-    .file-chip:hover { border-color: var(--primary); background: rgba(26, 95, 74, 0.04); }
-    .wish-preview-wrap {
+    .attach-link:hover { color: var(--primary-dark); }
+    .attach-preview {
       display: flex;
       align-items: center;
-      gap: 0.55rem;
+      gap: 0.5rem;
     }
-    .wish-media-preview {
-      width: 64px;
-      height: 64px;
+    .attach-preview img {
+      width: 52px;
+      height: 52px;
       object-fit: cover;
-      border-radius: 10px;
-      border: 1px solid var(--detail-edge);
+      border-radius: 8px;
+      border: 2px solid var(--border);
     }
-    .wish-preview-remove {
+    .attach-remove {
       border: none;
-      background: transparent;
-      color: #b91c1c;
-      font-size: 0.8rem;
+      background: none;
+      font-size: 0.75rem;
       font-weight: 600;
+      color: #dc2626;
       cursor: pointer;
       padding: 0;
     }
-    .wish-submit { min-width: 9.5rem; }
+    .wish-send {
+      min-width: 11rem;
+      box-shadow: 0 4px 14px rgba(26, 95, 74, 0.25);
+    }
 
     .wish-list {
-      display: flex;
-      flex-direction: column;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
       gap: 0.85rem;
     }
-    .wish-card {
-      padding: 1rem 1.15rem;
+    .wish-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.85rem;
+      padding: 1.1rem 1.15rem;
       border-radius: 12px;
-      background: #f7faf8;
-      border: 1px solid rgba(26, 95, 74, 0.08);
+      background: linear-gradient(135deg, #faf9f7 0%, #fff 100%);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
     }
-    .wish-card-head {
+    .wish-item:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+      transform: translateX(2px);
+    }
+    .wish-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
       display: flex;
-      justify-content: space-between;
-      gap: 0.75rem;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: #fff;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 55%, var(--accent) 100%);
+      box-shadow: 0 4px 12px rgba(26, 95, 74, 0.25);
+      flex-shrink: 0;
+    }
+    .wish-head {
+      display: flex;
+      flex-wrap: wrap;
       align-items: baseline;
+      gap: 0.35rem 0.75rem;
       margin-bottom: 0.35rem;
     }
-    .wish-card-head strong { color: var(--primary-dark); }
-    .wish-card-head time {
-      font-size: 0.78rem;
-      color: var(--detail-muted);
-      white-space: nowrap;
+    .wish-head strong {
+      font-size: 0.9375rem;
+      color: var(--text);
     }
-    .wish-card p {
+    .wish-head time {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .wish-msg {
       margin: 0;
-      line-height: 1.55;
-      color: #33443e;
+      font-size: 0.9375rem;
+      line-height: 1.65;
+      color: #3d4a47;
     }
-    .wish-attach {
+    .wish-photo {
       margin-top: 0.75rem;
       padding: 0;
       border: none;
       background: transparent;
       cursor: zoom-in;
-      width: min(100%, 200px);
+      width: min(100%, 220px);
       border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
     }
     .wish-empty {
+      text-align: center;
+      padding: 2.5rem 1.5rem;
+      border-radius: 12px;
+      background: linear-gradient(165deg, #f8f6f3, #fff);
+      border: 1px dashed rgba(26, 95, 74, 0.2);
+    }
+    .wish-empty-icon {
+      display: block;
+      font-size: 2rem;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+      opacity: 0.6;
+    }
+    .wish-empty p {
       margin: 0;
-      color: var(--detail-muted);
+      color: var(--text-muted);
       font-size: 0.9375rem;
     }
 
+    /* ── Sidebar ── */
+    .side-col {
+      display: none;
+    }
+    .side-panel {
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      background: var(--bg-card);
+    }
+    .side-panel-top {
+      padding: 1.25rem 1.35rem;
+      background: linear-gradient(135deg, #0d3d32 0%, #1a5f4a 50%, #2d8f73 100%);
+      position: relative;
+    }
+    .side-panel-top::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 1.35rem;
+      right: 1.35rem;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+    .side-panel-top h3 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .side-panel-body {
+      padding: 1.15rem 1.35rem 1.35rem;
+    }
+    .info-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.85rem;
+    }
+    .info-list li {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+    .info-icon {
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      background: rgba(26, 95, 74, 0.08);
+      color: var(--primary);
+    }
+    .info-label {
+      display: block;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.15rem;
+    }
+    .info-value {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+    }
+    .stat-box {
+      text-align: center;
+      padding: 0.75rem 0.5rem;
+      border-radius: 10px;
+      background: linear-gradient(165deg, #f8f6f3, #fff);
+      border: 1px solid var(--border);
+    }
+    .stat-box--accent {
+      background: linear-gradient(165deg, rgba(26, 95, 74, 0.1), rgba(212, 165, 116, 0.12));
+      border-color: rgba(26, 95, 74, 0.15);
+    }
+    .stat-num {
+      display: block;
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: var(--font-display);
+      color: var(--primary-dark);
+      line-height: 1.2;
+    }
+    .stat-label {
+      display: block;
+      margin-top: 0.2rem;
+      font-size: 0.625rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    /* ── Lightbox ── */
     .lightbox {
       position: fixed;
       inset: 0;
@@ -714,97 +1123,163 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 1.5rem;
-      background: rgba(8, 28, 24, 0.88);
-      backdrop-filter: blur(6px);
-      animation: fadeIn 0.2s ease;
+      padding: 2rem;
+      background: rgba(8, 16, 14, 0.94);
+      backdrop-filter: blur(14px);
+      animation: fadeIn 0.25s ease;
     }
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
     }
     .lightbox-img {
-      max-width: min(96vw, 1100px);
-      max-height: 88vh;
+      max-width: min(94vw, 1200px);
+      max-height: 90vh;
       object-fit: contain;
       border-radius: 8px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-      animation: zoomIn 0.25s ease;
-    }
-    @keyframes zoomIn {
-      from { opacity: 0; transform: scale(0.96); }
-      to { opacity: 1; transform: none; }
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
     }
     .lightbox-close {
       position: absolute;
-      top: 1rem;
-      right: 1rem;
-      width: 2.5rem;
-      height: 2.5rem;
-      border: none;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.14);
+      top: 1.25rem;
+      right: 1.25rem;
+      width: 46px;
+      height: 46px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
       color: #fff;
       font-size: 1.5rem;
       line-height: 1;
       cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
     }
-    .lightbox-close:hover { background: rgba(255, 255, 255, 0.28); }
+    .lightbox-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(1.05);
+    }
     .lightbox-nav {
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
-      width: 2.75rem;
-      height: 2.75rem;
-      border: none;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.14);
+      width: 50px;
+      height: 50px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
       color: #fff;
-      font-size: 1.75rem;
+      font-size: 1.5rem;
       cursor: pointer;
+      transition: background 0.2s ease;
     }
-    .lightbox-nav:hover { background: rgba(255, 255, 255, 0.28); }
-    .lightbox-prev { left: 1rem; }
-    .lightbox-next { right: 1rem; }
+    .lightbox-nav:hover { background: rgba(255, 255, 255, 0.2); }
+    .lightbox-prev { left: 1.25rem; }
+    .lightbox-next { right: 1.25rem; }
+
+  @media (min-width: 960px) {
+      .hero-layout {
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+        gap: 2rem;
+        align-items: center;
+      }
+      .hero-photo-col {
+        max-width: none;
+        margin: 0;
+      }
+      .hero-info-col {
+        text-align: left;
+        align-items: flex-start;
+        padding: 0.5rem 0;
+      }
+      .type-badge {
+        align-self: flex-start;
+      }
+      .life-ribbon {
+        justify-content: flex-start;
+      }
+      .hero-meta {
+        justify-content: flex-start;
+      }
+      .body-grid {
+        grid-template-columns: minmax(0, 1fr) 300px;
+        gap: 1.75rem;
+      }
+      .side-col {
+        display: block;
+      }
+      .side-panel {
+        position: sticky;
+        top: 5.5rem;
+      }
+      .compose-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .compose-field--full {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (min-width: 1100px) {
+      .body-grid {
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 2rem;
+      }
+      .content-card {
+        padding: 1.75rem 2rem;
+      }
+    }
 
     @media (max-width: 768px) {
-      .detail-shell { margin-top: -1rem; gap: 1rem; }
-      .hero-content {
-        padding: 1.5rem 0 1.75rem;
+      .hero-photo-btn {
+        min-height: 240px;
+        max-height: min(55vh, 480px);
+        padding: 0.5rem;
       }
-      .hero-content h1 {
-        font-size: clamp(1.35rem, 5vw, 1.85rem);
+      .hero-photo-img {
+        max-height: min(50vh, 440px);
       }
-      .gallery-grid { grid-template-columns: repeat(2, 1fr); }
-      .life-rule { display: none; }
-      .lightbox-nav { display: none; }
-      .story-panel,
-      .media-panel,
-      .wishes-panel {
-        padding: 1.15rem;
+      .hero-title {
+        font-size: 1.65rem;
       }
-      .wish-submit {
-        min-width: 0;
+      .content-card {
+        padding: 1.25rem 1.15rem;
+      }
+      .photo-mosaic {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .photo-mosaic[data-count='3'] .mosaic-cell:first-child {
+        grid-column: span 2;
+        grid-row: span 1;
+      }
+      .wish-send {
         width: 100%;
+        min-width: 0;
       }
-      .wish-card-head {
-        flex-wrap: wrap;
-        gap: 0.25rem 0.5rem;
+      .compose-actions {
+        flex-direction: column;
+        align-items: stretch;
       }
-      .wish-card-head time {
-        white-space: normal;
-      }
+      .lightbox-nav { display: none; }
     }
 
     @media (max-width: 480px) {
-      .hero:not(.hero-has-image) .hero-content {
-        padding-top: 2rem;
+      .hero-photo-card--empty {
+        min-height: 220px;
       }
-      .gallery-grid {
-        grid-template-columns: 1fr;
+      .photo-mosaic {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.45rem;
       }
-      .meta-pill {
-        font-size: 0.72rem;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .content-card,
+      .lightbox {
+        animation: none;
+      }
+      .mosaic-cell:hover,
+      .wish-item:hover {
+        transform: none;
       }
     }
   `]
@@ -878,6 +1353,21 @@ export class EventDetailComponent implements OnInit {
       return;
     }
     void this.router.navigateByUrl('/');
+  }
+
+  isMemorial(ev: EventDetailDto): boolean {
+    const t = ev.eventType?.toLowerCase();
+    return t === 'obituary' || t === 'funeral' || t === 'remembrance';
+  }
+
+  wishInitials(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const a = parts[0][0] ?? '';
+      const b = parts[parts.length - 1][0] ?? '';
+      return (a + b).toUpperCase();
+    }
+    return name.trim().slice(0, 2).toUpperCase() || '?';
   }
 
   getEventTypeClass(type: string): string {
