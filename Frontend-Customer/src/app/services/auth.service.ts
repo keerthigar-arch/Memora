@@ -13,6 +13,7 @@ export interface UserProfile {
   id: number;
   email: string;
   displayName: string;
+  mobileNumber?: string | null;
   bio?: string;
   profileImageUrl?: string;
   profileVisibility: string;
@@ -58,8 +59,8 @@ export class AuthService {
     this.user.set(user);
   }
 
-  register(email: string, password: string, displayName: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${API}/auth/register`, { email, password, displayName }).pipe(
+  register(email: string, password: string, displayName: string, mobileNumber: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${API}/auth/register`, { email, password, displayName, mobileNumber }).pipe(
       tap((res) => this.saveAuth(res.token, res.user))
     );
   }

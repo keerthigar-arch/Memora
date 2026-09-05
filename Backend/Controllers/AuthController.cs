@@ -46,6 +46,10 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password) || string.IsNullOrWhiteSpace(dto.DisplayName))
             return BadRequest(new { message = "Email, password, and display name are required." });
 
+        var mobile = NormalizeMobile(dto.MobileNumber);
+        if (mobile == null)
+            return BadRequest(new { message = "A valid mobile number is required." });
+
         var email = dto.Email.Trim().ToLowerInvariant();
         if (await _db.Users.AnyAsync(u => u.Email == email))
             return BadRequest(new { message = "An account with this email already exists." });
@@ -58,6 +62,7 @@ public class AuthController : ControllerBase
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
             DisplayName = dto.DisplayName.Trim(),
+            MobileNumber = mobile,
             Role = "Customer"
         };
 
@@ -281,8 +286,18 @@ public class AuthController : ControllerBase
         IsAdminRole(role) || IsCustomerRole(role);
 
     private static UserProfileDto ToProfile(User u) => new(
-        u.Id, u.Email, u.DisplayName, u.Bio, u.ProfileImageUrl,
+        u.Id, u.Email, u.DisplayName, u.MobileNumber, u.Bio, u.ProfileImageUrl,
         u.ProfileVisibility, u.ShowEmail, u.CreatedAt,
         string.IsNullOrWhiteSpace(u.Role) ? "Customer" : u.Role,
         u.MustChangePassword);
+
+    /// <summary>Keep digits and leading +; require 7–15 digits.</summary>
+    private static string? NormalizeMobile(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var trimmed = raw.Trim();
+        var digits = new string(trimmed.Where(char.IsDigit).ToArray());
+        if (digits.Length < 7 || digits.Length > 15) return null;
+        return trimmed.StartsWith('+') ? "+" + digits : digits;
+    }
 }

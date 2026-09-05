@@ -65,9 +65,13 @@ import { NotificationService } from '../../services/notification.service';
               @if (draft()!.location) {
                 <div><dt>Location</dt><dd>{{ draft()!.location }}</dd></div>
               }
+              @if (draft()!.mobileNumber) {
+                <div><dt>Mobile</dt><dd>{{ draft()!.mobileNumber }}</dd></div>
+              }
               @if (draft()!.country) {
                 <div><dt>Country</dt><dd>{{ draft()!.country }}</dd></div>
               }
+              <div><dt>Submitted by</dt><dd>{{ draft()!.ownerDisplayName || draft()!.createdBy }}</dd></div>
               <div><dt>Visibility</dt><dd>{{ draft()!.visibility }}</dd></div>
               <div><dt>Display plan</dt><dd>{{ periodLabel(draft()!.displayDays) }}</dd></div>
               <div><dt>Amount</dt><dd>{{ formatUsd(draft()!.amountPaid) }}</dd></div>

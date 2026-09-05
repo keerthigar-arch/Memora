@@ -139,7 +139,20 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
               <label>{{ 'myEvents.location' | t }} *</label>
               <input [(ngModel)]="location" name="location" required maxlength="200" #locationInput="ngModel" />
               @if (locationInput.invalid && (locationInput.dirty || locationInput.touched)) {
-                <div class="validation-error"><small>Required.</small></div>
+                <div class="field-error">{{ 'myEvents.locationRequired' | t }}</div>
+              }
+              <label>{{ 'myEvents.mobile' | t }} *</label>
+              <input
+                type="tel"
+                [(ngModel)]="mobileNumber"
+                name="mobileNumber"
+                required
+                maxlength="32"
+                [placeholder]="'myEvents.mobilePlaceholder' | t"
+                #mobileInput="ngModel"
+              />
+              @if (mobileInput.invalid && (mobileInput.dirty || mobileInput.touched)) {
+                <div class="field-error">{{ 'myEvents.mobileRequired' | t }}</div>
               }
             </div>
           </section>
@@ -1033,6 +1046,7 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
   title = '';
   description = '';
   location = '';
+  mobileNumber = '';
   country = '';
   displayDays = 0;
   visibility = '';
@@ -1057,6 +1071,9 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    const profileMobile = this.auth.currentUser()?.mobileNumber?.trim();
+    if (profileMobile) this.mobileNumber = profileMobile;
+
     this.api.getDisplayOptions().subscribe({
       next: (opts) => {
         this.displayOptions.set(opts.length > 0 ? opts : MEMORA_DISPLAY_PLANS);
@@ -1267,7 +1284,9 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
 
   isFormValid(): boolean {
     if (!this.eventType || !this.eventDate || !this.title.trim() || !this.description.trim()) return false;
-    if (!this.location.trim() || !this.country || !this.visibility || !this.displayDays) return false;
+    if (!this.location.trim() || !this.mobileNumber.trim() || !this.country || !this.visibility || !this.displayDays) {
+      return false;
+    }
     if ((this.eventType === 'Obituary' || this.eventType === 'Remembrance') && (!this.birthDate || !this.deathDate)) {
       return false;
     }
@@ -1290,6 +1309,7 @@ export class CreateMyEventComponent implements OnInit, OnDestroy {
     fd.append('eventType', this.eventType);
     fd.append('eventDate', this.eventDate);
     fd.append('location', this.location.trim());
+    fd.append('mobileNumber', this.mobileNumber.trim());
     fd.append('country', this.country);
     fd.append('currency', 'USD');
     fd.append('visibility', this.visibility);

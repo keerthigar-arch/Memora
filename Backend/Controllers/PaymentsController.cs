@@ -283,6 +283,7 @@ public class PaymentsController : ControllerBase
             GalleryUrls = null,
             ConfirmationDocumentUrl = null,
             CreatedBy = draft.CreatedBy,
+            MobileNumber = draft.MobileNumber,
             UserId = draft.UserId,
             IsPublished = true,
             Visibility = draft.Visibility,
@@ -369,7 +370,8 @@ public class PaymentsController : ControllerBase
             ev.Visibility,
             ev.PaymentReceived,
             true,
-            invitedEmailsList
+            invitedEmailsList,
+            ev.MobileNumber
         ));
     }
 
@@ -570,7 +572,8 @@ public class PaymentsController : ControllerBase
             owner?.Email,
             draft.InvitedEmails,
             FileStorageService.NormalizeUrl(draft.ConfirmationDocumentPath, baseUrl),
-            draft.ReferenceCode
+            draft.ReferenceCode,
+            draft.MobileNumber
         ));
     }
 

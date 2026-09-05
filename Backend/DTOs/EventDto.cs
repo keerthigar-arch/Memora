@@ -77,7 +77,8 @@ public record EventDetailDto(
     string Visibility,
     bool PaymentReceived,
     bool IsOwner = false,
-    List<string>? InvitedEmails = null
+    List<string>? InvitedEmails = null,
+    string? MobileNumber = null
 );
 
 public record EventInviteDto(int Id, string InvitedEmail, DateTime CreatedAt);
@@ -152,7 +153,8 @@ public record CustomerDraftDetailDto(
     string? OwnerEmail,
     string? InvitedEmails = null,
     string? ConfirmationDocumentUrl = null,
-    string? ReferenceCode = null
+    string? ReferenceCode = null,
+    string? MobileNumber = null
 );
 
 public record RecentWishSidebarDto(

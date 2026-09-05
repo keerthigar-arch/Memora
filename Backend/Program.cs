@@ -352,6 +352,12 @@ using (var scope = app.Services.CreateScope())
         "ALTER TABLE `Users` ADD COLUMN `MustChangePassword` tinyint(1) NOT NULL DEFAULT 0");
     await AddColumnIfMissingAsync("Users", "UserName",
         "ALTER TABLE `Users` ADD COLUMN `UserName` varchar(64) NULL");
+    await AddColumnIfMissingAsync("Users", "MobileNumber",
+        "ALTER TABLE `Users` ADD COLUMN `MobileNumber` varchar(32) NULL");
+    await AddColumnIfMissingAsync("Events", "MobileNumber",
+        "ALTER TABLE `Events` ADD COLUMN `MobileNumber` varchar(32) NULL");
+    await AddColumnIfMissingAsync("PendingEvents", "MobileNumber",
+        "ALTER TABLE `PendingEvents` ADD COLUMN `MobileNumber` varchar(32) NULL");
     await CreateIndexIfMissingAsync("Users", "IX_Users_UserName",
         "CREATE UNIQUE INDEX `IX_Users_UserName` ON `Users` (`UserName`)");
 

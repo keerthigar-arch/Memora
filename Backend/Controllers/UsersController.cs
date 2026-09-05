@@ -166,7 +166,7 @@ public class UsersController : ControllerBase
     }
 
     private static UserProfileDto ToProfile(User u) => new(
-        u.Id, u.Email, u.DisplayName, u.Bio, u.ProfileImageUrl,
+        u.Id, u.Email, u.DisplayName, u.MobileNumber, u.Bio, u.ProfileImageUrl,
         u.ProfileVisibility, u.ShowEmail, u.CreatedAt,
         string.IsNullOrWhiteSpace(u.Role) ? "Customer" : u.Role,
         u.MustChangePassword);

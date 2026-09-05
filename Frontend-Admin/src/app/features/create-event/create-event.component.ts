@@ -346,6 +346,24 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
           }
         </div>
 
+        <div class="form-group">
+          <label>Mobile number *</label>
+          <input
+            type="tel"
+            [(ngModel)]="mobileNumber"
+            name="mobileNumber"
+            placeholder="e.g. +94771234567"
+            #mobileInput="ngModel"
+            required
+            maxlength="32"
+          />
+          @if (mobileInput.invalid && (mobileInput.dirty || mobileInput.touched)) {
+            <div class="validation-error">
+              @if (mobileInput.errors?.['required']) { <small>Mobile number is required.</small> }
+            </div>
+          }
+        </div>
+
         </section>
 
         <section class="form-section" aria-labelledby="sec-display">
@@ -1422,6 +1440,7 @@ export class CreateEventComponent implements OnInit, OnDestroy {
   visibility     = '';         // blank so placeholder option shows as selected
   invitedEmails  = '';
   location       = '';
+  mobileNumber   = '';
   country        = '';
   currencyCode   = '';
   createdBy      = '';
@@ -1652,6 +1671,8 @@ export class CreateEventComponent implements OnInit, OnDestroy {
     if (!this.eventType || !this.eventDate || !this.country || !this.currencyCode) return false;
     // Location is required
     if (!this.location.trim() || this.location.length > 200) return false;
+    // Mobile is required
+    if (!this.mobileNumber.trim()) return false;
     // Visibility is required
     if (!this.visibility) return false;
     // Obituary extras
@@ -1695,6 +1716,7 @@ export class CreateEventComponent implements OnInit, OnDestroy {
     formData.append('paymentReceived', String(this.paymentReceived));
 
     if (this.location)    formData.append('location', this.location);
+    formData.append('mobileNumber', this.mobileNumber.trim());
     if (this.country)     formData.append('country',  this.country);
     formData.append('currency', 'USD');
 

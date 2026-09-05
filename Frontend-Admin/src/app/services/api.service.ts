@@ -129,6 +129,7 @@ export interface CustomerDraftDetailDto {
   invitedEmails?: string | null;
   confirmationDocumentUrl?: string | null;
   referenceCode?: string | null;
+  mobileNumber?: string | null;
 }
 
 export interface WishDto {
@@ -160,6 +161,7 @@ export interface EventDetailDto {
   paymentReceived?: boolean;
   isOwner?: boolean;
   invitedEmails?: string[];
+  mobileNumber?: string | null;
 }
 
 export interface PagedResult<T> {
@@ -174,6 +176,7 @@ export interface CustomerAdminListDto {
   id: number;
   email: string;
   displayName: string;
+  mobileNumber?: string | null;
   bio?: string | null;
   profileImageUrl?: string | null;
   profileVisibility: string;

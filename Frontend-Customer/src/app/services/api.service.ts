@@ -105,6 +105,7 @@ export interface EventDetailDto {
   visibility?: string;
   isOwner?: boolean;
   invitedEmails?: string[];
+  mobileNumber?: string | null;
 }
 
 export interface PagedResult<T> {

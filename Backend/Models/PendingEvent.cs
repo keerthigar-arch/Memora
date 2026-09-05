@@ -26,6 +26,11 @@ public class PendingEvent
     public string? ConfirmationDocumentPath { get; set; }
 
     public string CreatedBy { get; set; } = string.Empty;
+
+    /// <summary>Contact mobile for this draft event (required on create).</summary>
+    [MaxLength(32)]
+    public string? MobileNumber { get; set; }
+
     public string Visibility { get; set; } = "Public";
     public string? InvitedEmails { get; set; }
 

@@ -100,6 +100,16 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                       <span class="meta-text">{{ event()!.location }}</span>
                     </div>
                   }
+                  @if (event()!.mobileNumber) {
+                    <div class="meta-chip">
+                      <span class="meta-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                          <rect x="5" y="2" width="14" height="20" rx="2" /><path d="M12 18h.01" />
+                        </svg>
+                      </span>
+                      <span class="meta-text">{{ event()!.mobileNumber }}</span>
+                    </div>
+                  }
                   <div class="meta-chip">
                     <span class="meta-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
@@ -333,6 +343,19 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                         <div>
                           <span class="info-label">{{ 'detail.location' | t }}</span>
                           <span class="info-value">{{ event()!.location }}</span>
+                        </div>
+                      </li>
+                    }
+                    @if (event()!.mobileNumber) {
+                      <li>
+                        <span class="info-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="5" y="2" width="14" height="20" rx="2" /><path d="M12 18h.01" />
+                          </svg>
+                        </span>
+                        <div>
+                          <span class="info-label">{{ 'detail.mobile' | t }}</span>
+                          <span class="info-value">{{ event()!.mobileNumber }}</span>
                         </div>
                       </li>
                     }

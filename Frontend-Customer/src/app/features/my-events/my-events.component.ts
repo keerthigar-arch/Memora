@@ -75,7 +75,8 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
               type="text"
               class="search-input"
               [placeholder]="'feed.searchPlaceholder' | t"
-              [(ngModel)]="searchTerm"
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event ?? '')"
               (keyup.enter)="onSearch()"
             />
           </label>
@@ -112,7 +113,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 <label class="date-field">
                   <span>{{ 'feed.date.from' | t }}</span>
                   <app-date-picker
-                    [(ngModel)]="fromDate"
+                    [ngModel]="fromDate()"
                     name="fromDate"
                     [placeholder]="'feed.date.placeholder' | t"
                     [ariaLabel]="('feed.date.from' | t)"
@@ -122,7 +123,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 <label class="date-field">
                   <span>{{ 'feed.date.to' | t }}</span>
                   <app-date-picker
-                    [(ngModel)]="toDate"
+                    [ngModel]="toDate()"
                     name="toDate"
                     [placeholder]="'feed.date.placeholder' | t"
                     [ariaLabel]="('feed.date.to' | t)"
@@ -207,7 +208,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                   </div>
                 }
               }
-              @for (ev of events(); track ev.id) {
+              @for (ev of visibleEvents(); track ev.id) {
                 <a [routerLink]="['/event', ev.id]" [queryParams]="eventLinkQueryParams()" class="event-card">
                   <div class="card-image event-card-thumb">
                     @if (ev.mainImageUrl) {
@@ -239,7 +240,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
               }
             </div>
 
-            @if (loading() && (events().length > 0 || hasPendingDraftCards())) {
+            @if (loading() && (visibleEvents().length > 0 || hasPendingDraftCards())) {
               <div class="feed-loading-more"><div class="spinner spinner-inline"></div><span>{{ 'feed.loadingMore' | t }}</span></div>
             }
             @if (hasMore()) {
@@ -477,9 +478,10 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   statusTab = signal<'published' | 'pending'>('published');
   publishedCount = signal(0);
   pendingEventsCount = signal(0);
-  searchTerm = '';
-  fromDate = '';
-  toDate = '';
+  /** Signals so draft/event client filters re-run when Browse / date / type change. */
+  searchTerm = signal('');
+  fromDate = signal('');
+  toDate = signal('');
   pageSize = 12;
 
   paymentDrafts = computed(() => this.drafts().filter((d) => !d.awaitingOfflineApproval));
@@ -491,6 +493,8 @@ export class MyEventsComponent implements OnInit, OnDestroy {
 
   filteredPaymentDrafts = computed(() => this.filterDrafts(this.paymentDrafts()));
   filteredPendingDrafts = computed(() => this.filterDrafts(this.pendingDrafts()));
+  /** Client-side safety net so pending cards always respect search / type / dates. */
+  visibleEvents = computed(() => this.filterEventsList(this.events()));
 
   hasMore = computed(() => {
     const items = this.events().length;
@@ -500,8 +504,8 @@ export class MyEventsComponent implements OnInit, OnDestroy {
 
   isTabEmpty = computed(() => {
     if (this.loading()) return false;
-    if (this.statusTab() === 'published') return this.events().length === 0;
-    return this.events().length === 0 && !this.hasPendingDraftCards();
+    if (this.statusTab() === 'published') return this.visibleEvents().length === 0;
+    return this.visibleEvents().length === 0 && !this.hasPendingDraftCards();
   });
 
   readonly formatUsd = formatUsd;
@@ -595,17 +599,83 @@ export class MyEventsComponent implements OnInit, OnDestroy {
     return this.statusTab() === 'pending' && (this.filteredPaymentDrafts().length > 0 || this.filteredPendingDrafts().length > 0);
   }
 
-  private filterDrafts(list: CustomerDraftListDto[]): CustomerDraftListDto[] {
+  private parseDay(value: string | null | undefined): Date | null {
+    if (!value?.trim()) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  private matchesCommonFilters(input: {
+    eventType: string;
+    title: string;
+    description?: string | null;
+    location?: string | null;
+    country?: string | null;
+    eventDate: string;
+  }): boolean {
     const type = this.filter();
-    const term = this.searchTerm.trim().toLowerCase();
-    return list.filter((d) => {
-      if (type) {
-        const types = type === 'Obituary' ? ['Obituary', 'Funeral'] : [type];
-        if (!types.includes(d.eventType)) return false;
-      }
-      if (term && !d.title.toLowerCase().includes(term)) return false;
-      return true;
-    });
+    if (type) {
+      const types = type === 'Obituary' ? ['Obituary', 'Funeral'] : [type];
+      if (!types.includes(input.eventType)) return false;
+    }
+
+    const term = this.searchTerm().trim().toLowerCase();
+    if (term) {
+      const hay = [
+        input.title,
+        input.description || '',
+        input.location || '',
+        input.country || ''
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (!hay.includes(term)) return false;
+    }
+
+    const from = this.parseDay(this.fromDate());
+    const to = this.parseDay(this.toDate());
+    if (from || to) {
+      const when = this.parseDay(input.eventDate);
+      if (!when) return false;
+      if (from && when < from) return false;
+      if (to && when > to) return false;
+    }
+
+    return true;
+  }
+
+  private filterDrafts(list: CustomerDraftListDto[]): CustomerDraftListDto[] {
+    // Depend on filter signals so Browse / date / type updates recompute drafts.
+    this.filter();
+    this.searchTerm();
+    this.fromDate();
+    this.toDate();
+    return list.filter((d) =>
+      this.matchesCommonFilters({
+        eventType: d.eventType,
+        title: d.title,
+        eventDate: d.eventDate
+      })
+    );
+  }
+
+  private filterEventsList(list: AdminEventListDto[]): AdminEventListDto[] {
+    this.filter();
+    this.searchTerm();
+    this.fromDate();
+    this.toDate();
+    return list.filter((ev) =>
+      this.matchesCommonFilters({
+        eventType: ev.eventType,
+        title: ev.title,
+        description: ev.description,
+        location: ev.location,
+        country: ev.country,
+        eventDate: ev.eventDate
+      })
+    );
   }
 
   private loadDrafts() {
@@ -643,21 +713,18 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   setDateRange(range: 'all' | 'thisYear' | 'lastYear' | 'custom') {
     this.dateRange.set(range);
     if (range !== 'custom') this.showCustomDatePicker.set(false);
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
+    const year = new Date().getFullYear();
     const lastYear = year - 1;
     if (range === 'all') {
-      this.fromDate = '';
-      this.toDate = '';
+      this.fromDate.set('');
+      this.toDate.set('');
     } else if (range === 'thisYear') {
-      this.fromDate = `${year}-01-01`;
-      this.toDate = todayStr;
+      // Full calendar year (not through today), so upcoming events this year still match.
+      this.fromDate.set(`${year}-01-01`);
+      this.toDate.set(`${year}-12-31`);
     } else if (range === 'lastYear') {
-      this.fromDate = `${lastYear}-01-01`;
-      this.toDate = `${lastYear}-12-31`;
+      this.fromDate.set(`${lastYear}-01-01`);
+      this.toDate.set(`${lastYear}-12-31`);
     }
     this.page.set(1);
     this.events.set([]);
@@ -673,15 +740,15 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   }
 
   clearCustomDates() {
-    this.fromDate = '';
-    this.toDate = '';
+    this.fromDate.set('');
+    this.toDate.set('');
     this.setDateRange('all');
   }
 
   onCustomDateChange(value: string | null, which: 'from' | 'to') {
     const next = value || '';
-    if (which === 'from') this.fromDate = next;
-    else this.toDate = next;
+    if (which === 'from') this.fromDate.set(next);
+    else this.toDate.set(next);
     this.onDatePickerChange();
   }
 
@@ -715,9 +782,9 @@ export class MyEventsComponent implements OnInit, OnDestroy {
         this.page(),
         this.pageSize,
         this.filter() || undefined,
-        this.searchTerm?.trim() || undefined,
-        this.fromDate || undefined,
-        this.toDate || undefined,
+        this.searchTerm().trim() || undefined,
+        this.fromDate() || undefined,
+        this.toDate() || undefined,
         country,
         published
       )

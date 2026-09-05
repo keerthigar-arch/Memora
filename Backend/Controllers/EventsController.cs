@@ -292,9 +292,15 @@ public class EventsController : ControllerBase
         }
 
         if (DateTime.TryParse(fromDate, out var fromDt))
-            query = query.Where(e => e.EventDate.Date >= fromDt.Date);
+        {
+            var from = DateTime.SpecifyKind(fromDt.Date, DateTimeKind.Unspecified);
+            query = query.Where(e => e.EventDate >= from);
+        }
         if (DateTime.TryParse(toDate, out var toDt))
-            query = query.Where(e => e.EventDate.Date <= toDt.Date);
+        {
+            var toExclusive = DateTime.SpecifyKind(toDt.Date.AddDays(1), DateTimeKind.Unspecified);
+            query = query.Where(e => e.EventDate < toExclusive);
+        }
 
         var total = await query.CountAsync();
         var baseUrl = _fileStorage.GetBaseUrl(Request);
@@ -376,9 +382,15 @@ public class EventsController : ControllerBase
         }
 
         if (DateTime.TryParse(fromDate, out var fromDt))
-            query = query.Where(e => e.EventDate.Date >= fromDt.Date);
+        {
+            var from = DateTime.SpecifyKind(fromDt.Date, DateTimeKind.Unspecified);
+            query = query.Where(e => e.EventDate >= from);
+        }
         if (DateTime.TryParse(toDate, out var toDt))
-            query = query.Where(e => e.EventDate.Date <= toDt.Date);
+        {
+            var toExclusive = DateTime.SpecifyKind(toDt.Date.AddDays(1), DateTimeKind.Unspecified);
+            query = query.Where(e => e.EventDate < toExclusive);
+        }
 
         if (published.HasValue)
             query = published.Value
@@ -663,7 +675,8 @@ public class EventsController : ControllerBase
             ev.Visibility,
             ev.PaymentReceived,
             true,
-            invitedEmailsList
+            invitedEmailsList,
+            ev.MobileNumber
         ));
     }
 
@@ -909,7 +922,8 @@ public class EventsController : ControllerBase
             ev.Visibility,
             ev.PaymentReceived,
             isOwner,
-            isOwner ? ev.Invites.Select(i => i.InvitedEmail).ToList() : new List<string>()
+            isOwner ? ev.Invites.Select(i => i.InvitedEmail).ToList() : new List<string>(),
+            ev.MobileNumber
         ));
     }
 
@@ -932,6 +946,10 @@ public class EventsController : ControllerBase
         if (docError != null)
             return BadRequest(new { message = docError });
 
+        var mobile = NormalizeEventMobile(dto.MobileNumber);
+        if (mobile == null)
+            return BadRequest(new { message = "A valid mobile number is required." });
+
         var userId = _jwt.GetUserIdFromClaims(User);
         var user = userId.HasValue ? await _db.Users.FindAsync(userId.Value) : null;
         var createdBy = user?.DisplayName ?? dto.CreatedBy ?? "Anonymous";
@@ -952,6 +970,7 @@ public class EventsController : ControllerBase
             GalleryPathsJson = null,
             ConfirmationDocumentPath = null,
             CreatedBy = createdBy,
+            MobileNumber = mobile,
             UserId = userId,
             Visibility = dto.Visibility ?? "Public",
             InvitedEmails = dto.InvitedEmails,
@@ -1037,6 +1056,10 @@ public class EventsController : ControllerBase
         if (docError != null)
             return BadRequest(new { message = docError });
 
+        var mobile = NormalizeEventMobile(dto.MobileNumber);
+        if (mobile == null)
+            return BadRequest(new { message = "A valid mobile number is required." });
+
         var userId = _jwt.GetUserIdFromClaims(User);
         var user = userId.HasValue ? await _db.Users.FindAsync(new object[] { userId.Value }, cancellationToken) : null;
         var createdBy = user?.DisplayName ?? dto.CreatedBy ?? "Anonymous";
@@ -1057,6 +1080,7 @@ public class EventsController : ControllerBase
             MainImageUrl = null,
             GalleryUrls = null,
             CreatedBy = createdBy,
+            MobileNumber = mobile,
             UserId = userId,
             IsPublished = dto.PaymentReceived,
             Visibility = dto.Visibility ?? "Public",
@@ -1167,7 +1191,8 @@ public class EventsController : ControllerBase
             ev.Visibility,
             ev.PaymentReceived,
             true,
-            invitedEmailsList
+            invitedEmailsList,
+            ev.MobileNumber
         ));
     }
 
@@ -1226,6 +1251,13 @@ public class EventsController : ControllerBase
         ev.WeddingDate = dto.WeddingDate ?? ev.WeddingDate;
         ev.Location = dto.Location ?? ev.Location;
         ev.Country = dto.Country ?? ev.Country;
+        if (dto.MobileNumber != null)
+        {
+            var mobile = NormalizeEventMobile(dto.MobileNumber);
+            if (mobile == null)
+                return BadRequest(new { message = "A valid mobile number is required." });
+            ev.MobileNumber = mobile;
+        }
         ev.MainImageUrl = mainImageUrl;
         ev.GalleryUrls = galleryUrls;
         ev.VideoUrls = videoUrls;
@@ -1307,7 +1339,8 @@ public class EventsController : ControllerBase
             ev.Visibility,
             ev.PaymentReceived,
             true,
-            invitedEmailsList
+            invitedEmailsList,
+            ev.MobileNumber
         ));
     }
 
@@ -1405,6 +1438,13 @@ public class EventsController : ControllerBase
             draft.Location = dto.Location;
         if (dto.Country != null)
             draft.Country = dto.Country;
+        if (dto.MobileNumber != null)
+        {
+            var mobile = NormalizeEventMobile(dto.MobileNumber);
+            if (mobile == null)
+                return BadRequest(new { message = "A valid mobile number is required." });
+            draft.MobileNumber = mobile;
+        }
         if (!string.IsNullOrWhiteSpace(dto.Visibility))
             draft.Visibility = dto.Visibility;
         if (dto.InvitedEmails != null)
@@ -1443,7 +1483,8 @@ public class EventsController : ControllerBase
             owner?.Email,
             draft.InvitedEmails,
             FileStorageService.NormalizeUrl(draft.ConfirmationDocumentPath, baseUrl),
-            draft.ReferenceCode
+            draft.ReferenceCode,
+            draft.MobileNumber
         ));
     }
 
@@ -1460,6 +1501,16 @@ public class EventsController : ControllerBase
         await _db.SaveChangesAsync();
         return NoContent();
     }
+
+    /// <summary>Keep digits and leading +; require 7–15 digits.</summary>
+    private static string? NormalizeEventMobile(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var trimmed = raw.Trim();
+        var digits = new string(trimmed.Where(char.IsDigit).ToArray());
+        if (digits.Length < 7 || digits.Length > 15) return null;
+        return trimmed.StartsWith('+') ? "+" + digits : digits;
+    }
 }
 
 public class CreateEventFormDto
@@ -1475,6 +1526,8 @@ public class CreateEventFormDto
     public DateTime? DeathDate { get; set; }
     public DateTime? WeddingDate { get; set; }
     public string? CreatedBy { get; set; }
+    /// <summary>Required contact mobile for the event.</summary>
+    public string? MobileNumber { get; set; }
     public string? Visibility { get; set; } = "Public";
     public string? InvitedEmails { get; set; } // Comma-separated emails for InviteOnly
     public string? Currency { get; set; }
@@ -1497,6 +1550,8 @@ public class UpdateEventFormDto
     public DateTime? BirthDate { get; set; }
     public DateTime? DeathDate { get; set; }
     public DateTime? WeddingDate { get; set; }
+    /// <summary>Contact mobile for the event.</summary>
+    public string? MobileNumber { get; set; }
     public string? Visibility { get; set; }
     public string? InvitedEmails { get; set; } // Comma-separated for InviteOnly
     public bool? IsPublished { get; set; }

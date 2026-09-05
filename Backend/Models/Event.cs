@@ -54,6 +54,10 @@ public class Event
     [MaxLength(200)]
     public string CreatedBy { get; set; } = string.Empty;
 
+    /// <summary>Contact mobile for this event (required on create).</summary>
+    [MaxLength(32)]
+    public string? MobileNumber { get; set; }
+
     public int? UserId { get; set; }
     public User? User { get; set; }
 

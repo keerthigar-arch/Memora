@@ -56,6 +56,7 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
                 <th class="th-avatar"></th>
                 <th>Display name</th>
                 <th>Email</th>
+                <th>Mobile</th>
                 <th scope="col" class="col-events">Events</th>
                 <th class="th-date">Registered</th>
               </tr>
@@ -74,6 +75,7 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
                   </td>
                   <td class="name-cell">{{ u.displayName }}</td>
                   <td class="email-cell">{{ u.email }}</td>
+                  <td class="email-cell">{{ u.mobileNumber || '—' }}</td>
                   <td class="col-events">{{ u.eventCount }}</td>
                   <td class="date-cell">{{ u.createdAt | date: 'mediumDate' }}</td>
                 </tr>

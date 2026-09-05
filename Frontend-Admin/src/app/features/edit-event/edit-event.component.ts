@@ -18,6 +18,7 @@ type EditSnapshot = {
   visibility: string;
   invitedEmails: string;
   location: string;
+  mobileNumber: string;
   country: string;
 };
 
@@ -138,6 +139,18 @@ type EditMediaItem = {
           <div class="form-group">
             <label>Location</label>
             <input [(ngModel)]="location" name="location" />
+          </div>
+
+          <div class="form-group">
+            <label>Mobile number *</label>
+            <input
+              type="tel"
+              [(ngModel)]="mobileNumber"
+              name="mobileNumber"
+              placeholder="e.g. +94771234567"
+              required
+              maxlength="32"
+            />
           </div>
 
           <div class="form-group">
@@ -494,6 +507,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
   visibility = 'Public';
   invitedEmails = '';
   location = '';
+  mobileNumber = '';
   country = '';
   mainImage: File | null = null;
   /** Cover URL currently kept from the server (null when removed or replaced by a new file). */
@@ -534,6 +548,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
       visibility: this.visibility,
       invitedEmails: this.invitedEmails,
       location: this.location,
+      mobileNumber: this.mobileNumber,
       country: this.country
     };
   }
@@ -619,6 +634,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
         this.visibility = ev.visibility === 'Private' ? 'Public' : (ev.visibility ?? 'Public');
         this.invitedEmails = (ev.invitedEmails ?? []).join(', ');
         this.location = ev.location ?? '';
+        this.mobileNumber = ev.mobileNumber ?? '';
         this.country = ev.country ?? '';
         this.applyExistingMedia(ev.mainImageUrl, ev.galleryUrls, ev.videoUrls);
         this.initialSnapshot = this.captureSnapshot();
@@ -655,6 +671,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
         this.visibility = d.visibility === 'Private' ? 'Public' : (d.visibility ?? 'Public');
         this.invitedEmails = d.invitedEmails ?? '';
         this.location = d.location ?? '';
+        this.mobileNumber = d.mobileNumber ?? '';
         this.country = d.country ?? '';
         this.applyExistingMedia(d.mainImageUrl, d.galleryUrlsJson, d.videoUrlsJson);
         this.initialSnapshot = this.captureSnapshot();
@@ -872,6 +889,10 @@ export class EditEventComponent implements OnInit, OnDestroy {
       this.error.set('Please fill in all required fields.');
       return;
     }
+    if (!this.mobileNumber.trim()) {
+      this.error.set('Mobile number is required.');
+      return;
+    }
     if (
       (this.eventType === 'Obituary' || this.eventType === 'Remembrance') &&
       (!this.birthDate || !this.deathDate)
@@ -904,6 +925,7 @@ export class EditEventComponent implements OnInit, OnDestroy {
       formData.append('invitedEmails', this.invitedEmails.trim());
     }
     formData.append('location', this.location);
+    formData.append('mobileNumber', this.mobileNumber.trim());
     formData.append('country', this.country);
 
     if (this.mainImage) {

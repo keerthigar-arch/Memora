@@ -24,9 +24,10 @@ import { environment } from '../../../environments/environment';
     TranslatePipe
   ],
   template: `
-    <div class="top-bar">
-      <div class="container">
-        <span class="top-bar-24">24/7</span>
+    <div class="top-bar" role="complementary" aria-label="Support line">
+      <div class="container top-bar-inner">
+        <span class="top-bar-label">24/7 support</span>
+        <span class="top-bar-sep" aria-hidden="true">·</span>
         <a href="tel:+442079460123" class="top-bar-phone">+44 20 7946 0123</a>
       </div>
     </div>
@@ -61,10 +62,12 @@ import { environment } from '../../../environments/environment';
           <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">{{
             'nav.feed' | t
           }}</a>
+          <a class="nav-link nav-link-emphasis" routerLink="/my-events" routerLinkActive="active">{{
+            'nav.myEvents' | t
+          }}</a>
           <a class="nav-link" routerLink="/pricing" routerLinkActive="active">{{ 'nav.pricing' | t }}</a>
           <a class="nav-link" routerLink="/contact" routerLinkActive="active">{{ 'nav.contact' | t }}</a>
           @if (auth.isLoggedIn()) {
-            <a class="nav-link" routerLink="/my-events" routerLinkActive="active">{{ 'nav.myEvents' | t }}</a>
             <div class="profile-menu" #profileMenuRoot>
               <button
                 type="button"
@@ -149,6 +152,8 @@ import { environment } from '../../../environments/environment';
 
     @if (!isProfileRoute()) {
     <section class="showcase">
+      <div class="showcase-ornament showcase-ornament--left" aria-hidden="true"></div>
+      <div class="showcase-ornament showcase-ornament--right" aria-hidden="true"></div>
       <div class="container showcase-content">
         <div class="showcase-copy">
           <p class="showcase-kicker">{{ 'showcase.kicker' | t }}</p>
@@ -210,29 +215,36 @@ import { environment } from '../../../environments/environment';
   `,
   styles: [`
     .top-bar {
-      background: #f7faf8;
-      color: #456b61;
-      padding: 0.35rem 1.5rem;
-      font-size: 0.8rem;
-      border-bottom: 1px solid #e3ece8;
+      background: #f4f8f6;
+      color: #5a746c;
+      padding: 0.18rem 1.5rem;
+      font-size: 0.7rem;
+      line-height: 1.2;
+      border-bottom: 1px solid #e6eeea;
     }
-    .top-bar .container {
+    .top-bar-inner {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 1.5rem;
+      gap: 0.4rem;
+      flex-wrap: nowrap;
+      min-height: 1.35rem;
     }
-    .top-bar-24 {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
+    .top-bar-label {
       font-weight: 600;
+      letter-spacing: 0.02em;
+      color: #5f7870;
+      white-space: nowrap;
     }
-    .top-bar-24::before { content: "🕐 "; }
+    .top-bar-sep {
+      color: #a3b8b0;
+      font-weight: 400;
+    }
     .top-bar-phone {
       color: #2f5d51;
       text-decoration: none;
       font-weight: 600;
+      white-space: nowrap;
     }
     .top-bar-phone:hover { text-decoration: underline; }
     .header {
@@ -384,20 +396,42 @@ import { environment } from '../../../environments/environment';
       .wordmark-shine { display: none; }
     }
     .showcase {
+      position: relative;
+      overflow: hidden;
       border-bottom: 1px solid rgba(13, 61, 50, 0.08);
       background: linear-gradient(135deg, #0d3d32 0%, #1b5f4b 60%, #2f7e66 100%);
-      padding: 0.9rem 0;
+      padding: 0.55rem 0;
+    }
+    .showcase-ornament {
+      position: absolute;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0.18;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.55) 0%, transparent 70%);
+    }
+    .showcase-ornament--left {
+      left: -48px;
+      top: -56px;
+    }
+    .showcase-ornament--right {
+      right: -40px;
+      bottom: -64px;
+      width: 160px;
+      height: 160px;
+      opacity: 0.14;
     }
     /* Profile: keep slideshow grid but tighten copy so light hero below stays the focal band */
     .showcase.showcase--profile {
-      padding: 0.65rem 0 0.75rem;
+      padding: 0.5rem 0 0.55rem;
     }
     .showcase.showcase--profile .showcase-copy .showcase-kicker {
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.2rem;
       font-size: 0.65rem;
     }
     .showcase.showcase--profile .showcase-copy h2 {
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.2rem;
       font-size: clamp(1rem, 2vw, 1.28rem);
     }
     .showcase.showcase--profile .showcase-copy p {
@@ -405,61 +439,71 @@ import { environment } from '../../../environments/environment';
       line-height: 1.4;
     }
     .showcase.showcase--profile .gallery-card {
-      width: 158px;
+      width: 140px;
     }
     .showcase-content {
+      position: relative;
+      z-index: 1;
       display: grid;
-      grid-template-columns: 0.9fr 1.1fr;
-      gap: 1rem;
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+      gap: 0.85rem;
       align-items: center;
-      padding: 1rem 1.5rem;
+      padding: 0.55rem 1.5rem;
       color: #fff;
     }
     .showcase-copy {
       text-align: left;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.15rem;
+      min-height: 0;
     }
     .showcase-kicker {
-      margin: 0 0 0.4rem;
+      margin: 0;
       text-transform: uppercase;
       letter-spacing: 0.12em;
       font-weight: 600;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       color: rgba(255,255,255,0.82);
     }
     .showcase h2 {
-      margin: 0 0 0.4rem;
+      margin: 0;
       color: #fff;
-      font-size: clamp(1.12rem, 2.3vw, 1.55rem);
-      line-height: 1.24;
+      font-size: clamp(1.02rem, 2.1vw, 1.38rem);
+      line-height: 1.22;
     }
     .showcase p {
       margin: 0;
       color: rgba(255,255,255,0.93);
-      font-size: 0.86rem;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      max-width: 34rem;
     }
     .gallery-window {
       overflow: hidden;
-      border-radius: 14px;
+      border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.22);
       background: rgba(0, 0, 0, 0.12);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      align-self: center;
     }
     .gallery-track {
       display: flex;
-      gap: 0.55rem;
+      gap: 0.45rem;
       width: max-content;
-      padding: 0.55rem;
+      padding: 0.4rem;
       animation: galleryMove 35s linear infinite;
     }
     .gallery-window:hover .gallery-track {
       animation-play-state: paused;
     }
     .gallery-card {
-      width: 200px;
+      width: 168px;
       aspect-ratio: 4 / 3;
-      border-radius: 11px;
+      border-radius: 10px;
       border: 1px solid rgba(255, 255, 255, 0.35);
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
       flex: 0 0 auto;
       position: relative;
       overflow: hidden;
@@ -535,6 +579,18 @@ import { environment } from '../../../environments/environment';
           background: linear-gradient(135deg, #1a5f4a 0%, #2f7e66 100%);
           box-shadow: 0 4px 12px rgba(26, 95, 74, 0.3);
         }
+      }
+      .nav-link-emphasis:not(.active) {
+        color: #0d3d32;
+        background: #fff;
+        border: 1px solid #c5dcd2;
+        box-shadow: 0 2px 8px rgba(26, 95, 74, 0.1);
+        font-weight: 700;
+      }
+      .nav-link-emphasis:not(.active):hover {
+        color: #0d3d32;
+        background: #f7fcfa;
+        border-color: #1a5f4a;
       }
       .nav-link-muted:not(.active) {
         color: #46675f;
@@ -797,18 +853,19 @@ import { environment } from '../../../environments/environment';
         right: 0;
       }
       .showcase {
-        padding: 0.75rem 0;
+        padding: 0.45rem 0;
       }
       .showcase-content {
         grid-template-columns: 1fr;
-        padding: 0.85rem 1rem;
-        gap: 0.7rem;
+        padding: 0.5rem 1rem;
+        gap: 0.55rem;
       }
       .showcase-copy {
         text-align: center;
+        align-items: center;
       }
       .gallery-card {
-        width: 168px;
+        width: 148px;
       }
       .country-summary-bar {
         padding: 0.45rem 0;
@@ -818,10 +875,12 @@ import { environment } from '../../../environments/environment';
       }
     }
     @media (max-width: 768px) {
-      .top-bar .container {
-        flex-wrap: wrap;
-        gap: 0.5rem 1rem;
-        font-size: 0.75rem;
+      .top-bar {
+        padding: 0.14rem 1rem;
+        font-size: 0.65rem;
+      }
+      .top-bar-inner {
+        gap: 0.3rem;
       }
       .header-inner {
         padding: 0.65rem var(--container-pad, 1rem);

@@ -22,6 +22,10 @@ public class User
     [MaxLength(150)]
     public string DisplayName { get; set; } = string.Empty;
 
+    /// <summary>Customer mobile / WhatsApp number from registration.</summary>
+    [MaxLength(32)]
+    public string? MobileNumber { get; set; }
+
     [MaxLength(1000)]
     public string? Bio { get; set; }
 

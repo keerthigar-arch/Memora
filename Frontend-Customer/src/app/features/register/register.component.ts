@@ -27,6 +27,10 @@ import { AuthService } from '../../services/auth.service';
           <input [(ngModel)]="displayName" name="displayName" placeholder="How you'll appear" required />
         </div>
         <div class="form-group">
+          <label>Mobile Number *</label>
+          <input type="tel" [(ngModel)]="mobileNumber" name="mobileNumber" placeholder="e.g. +94771234567" required />
+        </div>
+        <div class="form-group">
           <label>Password *</label>
           <input type="password" [(ngModel)]="password" name="password" placeholder="At least 6 characters" required />
         </div>
@@ -72,6 +76,7 @@ import { AuthService } from '../../services/auth.service';
 export class RegisterComponent {
   email = '';
   displayName = '';
+  mobileNumber = '';
   password = '';
   loading = signal(false);
   error = signal('');
@@ -87,7 +92,7 @@ export class RegisterComponent {
   }
 
   submit() {
-    if (!this.email.trim() || !this.displayName.trim() || !this.password) {
+    if (!this.email.trim() || !this.displayName.trim() || !this.mobileNumber.trim() || !this.password) {
       this.error.set('All fields are required.');
       return;
     }
@@ -97,7 +102,7 @@ export class RegisterComponent {
     }
     this.loading.set(true);
     this.error.set('');
-    this.auth.register(this.email.trim(), this.password, this.displayName.trim()).subscribe({
+    this.auth.register(this.email.trim(), this.password, this.displayName.trim(), this.mobileNumber.trim()).subscribe({
       next: () => {
         const ru = this.returnUrl.trim();
         if (ru.startsWith('/') && !ru.startsWith('/login') && !ru.startsWith('/register')) {

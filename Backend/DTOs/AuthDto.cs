@@ -1,6 +1,6 @@
 namespace LifeEventsHub.Api.DTOs;
 
-public record RegisterDto(string Email, string Password, string DisplayName);
+public record RegisterDto(string Email, string Password, string DisplayName, string MobileNumber);
 
 public record LoginDto(string Email, string Password);
 

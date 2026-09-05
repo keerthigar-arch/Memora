@@ -158,6 +158,17 @@ const REMEMBER_EMAIL_KEY = 'memora_customer_login_email';
             />
           </label>
           <label class="auth-field">
+            <span class="auth-label">Mobile number</span>
+            <input
+              type="tel"
+              name="r-mobile"
+              [(ngModel)]="regMobile"
+              autocomplete="tel"
+              placeholder="e.g. +94771234567"
+              required
+            />
+          </label>
+          <label class="auth-field">
             <span class="auth-label">Password</span>
             <input
               type="password"
@@ -480,6 +491,7 @@ export class AuthModalComponent implements OnDestroy {
 
   regEmail = '';
   regDisplayName = '';
+  regMobile = '';
   regPassword = '';
   regLoading = signal(false);
   regError = signal('');
@@ -565,7 +577,7 @@ export class AuthModalComponent implements OnDestroy {
   }
 
   submitRegister(): void {
-    if (!this.regEmail.trim() || !this.regDisplayName.trim() || !this.regPassword) {
+    if (!this.regEmail.trim() || !this.regDisplayName.trim() || !this.regMobile.trim() || !this.regPassword) {
       this.regError.set('All fields are required.');
       return;
     }
@@ -575,7 +587,9 @@ export class AuthModalComponent implements OnDestroy {
     }
     this.regLoading.set(true);
     this.regError.set('');
-    this.auth.register(this.regEmail.trim(), this.regPassword, this.regDisplayName.trim()).subscribe({
+    this.auth
+      .register(this.regEmail.trim(), this.regPassword, this.regDisplayName.trim(), this.regMobile.trim())
+      .subscribe({
       next: () => {
         this.regLoading.set(false);
         this.finishModalAuthSuccess();
