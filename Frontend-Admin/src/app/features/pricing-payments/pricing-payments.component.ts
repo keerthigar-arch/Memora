@@ -12,6 +12,7 @@ import {
 } from '../../services/api.service';
 import { environment } from '../../../environments/environment';
 import { DatePickerComponent } from '../../components/date-picker/date-picker.component';
+import { AppDialogService } from '../../services/app-dialog.service';
 
 @Component({
   selector: 'app-pricing-payments',
@@ -177,7 +178,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                             type="checkbox"
                             [checked]="!!d.paymentReceived"
                             [disabled]="!!d.paymentReceived || customerDraftSavingId() === d.id"
-                            (change)="markCustomerDraftReceived(d, $any($event.target).checked)"
+                            (change)="markCustomerDraftReceived(d, $event)"
                           />
                           <span class="check-label">
                             @if (customerDraftSavingId() === d.id) {
@@ -189,6 +190,9 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                           </span>
                         </label>
                       }
+                      <a [routerLink]="['/pending-event', d.id, 'edit']" class="btn btn-outline btn-sm">
+                        Edit
+                      </a>
                       <a [routerLink]="['/pending-event', d.id]" class="btn btn-outline btn-sm">
                         {{ d.paymentReceived ? 'Publish' : 'Review' }}
                       </a>
@@ -906,7 +910,10 @@ export class PricingPaymentsComponent implements OnInit {
     }));
   }
 
-  constructor(private readonly api: ApiService) {}
+  constructor(
+    private readonly api: ApiService,
+    private readonly dialogs: AppDialogService
+  ) {}
 
   ngOnInit(): void {
     this.loadOffline();
@@ -927,12 +934,25 @@ export class PricingPaymentsComponent implements OnInit {
     return `${environment.customerPortalUrl}/event/${eventId}`;
   }
 
-  markCustomerDraftReceived(draft: CustomerDraftListDto, checked: boolean): void {
+  markCustomerDraftReceived(draft: CustomerDraftListDto, event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const checked = !!input?.checked;
     if (!checked || draft.paymentReceived || this.customerDraftSavingId() !== null) return;
-    if (!confirm(`Mark payment received for "${draft.title}"? You can publish it after marking.`)) {
-      return;
-    }
+    void this.dialogs.confirm({
+      title: 'Mark payment received?',
+      message: `Record that payment for “${draft.title}” has been received. You can publish the event after this.`,
+      confirmLabel: 'Mark received',
+      cancelLabel: 'Cancel'
+    }).then((ok) => {
+      if (!ok) {
+        if (input) input.checked = false;
+        return;
+      }
+      this.runMarkCustomerDraftReceived(draft);
+    });
+  }
 
+  private runMarkCustomerDraftReceived(draft: CustomerDraftListDto): void {
     this.customerDraftSavingId.set(draft.id);
     this.offlineError.set('');
     this.api.markOfflinePaymentReceived(draft.id).subscribe({

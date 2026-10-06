@@ -13,7 +13,7 @@ import { ApiService, CustomerAdminListDto } from '../../services/api.service';
       <div class="container">
         <h1>User management</h1>
         <p class="page-lead">
-          View and manage customer accounts registered on the public Memora site, including display name, email, and profile settings.
+          View and manage customer accounts registered on the public தmileye site, including display name, email, and profile settings.
         </p>
       </div>
     </section>

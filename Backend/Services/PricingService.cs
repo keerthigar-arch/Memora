@@ -87,7 +87,7 @@ public class PricingService
             CountryDisplayName: displayCountry,
             CurrencyCode: currency,
             HotlineInternational: "0044 203 137 6284",
-            LocalNumbers: new[] { "+44 20 3137 6284", "+94 75 472 7075" },
+            LocalNumbers: new[] { "+44 20 3137 6284" },
             PackageDays: packageDays,
             RecommendedIndex: 1,
             Matrix: matrix,

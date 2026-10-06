@@ -20,14 +20,14 @@ public class EventsController : ControllerBase
     private readonly EventInviteEmailService _inviteEmail;
 
     // Media rules: main image required (<=5MB image), gallery optional (<=4 images, 5MB each),
-    // videos optional (<=1 file, mp4/webm/mov, 100MB). Files live on disk; DB stores paths only.
+    // videos optional (<=3 files, mp4/webm/mov, 100MB each). Files live on disk; DB stores paths only.
     private const int MaxGalleryImages = 4;
-    private const int MaxVideos = 1;
+    private const int MaxVideos = 3;
+    private const int MaxStreamLinks = 3;
     private const long MaxImageBytes = 5L * 1024 * 1024;
     private const long MaxVideoBytes = 100L * 1024 * 1024;
     private static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
     private static readonly string[] VideoExtensions = { ".mp4", ".webm", ".mov" };
-    private static readonly string[] DocumentExtensions = { ".pdf", ".jpg", ".jpeg", ".png", ".webp" };
     private const long MaxDocumentBytes = 10L * 1024 * 1024;
 
     /// <summary>Upper bound for multipart uploads: 1 main + 8 gallery + 3 videos + document plus headroom.</summary>
@@ -92,6 +92,64 @@ public class EventsController : ControllerBase
         return null;
     }
 
+    /// <summary>
+    /// Accepts a JSON string array (or one URL) of http(s) YouTube or live-stream links.
+    /// Empty input stores null. Returns false when a link is not a web address or the list is too long.
+    /// </summary>
+    private static bool TryNormalizeStreamLinks(string? raw, out string? json, out string? error)
+    {
+        json = null;
+        error = null;
+        if (string.IsNullOrWhiteSpace(raw))
+            return true;
+
+        List<string>? items;
+        var trimmed = raw.Trim();
+        if (trimmed.StartsWith('['))
+        {
+            try
+            {
+                items = System.Text.Json.JsonSerializer.Deserialize<List<string>>(trimmed);
+            }
+            catch
+            {
+                error = "YouTube or stream links must be a list of web addresses.";
+                return false;
+            }
+        }
+        else
+        {
+            items = new List<string> { trimmed };
+        }
+
+        var clean = new List<string>();
+        foreach (var item in items ?? new List<string>())
+        {
+            var url = (item ?? "").Trim();
+            if (url.Length == 0)
+                continue;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            {
+                error = "Each YouTube or live stream link must start with http:// or https://.";
+                return false;
+            }
+            var absolute = uri.AbsoluteUri;
+            if (clean.Any(existing => string.Equals(existing, absolute, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            clean.Add(absolute);
+        }
+
+        if (clean.Count > MaxStreamLinks)
+        {
+            error = $"You can add up to {MaxStreamLinks} YouTube or live stream links.";
+            return false;
+        }
+
+        json = clean.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(clean);
+        return true;
+    }
+
     /// <summary>Wedding and Obituary/Funeral require a confirmation document.</summary>
     private static bool RequiresConfirmationDocument(string? eventType)
     {
@@ -113,8 +171,6 @@ public class EventsController : ControllerBase
         if (document == null || document.Length == 0)
             return null;
 
-        if (!HasExtension(document, DocumentExtensions))
-            return "Confirmation document must be a PDF or image (pdf, jpg, jpeg, png, webp).";
         if (document.Length > MaxDocumentBytes)
             return "Confirmation document must be 10 MB or smaller.";
 
@@ -316,14 +372,11 @@ public class EventsController : ControllerBase
                 e.EventDate,
                 e.BirthDate,
                 e.DeathDate,
-                e.WeddingDate,
-                e.Location,
                 e.Country,
                 e.MainImageUrl,
                 e.CreatedBy,
                 e.CreatedAt,
-                e.Wishes.Count,
-                e.Visibility
+                e.Wishes.Count
             ))
             .ToListAsync();
 
@@ -458,7 +511,7 @@ public class EventsController : ControllerBase
             {
                 x.w.Id,
                 x.w.SenderName,
-                x.w.Message,
+                MessagePreview = x.w.Message.Length <= 100 ? x.w.Message : x.w.Message.Substring(0, 100),
                 x.w.CreatedAt,
                 x.w.EventId,
                 EventTitle = x.ev.Title,
@@ -467,26 +520,14 @@ public class EventsController : ControllerBase
             .ToListAsync();
 
         var baseUrl = _fileStorage.GetBaseUrl(Request);
-        static string Preview(string msg, int max)
-        {
-            if (string.IsNullOrEmpty(msg)) return "";
-            var t = msg.Trim();
-            return t.Length <= max ? t : t[..max].TrimEnd() + "…";
-        }
-
-        string? Img(string? u) =>
-            u != null && u.StartsWith('/') && !u.StartsWith("//", StringComparison.Ordinal)
-                ? baseUrl + u
-                : u;
-
         var result = wishesData.Select(w => new RecentWishSidebarDto(
             w.Id,
             w.SenderName,
-            Preview(w.Message, 100),
+            w.MessagePreview,
             w.CreatedAt,
             w.EventId,
             w.EventTitle,
-            Img(w.EventMainImage)
+            FileStorageService.NormalizeUrl(w.EventMainImage, baseUrl)
         )).ToList();
 
         return Ok(result);
@@ -497,20 +538,12 @@ public class EventsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<EventManageStatsDto>> GetManageEventStats()
     {
-        var rows = await _db.Events.AsNoTracking()
-            .GroupJoin(
-                _db.Users.AsNoTracking(),
-                e => e.UserId,
-                u => u.Id,
-                (e, users) => new { e, u = users.FirstOrDefault() })
-            .Select(x => x.u != null && x.u.Role == "Admin" ? "Admin" : "Customer")
-            .GroupBy(role => role)
-            .Select(g => new { Role = g.Key, Count = g.Count() })
-            .ToListAsync();
-
-        var adminCount = rows.FirstOrDefault(x => x.Role == "Admin")?.Count ?? 0;
-        var customerCount = rows.FirstOrDefault(x => x.Role == "Customer")?.Count ?? 0;
-        return Ok(new EventManageStatsDto(adminCount, customerCount));
+        var adminCount = await _db.Events.AsNoTracking()
+            .CountAsync(e => e.User != null && e.User.Role == "Admin");
+        var customerPublished = await _db.Events.AsNoTracking()
+            .CountAsync(e => e.User == null || e.User.Role != "Admin");
+        var pendingDrafts = await _db.PendingEvents.AsNoTracking().CountAsync();
+        return Ok(new EventManageStatsDto(adminCount, customerPublished + pendingDrafts));
     }
 
     /// <summary>Admin portal: all platform events, optionally filtered by creator role.</summary>
@@ -606,14 +639,9 @@ public class EventsController : ControllerBase
         var drafts = await _db.PendingEvents.AsNoTracking()
             .Where(d => d.UserId == userId.Value)
             .OrderByDescending(d => d.CreatedAt)
-            .ToListAsync();
-
-        var items = drafts.Select(d =>
-        {
-            var main = d.MainImagePath;
-            if (!string.IsNullOrEmpty(main) && main.StartsWith('/') && !main.StartsWith("//", StringComparison.Ordinal))
-                main = baseUrl + main;
-            return new CustomerDraftListDto(
+            .Take(100)
+            .Select(d => new
+            {
                 d.Id,
                 d.Title,
                 d.EventType,
@@ -624,10 +652,25 @@ public class EventsController : ControllerBase
                 d.PaymentReceived,
                 d.PaymentMethod,
                 d.CreatedAt,
-                main,
+                d.MainImagePath,
                 d.OfflineSubmittedAt
-            );
-        }).ToList();
+            })
+            .ToListAsync();
+
+        var items = drafts.Select(d => new CustomerDraftListDto(
+            d.Id,
+            d.Title,
+            d.EventType,
+            d.EventDate,
+            d.DisplayDays,
+            d.AmountPaid,
+            d.AwaitingOfflineApproval,
+            d.PaymentReceived,
+            d.PaymentMethod,
+            d.CreatedAt,
+            FileStorageService.NormalizeUrl(d.MainImagePath, baseUrl),
+            d.OfflineSubmittedAt
+        )).ToList();
 
         return Ok(items);
     }
@@ -640,19 +683,17 @@ public class EventsController : ControllerBase
         var userId = _jwt.GetUserIdFromClaims(User);
         if (userId == null) return Unauthorized();
 
-        var ev = await _db.Events
-            .AsNoTracking()
-            .Include(e => e.Wishes)
-            .Include(e => e.Invites)
-            .FirstOrDefaultAsync(e => e.Id == id);
-
+        var ev = await _db.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id);
         if (ev == null) return NotFound();
 
         var baseUrl = _fileStorage.GetBaseUrl(Request);
         var mainImage = FileStorageService.NormalizeUrl(ev.MainImageUrl, baseUrl);
 
         var invitedEmailsList = ev.Visibility == "InviteOnly"
-            ? ev.Invites.Select(i => i.InvitedEmail).ToList()
+            ? await _db.EventInvites.AsNoTracking()
+                .Where(i => i.EventId == id)
+                .Select(i => i.InvitedEmail)
+                .ToListAsync()
             : new List<string>();
 
         return Ok(new EventDetailDto(
@@ -671,12 +712,15 @@ public class EventsController : ControllerBase
             FileStorageService.NormalizeJsonArrayUrls(ev.VideoUrls, baseUrl),
             ev.CreatedBy,
             ev.CreatedAt,
-            ev.Wishes.OrderByDescending(w => w.CreatedAt).Select(w => new WishDto(w.Id, w.SenderName, w.Message, w.MediaUrl, w.CreatedAt)).ToList(),
+            new List<WishDto>(),
             ev.Visibility,
             ev.PaymentReceived,
             true,
             invitedEmailsList,
-            ev.MobileNumber
+            ev.MobileNumber,
+            ev.DisplayDays,
+            FileStorageService.NormalizeUrl(ev.ConfirmationDocumentUrl, baseUrl),
+            ev.StreamLinks
         ));
     }
 
@@ -726,6 +770,7 @@ public class EventsController : ControllerBase
             .AsNoTracking()
             .Where(e => !e.PaymentReceived && (e.User == null || e.User.Role == "Admin"))
             .OrderByDescending(e => e.CreatedAt)
+            .Take(200)
             .Select(e => new
             {
                 e.Id,
@@ -795,24 +840,36 @@ public class EventsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Public feed counts by country. Same eligibility as the anonymous feed:
+    /// published, paid, Visibility = Public, and still within the display window.
+    /// </summary>
     [HttpGet("stats/count-by-country")]
+    [AllowAnonymous]
     [Microsoft.AspNetCore.OutputCaching.OutputCache(PolicyName = "CountryStats")]
     public async Task<ActionResult<List<CountryCountDto>>> GetCountryStats()
     {
         var now = DateTime.UtcNow;
-        var stats = await _db.Events
+        var rows = await _db.Events
             .AsNoTracking()
             .Where(e => e.IsPublished
                 && e.PaymentReceived
-                && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now)
                 && e.Visibility == "Public"
-                && e.Country != null && e.Country != "")
-            .GroupBy(e => e.Country!)
-            .Select(g => new CountryCountDto(g.Key, g.Count()))
-            .OrderByDescending(x => x.Count)
+                && (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now)
+                && e.Country != null
+                && e.Country != "")
+            .GroupBy(e => e.Country)
+            .Select(g => new { Country = g.Key, Count = g.Count() })
             .ToListAsync();
 
-        return Ok(stats);
+        var countries = rows
+            .Where(x => !string.IsNullOrEmpty(x.Country))
+            .OrderByDescending(x => x.Count)
+            .ThenBy(x => x.Country)
+            .Select(x => new CountryCountDto(x.Country!, x.Count))
+            .ToList();
+
+        return Ok(countries);
     }
 
     /// <summary>Recent wishes on public events (for customer feed sidebars).</summary>
@@ -838,7 +895,7 @@ public class EventsController : ControllerBase
             {
                 x.w.Id,
                 x.w.SenderName,
-                x.w.Message,
+                MessagePreview = x.w.Message.Length <= 100 ? x.w.Message : x.w.Message.Substring(0, 100),
                 x.w.CreatedAt,
                 x.w.EventId,
                 EventTitle = x.ev.Title,
@@ -847,26 +904,14 @@ public class EventsController : ControllerBase
             .ToListAsync();
 
         var baseUrl = _fileStorage.GetBaseUrl(Request);
-        static string Preview(string msg, int max)
-        {
-            if (string.IsNullOrEmpty(msg)) return "";
-            var t = msg.Trim();
-            return t.Length <= max ? t : t[..max].TrimEnd() + "…";
-        }
-
-        string? Img(string? u) =>
-            u != null && u.StartsWith('/') && !u.StartsWith("//", StringComparison.Ordinal)
-                ? baseUrl + u
-                : u;
-
         var result = wishesData.Select(w => new RecentWishSidebarDto(
             w.Id,
             w.SenderName,
-            Preview(w.Message, 100),
+            w.MessagePreview,
             w.CreatedAt,
             w.EventId,
             w.EventTitle,
-            Img(w.EventMainImage)
+            FileStorageService.NormalizeUrl(w.EventMainImage, baseUrl)
         )).ToList();
 
         return Ok(result);
@@ -878,8 +923,6 @@ public class EventsController : ControllerBase
         var now = DateTime.UtcNow;
         var ev = await _db.Events
             .AsNoTracking()
-            .Include(e => e.Wishes)
-            .Include(e => e.Invites)
             .FirstOrDefaultAsync(e => e.Id == id && e.IsPublished && e.PaymentReceived &&
                 (e.DisplayValidityEndDate == null || e.DisplayValidityEndDate > now));
 
@@ -890,17 +933,34 @@ public class EventsController : ControllerBase
         var userEmail = _jwt.GetUserEmailFromClaims(User)?.Trim().ToLowerInvariant();
         var isOwner = ev.UserId.HasValue && ev.UserId == userId;
 
-        var canView = ev.Visibility == "Public" ||
-            (isOwner) ||
-            (ev.Visibility == "InviteOnly" && userId.HasValue && !string.IsNullOrEmpty(userEmail) &&
-                ev.Invites.Any(i => i.InvitedEmail.Trim().ToLower() == userEmail)) ||
+        var canView = ev.Visibility == "Public" || isOwner ||
             (ev.Visibility == "Private" && isOwner);
+        if (!canView && ev.Visibility == "InviteOnly" && userId.HasValue && !string.IsNullOrEmpty(userEmail))
+        {
+            canView = await _db.EventInvites.AsNoTracking().AnyAsync(i =>
+                i.EventId == ev.Id && i.InvitedEmail.Trim().ToLower() == userEmail);
+        }
 
         if (!canView)
             return NotFound();
 
         var baseUrl = _fileStorage.GetBaseUrl(Request);
         var mainImage = FileStorageService.NormalizeUrl(ev.MainImageUrl, baseUrl);
+
+        var wishCount = await _db.Wishes.AsNoTracking().CountAsync(w => w.EventId == id);
+        var wishes = await _db.Wishes.AsNoTracking()
+            .Where(w => w.EventId == id)
+            .OrderByDescending(w => w.CreatedAt)
+            .Take(100)
+            .Select(w => new WishDto(w.Id, w.SenderName, w.Message, w.MediaUrl, w.CreatedAt))
+            .ToListAsync();
+
+        var invitedEmailsList = isOwner && ev.Visibility == "InviteOnly"
+            ? await _db.EventInvites.AsNoTracking()
+                .Where(i => i.EventId == id)
+                .Select(i => i.InvitedEmail)
+                .ToListAsync()
+            : new List<string>();
 
         return Ok(new EventDetailDto(
             ev.Id,
@@ -918,12 +978,14 @@ public class EventsController : ControllerBase
             FileStorageService.NormalizeJsonArrayUrls(ev.VideoUrls, baseUrl),
             ev.CreatedBy,
             ev.CreatedAt,
-            ev.Wishes.OrderByDescending(w => w.CreatedAt).Select(w => new WishDto(w.Id, w.SenderName, w.Message, w.MediaUrl, w.CreatedAt)).ToList(),
+            wishes,
             ev.Visibility,
             ev.PaymentReceived,
             isOwner,
-            isOwner ? ev.Invites.Select(i => i.InvitedEmail).ToList() : new List<string>(),
-            ev.MobileNumber
+            invitedEmailsList,
+            ev.MobileNumber,
+            StreamLinks: ev.StreamLinks,
+            WishCount: wishCount
         ));
     }
 
@@ -941,6 +1003,9 @@ public class EventsController : ControllerBase
         var mediaError = ValidateEventMedia(dto.MainImage, dto.GalleryImages, dto.Videos, mainImageRequired: true);
         if (mediaError != null)
             return BadRequest(new { message = mediaError });
+
+        if (!TryNormalizeStreamLinks(dto.StreamLinks, out var streamLinksJson, out var streamError))
+            return BadRequest(new { message = streamError });
 
         var docError = ValidateConfirmationDocument(dto.EventType, dto.ConfirmationDocument, requiredWhenTypeMatches: true);
         if (docError != null)
@@ -968,6 +1033,7 @@ public class EventsController : ControllerBase
             Country = dto.Country,
             MainImagePath = null,
             GalleryPathsJson = null,
+            StreamLinksJson = streamLinksJson,
             ConfirmationDocumentPath = null,
             CreatedBy = createdBy,
             MobileNumber = mobile,
@@ -998,7 +1064,7 @@ public class EventsController : ControllerBase
             {
                 _db.PendingEvents.Remove(draft);
                 await _db.SaveChangesAsync();
-                return BadRequest(new { message = "Confirmation document could not be saved. Use pdf, jpg, jpeg, png, or webp up to 10 MB." });
+                return BadRequest(new { message = "Confirmation document could not be saved. Use a file up to 10 MB." });
             }
         }
 
@@ -1051,6 +1117,9 @@ public class EventsController : ControllerBase
         var mediaError = ValidateEventMedia(dto.MainImage, dto.GalleryImages, dto.Videos, mainImageRequired: true);
         if (mediaError != null)
             return BadRequest(new { message = mediaError });
+
+        if (!TryNormalizeStreamLinks(dto.StreamLinks, out var streamLinksJson, out var streamError))
+            return BadRequest(new { message = streamError });
 
         var docError = ValidateConfirmationDocument(dto.EventType, dto.ConfirmationDocument, requiredWhenTypeMatches: true);
         if (docError != null)
@@ -1132,6 +1201,8 @@ public class EventsController : ControllerBase
                 ev.VideoUrls = System.Text.Json.JsonSerializer.Serialize(list);
         }
 
+        ev.StreamLinks = streamLinksJson;
+
         if (RequiresConfirmationDocument(dto.EventType) && dto.ConfirmationDocument != null)
         {
             var docPath = await _fileStorage.SaveConfirmationDocumentAsync(dto.ConfirmationDocument, ev.Id);
@@ -1139,7 +1210,7 @@ public class EventsController : ControllerBase
             {
                 _db.Events.Remove(ev);
                 await _db.SaveChangesAsync(cancellationToken);
-                return BadRequest(new { message = "Confirmation document could not be saved. Use pdf, jpg, jpeg, png, or webp up to 10 MB." });
+                return BadRequest(new { message = "Confirmation document could not be saved. Use a file up to 10 MB." });
             }
             ev.ConfirmationDocumentUrl = docPath;
         }
@@ -1192,7 +1263,8 @@ public class EventsController : ControllerBase
             ev.PaymentReceived,
             true,
             invitedEmailsList,
-            ev.MobileNumber
+            ev.MobileNumber,
+            StreamLinks: ev.StreamLinks
         ));
     }
 
@@ -1212,6 +1284,25 @@ public class EventsController : ControllerBase
         var mediaError = ValidateEventMedia(dto.MainImage, dto.GalleryImages, dto.Videos, mainImageRequired: false);
         if (mediaError != null)
             return BadRequest(new { message = mediaError });
+
+        var effectiveType = !string.IsNullOrWhiteSpace(dto.EventType) ? dto.EventType : ev.EventType;
+        var docRequired = RequiresConfirmationDocument(effectiveType)
+            && string.IsNullOrWhiteSpace(ev.ConfirmationDocumentUrl)
+            && (dto.ConfirmationDocument == null || dto.ConfirmationDocument.Length == 0);
+        if (docRequired)
+            return BadRequest(new { message = "A confirmation document is required for Wedding and Funeral (Obituary) events." });
+
+        var docError = ValidateConfirmationDocument(effectiveType, dto.ConfirmationDocument, requiredWhenTypeMatches: false);
+        if (docError != null)
+            return BadRequest(new { message = docError });
+
+        if (dto.DisplayDays.HasValue && _pricing.GetOption(dto.DisplayDays.Value) == null)
+        {
+            return BadRequest(new
+            {
+                message = "Invalid display duration. Choose 1 month (30 days), 3 months (90 days), 6 months (180 days), or 12 months (365 days)."
+            });
+        }
 
         var storageUserId = ev.UserId ?? userId.Value;
         var baseUrl = _fileStorage.GetBaseUrl(Request);
@@ -1242,13 +1333,38 @@ public class EventsController : ControllerBase
             id,
             baseUrl);
 
+        if (dto.ConfirmationDocument != null && dto.ConfirmationDocument.Length > 0)
+        {
+            var docPath = await _fileStorage.SaveConfirmationDocumentAsync(dto.ConfirmationDocument, id);
+            if (docPath == null)
+                return BadRequest(new { message = "Confirmation document could not be saved. Use a file up to 10 MB." });
+            ev.ConfirmationDocumentUrl = docPath;
+        }
+
         ev.Title = dto.Title ?? ev.Title;
         ev.Description = dto.Description ?? ev.Description;
-        ev.EventType = dto.EventType ?? ev.EventType;
+        ev.EventType = effectiveType;
         if (dto.EventDate.HasValue) ev.EventDate = dto.EventDate.Value;
-        ev.BirthDate = dto.BirthDate ?? ev.BirthDate;
-        ev.DeathDate = dto.DeathDate ?? ev.DeathDate;
-        ev.WeddingDate = dto.WeddingDate ?? ev.WeddingDate;
+
+        var isMemorial = effectiveType.Equals("Obituary", StringComparison.OrdinalIgnoreCase)
+            || effectiveType.Equals("Remembrance", StringComparison.OrdinalIgnoreCase)
+            || effectiveType.Equals("Funeral", StringComparison.OrdinalIgnoreCase);
+        if (isMemorial)
+        {
+            ev.BirthDate = dto.BirthDate ?? ev.BirthDate;
+            ev.DeathDate = dto.DeathDate ?? ev.DeathDate;
+        }
+        else
+        {
+            ev.BirthDate = null;
+            ev.DeathDate = null;
+        }
+
+        if (effectiveType.Equals("Wedding", StringComparison.OrdinalIgnoreCase))
+            ev.WeddingDate = dto.WeddingDate ?? ev.WeddingDate;
+        else
+            ev.WeddingDate = null;
+
         ev.Location = dto.Location ?? ev.Location;
         ev.Country = dto.Country ?? ev.Country;
         if (dto.MobileNumber != null)
@@ -1261,9 +1377,24 @@ public class EventsController : ControllerBase
         ev.MainImageUrl = mainImageUrl;
         ev.GalleryUrls = galleryUrls;
         ev.VideoUrls = videoUrls;
+        if (dto.StreamLinks != null)
+        {
+            if (!TryNormalizeStreamLinks(dto.StreamLinks, out var streamLinksJson, out var streamError))
+                return BadRequest(new { message = streamError });
+            ev.StreamLinks = streamLinksJson;
+        }
         ev.Visibility = dto.Visibility ?? ev.Visibility;
         if (dto.PaymentReceived.HasValue)
             ev.PaymentReceived = dto.PaymentReceived.Value;
+
+        if (dto.DisplayDays.HasValue)
+        {
+            var option = _pricing.GetOption(dto.DisplayDays.Value)!;
+            ev.DisplayDays = option.Days;
+            if (ev.PaymentReceived)
+                ev.AmountPaid = option.Price;
+            ev.DisplayValidityEndDate = DateTime.UtcNow.AddDays(option.Days);
+        }
 
         if (dto.IsPublished.HasValue)
             ev.IsPublished = dto.IsPublished.Value;
@@ -1276,7 +1407,14 @@ public class EventsController : ControllerBase
             });
         }
 
-        if (ev.Visibility == "InviteOnly" && dto.InvitedEmails != null)
+        if (ev.Visibility != "InviteOnly")
+        {
+            var leftoverInvites = await _db.EventInvites.Where(i => i.EventId == id).ToListAsync();
+            if (leftoverInvites.Count > 0)
+                _db.EventInvites.RemoveRange(leftoverInvites);
+            await _db.SaveChangesAsync();
+        }
+        else if (dto.InvitedEmails != null)
         {
             var existingInvites = await _db.EventInvites.Where(i => i.EventId == id).ToListAsync();
             var previousEmails = existingInvites
@@ -1316,8 +1454,6 @@ public class EventsController : ControllerBase
             : new List<string>();
 
         var mainImg = FileStorageService.NormalizeUrl(ev.MainImageUrl, baseUrl);
-        var wishes = await _db.Wishes.Where(w => w.EventId == id).OrderByDescending(w => w.CreatedAt)
-            .Select(w => new WishDto(w.Id, w.SenderName, w.Message, w.MediaUrl, w.CreatedAt)).ToListAsync();
 
         return Ok(new EventDetailDto(
             ev.Id,
@@ -1335,12 +1471,15 @@ public class EventsController : ControllerBase
             FileStorageService.NormalizeJsonArrayUrls(ev.VideoUrls, baseUrl),
             ev.CreatedBy,
             ev.CreatedAt,
-            wishes,
+            new List<WishDto>(),
             ev.Visibility,
             ev.PaymentReceived,
             true,
             invitedEmailsList,
-            ev.MobileNumber
+            ev.MobileNumber,
+            ev.DisplayDays,
+            FileStorageService.NormalizeUrl(ev.ConfirmationDocumentUrl, baseUrl),
+            ev.StreamLinks
         ));
     }
 
@@ -1355,6 +1494,79 @@ public class EventsController : ControllerBase
         _db.Events.Remove(ev);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    /// <summary>Admin: unpublished customer-portal drafts (not yet published to the feed).</summary>
+    [HttpGet("manage/pending-drafts")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<IReadOnlyList<CustomerDraftListDto>>> GetManagePendingDrafts()
+    {
+        var baseUrl = _fileStorage.GetBaseUrl(Request);
+        var awaiting = await _db.PendingEvents.AsNoTracking()
+            .Where(d => d.AwaitingOfflineApproval)
+            .OrderByDescending(d => d.CreatedAt)
+            .Take(200)
+            .Select(d => new
+            {
+                d.Id,
+                d.Title,
+                d.EventType,
+                d.EventDate,
+                d.DisplayDays,
+                d.AmountPaid,
+                d.AwaitingOfflineApproval,
+                d.PaymentReceived,
+                d.PaymentMethod,
+                d.CreatedAt,
+                d.MainImagePath,
+                d.OfflineSubmittedAt,
+                d.ReferenceCode,
+                OwnerDisplayName = d.User != null ? d.User.DisplayName : null,
+                OwnerEmail = d.User != null ? d.User.Email : null
+            })
+            .ToListAsync();
+        var recent = await _db.PendingEvents.AsNoTracking()
+            .Where(d => !d.AwaitingOfflineApproval)
+            .OrderByDescending(d => d.CreatedAt)
+            .Take(100)
+            .Select(d => new
+            {
+                d.Id,
+                d.Title,
+                d.EventType,
+                d.EventDate,
+                d.DisplayDays,
+                d.AmountPaid,
+                d.AwaitingOfflineApproval,
+                d.PaymentReceived,
+                d.PaymentMethod,
+                d.CreatedAt,
+                d.MainImagePath,
+                d.OfflineSubmittedAt,
+                d.ReferenceCode,
+                OwnerDisplayName = d.User != null ? d.User.DisplayName : null,
+                OwnerEmail = d.User != null ? d.User.Email : null
+            })
+            .ToListAsync();
+        var drafts = awaiting.Concat(recent).ToList();
+
+        return Ok(drafts.Select(d => new CustomerDraftListDto(
+            d.Id,
+            d.Title,
+            d.EventType,
+            d.EventDate,
+            d.DisplayDays,
+            d.AmountPaid,
+            d.AwaitingOfflineApproval,
+            d.PaymentReceived,
+            d.PaymentMethod,
+            d.CreatedAt,
+            FileStorageService.NormalizeUrl(d.MainImagePath, baseUrl),
+            d.OfflineSubmittedAt,
+            d.OwnerDisplayName,
+            d.OwnerEmail,
+            d.ReferenceCode
+        )).ToList());
     }
 
     /// <summary>Admin edits a customer pending draft before publish.</summary>
@@ -1401,7 +1613,7 @@ public class EventsController : ControllerBase
         {
             var docPath = await _fileStorage.SaveConfirmationDocumentAsync(dto.ConfirmationDocument, draftId);
             if (docPath == null)
-                return BadRequest(new { message = "Confirmation document could not be saved. Use pdf, jpg, jpeg, png, or webp up to 10 MB." });
+                return BadRequest(new { message = "Confirmation document could not be saved. Use a file up to 10 MB." });
             draft.ConfirmationDocumentPath = docPath;
         }
 
@@ -1420,6 +1632,13 @@ public class EventsController : ControllerBase
             draftId,
             baseUrl);
 
+        if (dto.StreamLinks != null)
+        {
+            if (!TryNormalizeStreamLinks(dto.StreamLinks, out var streamLinksJson, out var streamError))
+                return BadRequest(new { message = streamError });
+            draft.StreamLinksJson = streamLinksJson;
+        }
+
         if (!string.IsNullOrWhiteSpace(dto.Title))
             draft.Title = dto.Title;
         if (!string.IsNullOrWhiteSpace(dto.Description))
@@ -1428,12 +1647,33 @@ public class EventsController : ControllerBase
             draft.EventType = dto.EventType;
         if (dto.EventDate.HasValue)
             draft.EventDate = dto.EventDate.Value;
-        if (dto.BirthDate.HasValue)
-            draft.BirthDate = dto.BirthDate;
-        if (dto.DeathDate.HasValue)
-            draft.DeathDate = dto.DeathDate;
-        if (dto.WeddingDate.HasValue)
-            draft.WeddingDate = dto.WeddingDate;
+
+        var isMemorial = effectiveType.Equals("Obituary", StringComparison.OrdinalIgnoreCase)
+            || effectiveType.Equals("Remembrance", StringComparison.OrdinalIgnoreCase)
+            || effectiveType.Equals("Funeral", StringComparison.OrdinalIgnoreCase);
+        if (isMemorial)
+        {
+            if (dto.BirthDate.HasValue)
+                draft.BirthDate = dto.BirthDate;
+            if (dto.DeathDate.HasValue)
+                draft.DeathDate = dto.DeathDate;
+        }
+        else
+        {
+            draft.BirthDate = null;
+            draft.DeathDate = null;
+        }
+
+        if (effectiveType.Equals("Wedding", StringComparison.OrdinalIgnoreCase))
+        {
+            if (dto.WeddingDate.HasValue)
+                draft.WeddingDate = dto.WeddingDate;
+        }
+        else
+        {
+            draft.WeddingDate = null;
+        }
+
         if (dto.Location != null)
             draft.Location = dto.Location;
         if (dto.Country != null)
@@ -1447,13 +1687,34 @@ public class EventsController : ControllerBase
         }
         if (!string.IsNullOrWhiteSpace(dto.Visibility))
             draft.Visibility = dto.Visibility;
-        if (dto.InvitedEmails != null)
+        if (draft.Visibility != "InviteOnly")
+            draft.InvitedEmails = null;
+        else if (dto.InvitedEmails != null)
             draft.InvitedEmails = dto.InvitedEmails;
+
+        if (dto.DisplayDays.HasValue)
+        {
+            var option = _pricing.GetOption(dto.DisplayDays.Value);
+            if (option == null)
+            {
+                return BadRequest(new
+                {
+                    message = "Invalid display duration. Choose 1 month (30 days), 3 months (90 days), 6 months (180 days), or 12 months (365 days)."
+                });
+            }
+            draft.DisplayDays = option.Days;
+            draft.AmountPaid = option.Price;
+        }
+        if (dto.PaymentReceived.HasValue)
+            draft.PaymentReceived = dto.PaymentReceived.Value;
 
         await _db.SaveChangesAsync();
 
         var owner = draft.UserId.HasValue
-            ? await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == draft.UserId.Value)
+            ? await _db.Users.AsNoTracking()
+                .Where(u => u.Id == draft.UserId.Value)
+                .Select(u => new { u.DisplayName, u.Email })
+                .FirstOrDefaultAsync()
             : null;
 
         return Ok(new CustomerDraftDetailDto(
@@ -1484,7 +1745,8 @@ public class EventsController : ControllerBase
             draft.InvitedEmails,
             FileStorageService.NormalizeUrl(draft.ConfirmationDocumentPath, baseUrl),
             draft.ReferenceCode,
-            draft.MobileNumber
+            draft.MobileNumber,
+            draft.StreamLinksJson
         ));
     }
 
@@ -1496,6 +1758,8 @@ public class EventsController : ControllerBase
         var draft = await _db.PendingEvents.FindAsync(draftId);
         if (draft == null)
             return NotFound(new { message = "Draft not found or already published." });
+
+        await _db.AdminNotifications.Where(n => n.PendingEventId == draftId).ExecuteDeleteAsync();
 
         _db.PendingEvents.Remove(draft);
         await _db.SaveChangesAsync();
@@ -1535,6 +1799,8 @@ public class CreateEventFormDto
     public IFormFile? MainImage { get; set; }
     public IEnumerable<IFormFile>? GalleryImages { get; set; }
     public IEnumerable<IFormFile>? Videos { get; set; }
+    /// <summary>JSON array of YouTube or live-stream URLs.</summary>
+    public string? StreamLinks { get; set; }
     /// <summary>Required for Wedding and Obituary/Funeral.</summary>
     public IFormFile? ConfirmationDocument { get; set; }
 }
@@ -1556,6 +1822,8 @@ public class UpdateEventFormDto
     public string? InvitedEmails { get; set; } // Comma-separated for InviteOnly
     public bool? IsPublished { get; set; }
     public bool? PaymentReceived { get; set; }
+    /// <summary>Display plan: 30, 90, 180, or 365 days.</summary>
+    public int? DisplayDays { get; set; }
     public IFormFile? MainImage { get; set; }
     public IEnumerable<IFormFile>? GalleryImages { get; set; }
     public IEnumerable<IFormFile>? Videos { get; set; }
@@ -1570,6 +1838,8 @@ public class UpdateEventFormDto
     public string? KeepGalleryUrls { get; set; }
     /// <summary>Same semantics as KeepGalleryUrls for videos.</summary>
     public string? KeepVideoUrls { get; set; }
+    /// <summary>JSON array of YouTube or live-stream URLs. When provided, replaces stored links (including an empty list).</summary>
+    public string? StreamLinks { get; set; }
 }
 
 public record CountryCountDto(string Country, int Count);

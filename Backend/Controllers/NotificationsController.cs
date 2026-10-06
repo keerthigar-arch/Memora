@@ -42,8 +42,6 @@ public class NotificationsController : ControllerBase
     [HttpGet("unread-count")]
     public async Task<ActionResult<AdminNotificationUnreadCountDto>> GetUnreadCount(CancellationToken ct = default)
     {
-        await _notifications.CleanupStaleNotificationsAsync(ct);
-
         var unread = await _notifications.ActiveNotificationsQuery()
             .CountAsync(n => !n.IsRead, ct);
         return Ok(new AdminNotificationUnreadCountDto(unread));

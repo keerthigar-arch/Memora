@@ -256,6 +256,7 @@ public class PaymentsController : ControllerBase
         var draftMainPath = draft.MainImagePath;
         var draftGalleryJson = draft.GalleryPathsJson;
         var draftVideoJson = draft.VideoPathsJson;
+        var draftStreamLinks = draft.StreamLinksJson;
         var draftConfirmationDoc = draft.ConfirmationDocumentPath;
         var invitedEmailsRaw = draft.InvitedEmails;
         var uid = draft.UserId ?? 0;
@@ -306,6 +307,7 @@ public class PaymentsController : ControllerBase
         ev.MainImageUrl = FileStorageService.RewriteMediaPathAfterPublish(draftMainPath, uid, draftId, ev.Id);
         ev.GalleryUrls = FileStorageService.RewriteGalleryJsonAfterPublish(draftGalleryJson, uid, draftId, ev.Id);
         ev.VideoUrls = FileStorageService.RewriteGalleryJsonAfterPublish(draftVideoJson, uid, draftId, ev.Id);
+        ev.StreamLinks = draftStreamLinks;
         ev.ConfirmationDocumentUrl = FileStorageService.RewriteMediaPathAfterPublish(draftConfirmationDoc, uid, draftId, ev.Id);
 
         await _db.SaveChangesAsync(ct);
@@ -371,7 +373,8 @@ public class PaymentsController : ControllerBase
             ev.PaymentReceived,
             true,
             invitedEmailsList,
-            ev.MobileNumber
+            ev.MobileNumber,
+            StreamLinks: ev.StreamLinks
         ));
     }
 
@@ -415,30 +418,9 @@ public class PaymentsController : ControllerBase
             .Where(d => d.AwaitingOfflineApproval &&
                         (d.PaymentMethod == null || d.PaymentMethod == "Offline" || d.PaymentMethod == "Card"))
             .OrderByDescending(d => d.OfflineSubmittedAt ?? d.CreatedAt)
-            .ToListAsync(ct);
-
-        var userIds = drafts
-            .Where(d => d.UserId.HasValue)
-            .Select(d => d.UserId!.Value)
-            .Distinct()
-            .ToList();
-        var owners = userIds.Count == 0
-            ? new Dictionary<int, (string DisplayName, string Email)>()
-            : await _db.Users.AsNoTracking()
-                .Where(u => userIds.Contains(u.Id))
-                .ToDictionaryAsync(u => u.Id, u => (u.DisplayName, u.Email), ct);
-
-        var items = drafts.Select(d =>
-        {
-            string? ownerName = null;
-            string? ownerEmail = null;
-            if (d.UserId.HasValue && owners.TryGetValue(d.UserId.Value, out var owner))
+            .Take(200)
+            .Select(d => new
             {
-                ownerName = owner.DisplayName;
-                ownerEmail = owner.Email;
-            }
-
-            return new CustomerDraftListDto(
                 d.Id,
                 d.Title,
                 d.EventType,
@@ -449,13 +431,31 @@ public class PaymentsController : ControllerBase
                 d.PaymentReceived,
                 d.PaymentMethod,
                 d.CreatedAt,
-                FileStorageService.NormalizeUrl(d.MainImagePath, baseUrl),
+                d.MainImagePath,
                 d.OfflineSubmittedAt,
-                ownerName,
-                ownerEmail,
-                d.ReferenceCode
-            );
-        }).ToList();
+                d.ReferenceCode,
+                OwnerDisplayName = d.User != null ? d.User.DisplayName : null,
+                OwnerEmail = d.User != null ? d.User.Email : null
+            })
+            .ToListAsync(ct);
+
+        var items = drafts.Select(d => new CustomerDraftListDto(
+            d.Id,
+            d.Title,
+            d.EventType,
+            d.EventDate,
+            d.DisplayDays,
+            d.AmountPaid,
+            d.AwaitingOfflineApproval,
+            d.PaymentReceived,
+            d.PaymentMethod,
+            d.CreatedAt,
+            FileStorageService.NormalizeUrl(d.MainImagePath, baseUrl),
+            d.OfflineSubmittedAt,
+            d.OwnerDisplayName,
+            d.OwnerEmail,
+            d.ReferenceCode
+        )).ToList();
 
         return Ok(items);
     }
@@ -486,44 +486,37 @@ public class PaymentsController : ControllerBase
         var events = await query
             .OrderByDescending(e => e.CreatedAt)
             .Take(200)
-            .ToListAsync(ct);
-
-        var userIds = events
-            .Where(e => e.UserId.HasValue)
-            .Select(e => e.UserId!.Value)
-            .Distinct()
-            .ToList();
-        var owners = userIds.Count == 0
-            ? new Dictionary<int, (string DisplayName, string Email)>()
-            : await _db.Users.AsNoTracking()
-                .Where(u => userIds.Contains(u.Id))
-                .ToDictionaryAsync(u => u.Id, u => (u.DisplayName, u.Email), ct);
-
-        var items = events.Select(e =>
-        {
-            string? ownerName = null;
-            string? ownerEmail = null;
-            if (e.UserId.HasValue && owners.TryGetValue(e.UserId.Value, out var owner))
+            .Select(e => new
             {
-                ownerName = owner.DisplayName;
-                ownerEmail = owner.Email;
-            }
-
-            return new CustomerPaidEventDto(
                 e.Id,
                 e.Title,
                 e.EventType,
                 e.EventDate,
-                e.DisplayDays ?? 0,
+                e.DisplayDays,
                 e.AmountPaid,
-                e.PaymentMethod!,
+                e.PaymentMethod,
                 e.CreatedAt,
-                FileStorageService.NormalizeUrl(e.MainImageUrl, baseUrl),
-                ownerName,
-                ownerEmail,
-                e.ReferenceCode
-            );
-        }).ToList();
+                e.MainImageUrl,
+                e.ReferenceCode,
+                OwnerDisplayName = e.User != null ? e.User.DisplayName : null,
+                OwnerEmail = e.User != null ? e.User.Email : null
+            })
+            .ToListAsync(ct);
+
+        var items = events.Select(e => new CustomerPaidEventDto(
+            e.Id,
+            e.Title,
+            e.EventType,
+            e.EventDate,
+            e.DisplayDays ?? 0,
+            e.AmountPaid,
+            e.PaymentMethod!,
+            e.CreatedAt,
+            FileStorageService.NormalizeUrl(e.MainImageUrl, baseUrl),
+            e.OwnerDisplayName,
+            e.OwnerEmail,
+            e.ReferenceCode
+        )).ToList();
 
         return Ok(items);
     }
@@ -534,13 +527,42 @@ public class PaymentsController : ControllerBase
     public async Task<ActionResult<CustomerDraftDetailDto>> GetOfflineDraftDetail(int draftId, CancellationToken ct)
     {
         var draft = await _db.PendingEvents.AsNoTracking()
-            .FirstOrDefaultAsync(d => d.Id == draftId, ct);
+            .Where(d => d.Id == draftId)
+            .Select(d => new
+            {
+                d.Id,
+                d.Title,
+                d.Description,
+                d.EventType,
+                d.EventDate,
+                d.BirthDate,
+                d.DeathDate,
+                d.WeddingDate,
+                d.Location,
+                d.Country,
+                d.MainImagePath,
+                d.GalleryPathsJson,
+                d.VideoPathsJson,
+                d.StreamLinksJson,
+                d.CreatedBy,
+                d.Visibility,
+                d.DisplayDays,
+                d.AmountPaid,
+                d.AwaitingOfflineApproval,
+                d.PaymentReceived,
+                d.PaymentMethod,
+                d.CreatedAt,
+                d.OfflineSubmittedAt,
+                d.InvitedEmails,
+                d.ConfirmationDocumentPath,
+                d.ReferenceCode,
+                d.MobileNumber,
+                OwnerDisplayName = d.User != null ? d.User.DisplayName : null,
+                OwnerEmail = d.User != null ? d.User.Email : null
+            })
+            .FirstOrDefaultAsync(ct);
         if (draft == null)
             return NotFound(new { message = "Draft not found or already published." });
-
-        var owner = draft.UserId.HasValue
-            ? await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == draft.UserId.Value, ct)
-            : null;
 
         var baseUrl = _fileStorage.GetBaseUrl(Request);
         var main = FileStorageService.NormalizeUrl(draft.MainImagePath, baseUrl);
@@ -568,12 +590,13 @@ public class PaymentsController : ControllerBase
             draft.PaymentMethod,
             draft.CreatedAt,
             draft.OfflineSubmittedAt,
-            owner?.DisplayName,
-            owner?.Email,
+            draft.OwnerDisplayName,
+            draft.OwnerEmail,
             draft.InvitedEmails,
             FileStorageService.NormalizeUrl(draft.ConfirmationDocumentPath, baseUrl),
             draft.ReferenceCode,
-            draft.MobileNumber
+            draft.MobileNumber,
+            draft.StreamLinksJson
         ));
     }
 

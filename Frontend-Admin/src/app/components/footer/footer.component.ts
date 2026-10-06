@@ -11,16 +11,9 @@ import { AuthService } from '../../services/auth.service';
     <footer class="footer">
       <div class="container footer-main">
         <div class="footer-brand">
-          <a routerLink="/events" class="footer-logo" aria-label="Memora Admin home">
-            <span class="brand-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M12 11.2c-2-4.5-5.9-6.1-9.2-5 0 3.8 2.5 7.3 6.8 7.8 1 .1 1.8-.1 2.4-.5Z" />
-                <path d="M12 11.2c2-4.5 5.9-6.1 9.2-5 0 3.8-2.5 7.3-6.8 7.8-1 .1-1.8-.1-2.4-.5Z" />
-                <path d="M12 11.9c-1.8 3.7-4.9 5-7.4 4.3 0 2.9 2 5.5 5.2 5.8 1 .1 1.8-.2 2.2-.7Z" />
-                <path d="M12 11.9c1.8 3.7 4.9 5 7.4 4.3 0 2.9-2 5.5-5.2 5.8-1 .1-1.8-.2-2.2-.7Z" />
-              </svg>
-            </span>
-            <span class="footer-wordmark">Memora</span>
+          <a routerLink="/events" class="footer-logo" aria-label="தmileye Admin home">
+            <img class="brand-mark" src="assets/brand/smileye-logo.png" alt="" />
+            <span class="footer-wordmark">தmileye</span>
             <span class="footer-admin-tag">Admin</span>
           </a>
           <p class="footer-tagline">
@@ -66,7 +59,7 @@ import { AuthService } from '../../services/auth.service';
 
       <div class="footer-bottom">
         <div class="container footer-bottom-inner">
-          <p class="footer-copy">© {{ year }} Memora. All rights reserved.</p>
+          <p class="footer-copy">© {{ year }} தmileye. All rights reserved.</p>
           <nav class="footer-legal" aria-label="Legal">
             <a href="#" class="footer-legal-link">Privacy</a>
             <a href="#" class="footer-legal-link">Terms</a>
@@ -150,16 +143,12 @@ import { AuthService } from '../../services/auth.service';
         border: 1px solid rgba(255, 255, 255, 0.2);
       }
 
-      .brand-icon {
-        width: 1.125rem;
-        height: 1.125rem;
-        display: inline-flex;
-        color: #b8e6d4;
-      }
-      .brand-icon svg {
-        width: 100%;
-        height: 100%;
-        fill: currentColor;
+      .brand-mark {
+        width: 3.15rem;
+        height: 3.15rem;
+        object-fit: cover;
+        border-radius: 8px;
+        flex-shrink: 0;
       }
 
       .footer-tagline {

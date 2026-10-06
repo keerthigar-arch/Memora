@@ -83,6 +83,7 @@ e2e/*.map
 # wwwroot/media/
 
 # --- Misc ---
+Backend/build-temp/
 *.log
 *.tmp
 *.temp

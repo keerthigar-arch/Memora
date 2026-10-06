@@ -8,6 +8,8 @@ namespace LifeEventsHub.Api.Services;
 public class AdminNotificationService
 {
     private readonly AppDbContext _db;
+    private static readonly object CleanupGate = new();
+    private static DateTime _lastCleanupUtc = DateTime.MinValue;
 
     public AdminNotificationService(AppDbContext db)
     {
@@ -44,21 +46,11 @@ public class AdminNotificationService
     /// <summary>Remove notifications once the event is published (no longer needs admin attention).</summary>
     public async Task ClearNotificationsOnPublishAsync(int? draftId, CancellationToken ct = default)
     {
-        var toRemove = new List<AdminNotification>();
+        if (!draftId.HasValue) return;
 
-        if (draftId.HasValue)
-        {
-            var byDraft = await _db.AdminNotifications
-                .Where(n => n.PendingEventId == draftId.Value)
-                .ToListAsync(ct);
-            toRemove.AddRange(byDraft);
-        }
-
-        if (toRemove.Count > 0)
-        {
-            _db.AdminNotifications.RemoveRange(toRemove);
-            await _db.SaveChangesAsync(ct);
-        }
+        await _db.AdminNotifications
+            .Where(n => n.PendingEventId == draftId.Value)
+            .ExecuteDeleteAsync(ct);
     }
 
     /// <summary>Notifications that still need admin review (customer drafts awaiting approval).</summary>
@@ -76,7 +68,15 @@ public class AdminNotificationService
     /// <summary>Remove legacy rows (published events, missing drafts, old published kind).</summary>
     public async Task CleanupStaleNotificationsAsync(CancellationToken ct = default)
     {
-        var stale = await _db.AdminNotifications
+        var now = DateTime.UtcNow;
+        lock (CleanupGate)
+        {
+            if (now - _lastCleanupUtc < TimeSpan.FromMinutes(2))
+                return;
+            _lastCleanupUtc = now;
+        }
+
+        await _db.AdminNotifications
             .Where(n =>
                 n.EventId != null
                 || n.Kind == "CustomerEventPublished"
@@ -84,12 +84,7 @@ public class AdminNotificationService
                     d.Id == n.PendingEventId
                     && d.AwaitingOfflineApproval
                     && (d.PaymentMethod == null || d.PaymentMethod == "Offline" || d.PaymentMethod == "Card"))))
-            .ToListAsync(ct);
-
-        if (stale.Count == 0) return;
-
-        _db.AdminNotifications.RemoveRange(stale);
-        await _db.SaveChangesAsync(ct);
+            .ExecuteDeleteAsync(ct);
     }
 
     public async Task<IReadOnlyList<AdminNotificationDto>> MapToDtosAsync(

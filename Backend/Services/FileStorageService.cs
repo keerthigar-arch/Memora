@@ -17,7 +17,6 @@ public class FileStorageService
     private static readonly string[] AllowedVideoExtensions = { ".mp4", ".webm", ".mov" };
     private const long MaxVideoFileSize = 100L * 1024 * 1024; // 100MB
 
-    private static readonly string[] AllowedDocumentExtensions = { ".pdf", ".jpg", ".jpeg", ".png", ".webp" };
     private const long MaxDocumentFileSize = 10L * 1024 * 1024; // 10MB
 
     /// <summary>Subfolder under each event id for confirmation documents.</summary>
@@ -133,7 +132,7 @@ public class FileStorageService
 
     /// <summary>
     /// Saves a confirmation document under <c>Event/{serialNumber}/document/{guid}{ext}</c>.
-    /// Allowed: pdf / jpg / jpeg / png / webp, up to 10MB.
+    /// Any file type is accepted, up to 10MB.
     /// Returns relative URL <c>/media/event/{serialNumber}/document/{fileName}</c>.
     /// </summary>
     public async Task<string?> SaveConfirmationDocumentAsync(IFormFile file, int serialNumber)
@@ -141,9 +140,11 @@ public class FileStorageService
         if (file == null || file.Length == 0 || file.Length > MaxDocumentFileSize)
             return null;
 
-        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!AllowedDocumentExtensions.Contains(ext))
-            return null;
+        var ext = Path.GetExtension(file.FileName);
+        if (ext.Length > 12 || !System.Text.RegularExpressions.Regex.IsMatch(ext, @"^\.[A-Za-z0-9]+$"))
+            ext = "";
+        else
+            ext = ext.ToLowerInvariant();
 
         var folder = Path.Combine(_eventRootPath, serialNumber.ToString(), DocumentFolderSegment);
         Directory.CreateDirectory(folder);

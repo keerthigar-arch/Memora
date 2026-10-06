@@ -99,9 +99,11 @@ export interface EventDetailDto {
   mainImageUrl?: string;
   galleryUrls?: string;
   videoUrls?: string;
+  streamLinks?: string | null;
   createdBy: string;
   createdAt: string;
   wishes: WishDto[];
+  wishCount?: number;
   visibility?: string;
   isOwner?: boolean;
   invitedEmails?: string[];

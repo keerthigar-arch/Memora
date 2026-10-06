@@ -2,8 +2,9 @@ import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { ApiService, AdminEventListDto } from '../../services/api.service';
+import { ApiService, AdminEventListDto, CustomerDraftListDto } from '../../services/api.service';
 import { EventStatsService } from '../../services/event-stats.service';
+import { AppDialogService } from '../../services/app-dialog.service';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -14,7 +15,7 @@ import { environment } from '../../../environments/environment';
     <section class="hero">
       <div class="container hero-inner">
         <div class="hero-copy">
-          <p class="hero-kicker">Memora Admin</p>
+          <p class="hero-kicker">தmileye Admin</p>
           <h1>Event Management</h1>
           <p class="hero-sub">
             Manage admin-created and customer-submitted events in separate views.
@@ -65,14 +66,14 @@ import { environment } from '../../../environments/environment';
       </div>
       <div class="filter-toolbar">
         <div class="filter-row">
-          <button type="button" class="filter-btn" [class.active]="!filter()" (click)="setFilter('')">All</button>
-          <button type="button" class="filter-btn" [class.active]="filter() === 'Birthday'" (click)="setFilter('Birthday')">Birthdays</button>
-          <button type="button" class="filter-btn" [class.active]="filter() === 'Puberty Ceremony'" (click)="setFilter('Puberty Ceremony')">Puberty</button>
-          <button type="button" class="filter-btn" [class.active]="filter() === 'Wedding'" (click)="setFilter('Wedding')">Weddings</button>
-          <button type="button" class="filter-btn" [class.active]="filter() === 'Anniversary'" (click)="setFilter('Anniversary')">Anniversaries</button>
-          <button type="button" class="filter-btn" [class.active]="filter() === 'Obituary'" (click)="setFilter('Obituary')">Obituaries</button>
-          <button type="button" class="filter-btn" [class.active]="filter() === 'Remembrance'" (click)="setFilter('Remembrance')">Remembrance</button>
-          <button type="button" class="filter-btn" [class.active]="filter() === 'Other'" (click)="setFilter('Other')">Others</button>
+          <button type="button" class="filter-btn tone-all" [class.active]="!filter()" (click)="setFilter('')">All</button>
+          <button type="button" class="filter-btn tone-birthday" [class.active]="filter() === 'Birthday'" (click)="setFilter('Birthday')">Birthdays</button>
+          <button type="button" class="filter-btn tone-puberty" [class.active]="filter() === 'Puberty Ceremony'" (click)="setFilter('Puberty Ceremony')">Puberty</button>
+          <button type="button" class="filter-btn tone-wedding" [class.active]="filter() === 'Wedding'" (click)="setFilter('Wedding')">Weddings</button>
+          <button type="button" class="filter-btn tone-anniversary" [class.active]="filter() === 'Anniversary'" (click)="setFilter('Anniversary')">Anniversaries</button>
+          <button type="button" class="filter-btn tone-obituary" [class.active]="filter() === 'Obituary'" (click)="setFilter('Obituary')">Obituaries</button>
+          <button type="button" class="filter-btn tone-remembrance" [class.active]="filter() === 'Remembrance'" (click)="setFilter('Remembrance')">Remembrance</button>
+          <button type="button" class="filter-btn tone-other" [class.active]="filter() === 'Other'" (click)="setFilter('Other')">Others</button>
         </div>
       </div>
     </section>
@@ -80,9 +81,9 @@ import { environment } from '../../../environments/environment';
     <section class="feed container">
       @if (error()) {
         <div class="error-state"><p>Unable to load events. Is the API running?</p></div>
-      } @else if (loading() && events().length === 0) {
+      } @else if (loading() && events().length === 0 && pendingDrafts().length === 0) {
         <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
-      } @else if (events().length === 0) {
+      } @else if (events().length === 0 && pendingDrafts().length === 0) {
         <div class="empty-state">
           <span class="empty-icon">✦</span>
           @if (sourceTab() === 'admin') {
@@ -91,10 +92,52 @@ import { environment } from '../../../environments/environment';
             <a routerLink="/create-event" class="btn btn-primary">Create event</a>
           } @else {
             <h3>No customer events yet</h3>
-            <p>Published events created by customers through My Events will appear here.</p>
+            <p>Pending and published events created by customers through My Events appear here.</p>
           }
         </div>
       } @else {
+        @if (sourceTab() === 'customer' && pendingDrafts().length > 0) {
+          <h2 class="section-label">Pending — not yet published</h2>
+          <div class="event-grid pending-grid">
+            @for (d of pendingDrafts(); track 'draft-' + d.id) {
+              <div class="event-card card customer-event">
+                <div class="card-image event-card-thumb">
+                  @if (d.mainImageUrl) {
+                    <img class="event-card-thumb__img" [src]="d.mainImageUrl" [alt]="d.title" loading="lazy" decoding="async" />
+                  }
+                </div>
+                <div class="card-content">
+                  <div class="badges-row">
+                    <span class="owner-badge customer">Customer</span>
+                    <span class="event-type-badge" [ngClass]="getEventTypeClass(d.eventType)">{{ getEventTypeLabel(d.eventType) }}</span>
+                    <span class="status-badge hidden">{{ d.awaitingOfflineApproval ? 'Awaiting publish' : 'Awaiting payment' }}</span>
+                  </div>
+                  <h3>{{ d.title }}</h3>
+                  <div class="card-meta">
+                    <span>{{ d.eventDate | date: 'mediumDate' }}</span>
+                    @if (d.ownerDisplayName) {
+                      <span>By {{ d.ownerDisplayName }}</span>
+                    }
+                    <span>Payment: {{ d.paymentReceived ? 'Received' : 'Pending' }}</span>
+                  </div>
+                  <div class="actions">
+                    <a [routerLink]="['/pending-event', d.id, 'edit']" class="btn btn-sm btn-primary">Edit</a>
+                    <a [routerLink]="['/pending-event', d.id]" class="btn btn-sm btn-outline">Review</a>
+                    <button type="button" class="btn btn-sm btn-danger" (click)="deleteDraft(d)" [disabled]="busyDraftId() === d.id">
+                      @if (busyDraftId() === d.id) {
+                        <span class="btn-spinner" aria-hidden="true"></span>
+                      }
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+          @if (events().length > 0) {
+            <h2 class="section-label">Published customer events</h2>
+          }
+        }
         <div class="event-grid">
           @for (ev of events(); track ev.id) {
             <div class="event-card card" [class.customer-event]="ev.ownerRole === 'Customer'">
@@ -347,19 +390,53 @@ import { environment } from '../../../environments/environment';
     }
     .filter-row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
     .filter-btn {
+      --tone: #334155;
       padding: 0.5rem 1rem;
-      font-weight: 500;
+      font-weight: 600;
       border: 2px solid var(--border);
       background: white;
-      border-radius: var(--radius);
+      color: #334155;
+      border-radius: 999px;
       cursor: pointer;
-      &.active { background: var(--primary); color: white; border-color: var(--primary); }
+      transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+      &.tone-all { --tone: #334155; }
+      &.tone-birthday { --tone: #1d4ed8; }
+      &.tone-puberty { --tone: #4338ca; }
+      &.tone-wedding { --tone: #be185d; }
+      &.tone-anniversary { --tone: #92400e; }
+      &.tone-obituary { --tone: #374151; }
+      &.tone-remembrance { --tone: #5b21b6; }
+      &.tone-other { --tone: #0f766e; }
+      &:hover:not(.active) {
+        border-color: var(--tone);
+        color: var(--tone);
+        background: color-mix(in srgb, var(--tone) 8%, #fff);
+      }
+      &:focus-visible {
+        outline: 2px solid var(--tone);
+        outline-offset: 2px;
+      }
+      &.active {
+        background: var(--tone);
+        color: white;
+        border-color: var(--tone);
+        box-shadow: 0 4px 12px color-mix(in srgb, var(--tone) 32%, transparent);
+      }
     }
     .feed { padding: 2rem var(--container-pad, 1.5rem); }
     .event-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
       gap: 1.5rem;
+    }
+    .pending-grid { margin-bottom: 1.75rem; }
+    .section-label {
+      margin: 0 0 0.85rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #5c726b;
     }
     .event-card {
       display: flex;
@@ -544,6 +621,8 @@ export class EventManagementComponent implements OnInit {
   sourceTab = signal<'admin' | 'customer'>('admin');
   adminCount = signal(0);
   customerCount = signal(0);
+  pendingDrafts = signal<CustomerDraftListDto[]>([]);
+  busyDraftId = signal<number | null>(null);
 
   hasMore = computed(() => {
     const items = this.events().length;
@@ -554,7 +633,8 @@ export class EventManagementComponent implements OnInit {
   constructor(
     private api: ApiService,
     private stats: EventStatsService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private dialogs: AppDialogService
   ) {}
 
   ngOnInit() {
@@ -659,6 +739,26 @@ export class EventManagementComponent implements OnInit {
         this.loading.set(false);
       }
     });
+    if (this.sourceTab() === 'customer' && this.page() === 1) {
+      this.api.getManagePendingDrafts().subscribe({
+        next: (list) => {
+          const type = (evType || '').trim();
+          const q = (search || '').trim().toLowerCase();
+          this.pendingDrafts.set(
+            list.filter((d) => {
+              if (type && d.eventType !== type && !(type === 'Obituary' && d.eventType === 'Funeral')) return false;
+              if (q && !(`${d.title} ${d.ownerDisplayName || ''} ${d.ownerEmail || ''}`.toLowerCase().includes(q))) {
+                return false;
+              }
+              return true;
+            })
+          );
+        },
+        error: () => this.pendingDrafts.set([])
+      });
+    } else if (this.sourceTab() !== 'customer') {
+      this.pendingDrafts.set([]);
+    }
   }
 
   loadMore() {
@@ -668,7 +768,11 @@ export class EventManagementComponent implements OnInit {
 
   togglePublished(ev: AdminEventListDto, published: boolean) {
     if (published && ev.paymentReceived !== true) {
-      alert('Payment is not received. Mark payment received before publishing this event.');
+      void this.dialogs.alert({
+        title: 'Payment not received',
+        message: 'Mark payment as received before publishing this event.',
+        confirmLabel: 'Close'
+      });
       return;
     }
 
@@ -691,13 +795,28 @@ export class EventManagementComponent implements OnInit {
           (published && ev.paymentReceived !== true
             ? 'Payment is not received. Mark payment received before publishing this event.'
             : 'Could not update visibility. Try again.');
-        alert(msg);
+        void this.dialogs.alert({
+          title: 'Could not update visibility',
+          message: msg,
+          confirmLabel: 'Close'
+        });
       }
     });
   }
 
   deleteEvent(ev: AdminEventListDto) {
-    if (!confirm(`Delete "${ev.title}"? This cannot be undone.`)) return;
+    void this.dialogs.confirm({
+      title: 'Delete this event?',
+      message: `“${ev.title}” will be permanently removed from the feed. This cannot be undone.`,
+      confirmLabel: 'Delete event',
+      cancelLabel: 'Keep event',
+      tone: 'danger'
+    }).then((ok) => {
+      if (ok) this.runDeleteEvent(ev);
+    });
+  }
+
+  private runDeleteEvent(ev: AdminEventListDto): void {
     this.busyId.set(ev.id);
     this.busyAction.set('delete');
     this.api.deleteEvent(ev.id).subscribe({
@@ -712,7 +831,42 @@ export class EventManagementComponent implements OnInit {
       error: () => {
         this.busyId.set(null);
         this.busyAction.set(null);
-        alert('Could not delete event.');
+        void this.dialogs.alert({
+          title: 'Could not delete event',
+          message: 'This event could not be deleted. Please try again.',
+          confirmLabel: 'Close'
+        });
+      }
+    });
+  }
+
+  deleteDraft(d: CustomerDraftListDto) {
+    void this.dialogs.confirm({
+      title: 'Delete this draft?',
+      message: `“${d.title}” will be permanently removed. This cannot be undone.`,
+      confirmLabel: 'Delete draft',
+      cancelLabel: 'Keep draft',
+      tone: 'danger'
+    }).then((ok) => {
+      if (ok) this.runDeleteDraft(d);
+    });
+  }
+
+  private runDeleteDraft(d: CustomerDraftListDto): void {
+    this.busyDraftId.set(d.id);
+    this.api.deleteDraft(d.id).subscribe({
+      next: () => {
+        this.pendingDrafts.update((list) => list.filter((x) => x.id !== d.id));
+        this.busyDraftId.set(null);
+        this.loadManageStats();
+      },
+      error: () => {
+        this.busyDraftId.set(null);
+        void this.dialogs.alert({
+          title: 'Could not delete draft',
+          message: 'This draft could not be deleted. Please try again.',
+          confirmLabel: 'Close'
+        });
       }
     });
   }

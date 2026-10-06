@@ -25,7 +25,7 @@ type ContactItem = {
             <div class="hero-inner">
               <p class="hero-kicker">
                 <span class="hero-kicker-rule" aria-hidden="true"></span>
-                Memora
+                தmileye
                 <span class="hero-kicker-rule" aria-hidden="true"></span>
               </p>
               <h1>{{ 'contact.heroTitle' | t }}</h1>
@@ -694,12 +694,6 @@ export class ContactComponent {
   readonly supportEmail = 'support@lifeeventshub.com';
 
   contacts: ContactItem[] = [
-    {
-      country: 'Sri Lanka',
-      hotline: '94112345678',
-      displayNumber: '+94 11 234 5678',
-      note: 'Mon–Sun 9:00–18:00 (Colombo)'
-    },
     {
       country: 'United Kingdom',
       hotline: '442079460123',

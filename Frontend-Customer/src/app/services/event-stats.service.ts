@@ -23,14 +23,15 @@ export class EventStatsService {
   }
 
   loadFromApi() {
-    this.countryStatsLoaded.set(false);
     this.api.getCountryStats().subscribe({
       next: (stats) => {
         this.countrySummary.set(stats ?? []);
         this.countryStatsLoaded.set(true);
       },
       error: () => {
-        this.countrySummary.set([]);
+        if (!this.countryStatsLoaded()) {
+          this.countrySummary.set([]);
+        }
         this.countryStatsLoaded.set(true);
       }
     });

@@ -23,6 +23,8 @@ public class AppDbContext : DbContext
         {
             u.HasIndex(x => x.Email).IsUnique();
             u.HasIndex(x => x.UserName).IsUnique();
+            u.HasIndex(x => x.Role).HasDatabaseName("IX_Users_Role");
+            u.HasIndex(x => x.CreatedAt).HasDatabaseName("IX_Users_CreatedAt");
             u.Property(x => x.CreatedAt).AsUtcTimestamp();
         });
 
@@ -37,11 +39,22 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.EventType);
             e.HasIndex(x => x.CreatedAt);
             e.HasIndex(x => x.Country);
+            e.HasIndex(x => x.EventDate);
             e.HasIndex(x => new { x.UserId, x.CreatedAt });
+            e.HasIndex(x => new { x.UserId, x.IsPublished, x.CreatedAt })
+                .HasDatabaseName("IX_Events_UserId_Published_Created");
             e.HasIndex(x => new { x.IsPublished, x.CreatedAt });
             e.HasIndex(x => x.DisplayValidityEndDate);
             e.HasIndex(x => new { x.IsPublished, x.Visibility, x.DisplayValidityEndDate, x.CreatedAt });
             e.HasIndex(x => new { x.EventType, x.IsPublished, x.CreatedAt });
+            e.HasIndex(x => new { x.IsPublished, x.PaymentReceived, x.Visibility, x.DisplayValidityEndDate, x.CreatedAt })
+                .HasDatabaseName("IX_Events_FeedPaid");
+            e.HasIndex(x => new { x.IsPublished, x.PaymentReceived, x.Visibility, x.Country })
+                .HasDatabaseName("IX_Events_FeedPaid_Country");
+            e.HasIndex(x => new { x.IsPublished, x.PaymentReceived, x.PaymentMethod, x.CreatedAt })
+                .HasDatabaseName("IX_Events_PaidMethod_Created");
+            e.HasIndex(x => new { x.PaymentReceived, x.CreatedAt })
+                .HasDatabaseName("IX_Events_PaymentReceived_CreatedAt");
             e.HasIndex(x => x.ReferenceCode).IsUnique();
 
             e.HasOne(x => x.User)
@@ -76,6 +89,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PasswordResetToken>(t =>
         {
             t.HasIndex(x => x.Token).IsUnique();
+            t.HasIndex(x => new { x.UserId, x.UsedAt }).HasDatabaseName("IX_PasswordResetTokens_UserId_UsedAt");
             t.Property(x => x.ExpiresAt).AsUtcTimestamp();
             t.Property(x => x.CreatedAt).AsUtcTimestamp();
             t.Property(x => x.UsedAt).AsUtcTimestamp();
@@ -90,7 +104,10 @@ public class AppDbContext : DbContext
             p.Property(x => x.CreatedAt).AsUtcTimestamp();
             p.Property(x => x.OfflineSubmittedAt).AsUtcTimestamp();
             p.HasIndex(x => x.UserId);
+            p.HasIndex(x => new { x.UserId, x.CreatedAt }).HasDatabaseName("IX_PendingEvents_UserId_CreatedAt");
             p.HasIndex(x => new { x.AwaitingOfflineApproval, x.CreatedAt });
+            p.HasIndex(x => new { x.AwaitingOfflineApproval, x.PaymentMethod, x.OfflineSubmittedAt })
+                .HasDatabaseName("IX_PendingEvents_Awaiting_Method_Submitted");
             p.HasIndex(x => x.ReferenceCode).IsUnique();
         });
 
@@ -105,6 +122,10 @@ public class AppDbContext : DbContext
             p.HasIndex(x => x.CreatedAt);
             p.HasIndex(x => new { x.Status, x.CreatedAt });
             p.HasIndex(x => x.StripeSessionId);
+            p.HasIndex(x => new { x.PaymentChannel, x.CreatedAt })
+                .HasDatabaseName("IX_PricingOrders_Channel_CreatedAt");
+            p.HasIndex(x => new { x.PaymentChannel, x.DirectManualPaymentReceived, x.CreatedAt })
+                .HasDatabaseName("IX_PricingOrders_Channel_Received_Created");
             p.Property(x => x.CreatedAt).AsUtcTimestamp();
             p.Property(x => x.CompletedAt).AsUtcTimestamp();
             p.Property(x => x.DirectManualPaymentMarkedAt).AsUtcTimestamp();
@@ -117,6 +138,8 @@ public class AppDbContext : DbContext
             n.HasIndex(x => x.PendingEventId);
             n.HasIndex(x => x.IsRead);
             n.HasIndex(x => new { x.IsRead, x.CreatedAt });
+            n.HasIndex(x => new { x.Kind, x.PendingEventId, x.IsRead, x.CreatedAt })
+                .HasDatabaseName("IX_AdminNotifications_Kind_Draft_Read");
             n.Property(x => x.CreatedAt).AsUtcTimestamp();
             n.Property(x => x.ReadAt).AsUtcTimestamp();
         });

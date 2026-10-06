@@ -12,7 +12,7 @@
   --shadow: 0 4px 20px rgba(0,0,0,0.08);
   --shadow-hover: 0 8px 30px rgba(0,0,0,0.12);
   --radius: 12px;
-  --font-display: 'Playfair Display', Georgia, serif;
+  --font-display: 'Playfair Display', 'Noto Sans Tamil', Georgia, serif;
   --font-body: 'DM Sans', 'Noto Sans Tamil', system-ui, sans-serif;
   --font-tamil: 'Noto Sans Tamil', 'DM Sans', system-ui, sans-serif;
 
@@ -516,7 +516,25 @@ a {
 }
 .event-card-thumb .event-type-badge,
 .event-card-thumb .status-badge {
-  z-index: 2;
+  z-index: 4;
+}
+
+.media-no-download {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+img.media-no-download {
+  pointer-events: none;
+}
+.media-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: transparent;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .event-media-frame {

@@ -8,25 +8,23 @@ import {
   OnInit,
   ViewChild,
   computed,
-  effect,
-  signal,
-  untracked
+  signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService, AdminEventListDto, CustomerDraftListDto } from '../../services/api.service';
-import { EventStatsService } from '../../services/event-stats.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { LanguageService } from '../../services/language.service';
 import { formatUsd, periodLabelForDays } from '../../constants/display-plans';
 import { DatePickerComponent } from '../../components/date-picker/date-picker.component';
+import { ProtectMediaDirective } from '../../directives/protect-media.directive';
 
 @Component({
   selector: 'app-my-events',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe, DatePickerComponent],
+  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe, DatePickerComponent, ProtectMediaDirective],
   template: `
     <section class="page-hero">
       <div class="container hero-inner">
@@ -87,14 +85,14 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
           <div class="group">
             <span class="group-label">{{ 'feed.eventType' | t }}</span>
             <div class="filter-row filter-row-types">
-              <button type="button" class="filter-btn" [class.active]="!filter()" (click)="setFilter('')">{{ 'feed.type.all' | t }}</button>
-              <button type="button" class="filter-btn" [class.active]="filter() === 'Birthday'" (click)="setFilter('Birthday')">{{ 'feed.type.birthdays' | t }}</button>
-              <button type="button" class="filter-btn" [class.active]="filter() === 'Puberty Ceremony'" (click)="setFilter('Puberty Ceremony')">{{ 'feed.type.puberty' | t }}</button>
-              <button type="button" class="filter-btn" [class.active]="filter() === 'Wedding'" (click)="setFilter('Wedding')">{{ 'feed.type.weddings' | t }}</button>
-              <button type="button" class="filter-btn" [class.active]="filter() === 'Anniversary'" (click)="setFilter('Anniversary')">{{ 'feed.type.anniversaries' | t }}</button>
-              <button type="button" class="filter-btn" [class.active]="filter() === 'Obituary'" (click)="setFilter('Obituary')">{{ 'feed.type.obituaries' | t }}</button>
-              <button type="button" class="filter-btn" [class.active]="filter() === 'Remembrance'" (click)="setFilter('Remembrance')">{{ 'feed.type.remembrance' | t }}</button>
-              <button type="button" class="filter-btn" [class.active]="filter() === 'Other'" (click)="setFilter('Other')">{{ 'feed.type.others' | t }}</button>
+              <button type="button" class="filter-btn tone-all" [class.active]="!filter()" (click)="setFilter('')">{{ 'feed.type.all' | t }}</button>
+              <button type="button" class="filter-btn tone-birthday" [class.active]="filter() === 'Birthday'" (click)="setFilter('Birthday')">{{ 'feed.type.birthdays' | t }}</button>
+              <button type="button" class="filter-btn tone-puberty" [class.active]="filter() === 'Puberty Ceremony'" (click)="setFilter('Puberty Ceremony')">{{ 'feed.type.puberty' | t }}</button>
+              <button type="button" class="filter-btn tone-wedding" [class.active]="filter() === 'Wedding'" (click)="setFilter('Wedding')">{{ 'feed.type.weddings' | t }}</button>
+              <button type="button" class="filter-btn tone-anniversary" [class.active]="filter() === 'Anniversary'" (click)="setFilter('Anniversary')">{{ 'feed.type.anniversaries' | t }}</button>
+              <button type="button" class="filter-btn tone-obituary" [class.active]="filter() === 'Obituary'" (click)="setFilter('Obituary')">{{ 'feed.type.obituaries' | t }}</button>
+              <button type="button" class="filter-btn tone-remembrance" [class.active]="filter() === 'Remembrance'" (click)="setFilter('Remembrance')">{{ 'feed.type.remembrance' | t }}</button>
+              <button type="button" class="filter-btn tone-other" [class.active]="filter() === 'Other'" (click)="setFilter('Other')">{{ 'feed.type.others' | t }}</button>
             </div>
           </div>
 
@@ -102,10 +100,10 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
             <span class="group-label">{{ 'feed.dateRange' | t }}</span>
             <div class="date-range-head">
               <div class="filter-row">
-                <button type="button" class="filter-btn" [class.active]="dateRange() === 'all'" (click)="setDateRange('all')">{{ 'feed.date.allTime' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="dateRange() === 'thisYear'" (click)="setDateRange('thisYear')">{{ 'feed.date.thisYear' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="dateRange() === 'lastYear'" (click)="setDateRange('lastYear')">{{ 'feed.date.lastYear' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="dateRange() === 'custom'" (click)="toggleCustomDatePicker()">{{ 'feed.date.custom' | t }}</button>
+                <button type="button" class="filter-btn tone-date-all" [class.active]="dateRange() === 'all'" (click)="setDateRange('all')">{{ 'feed.date.allTime' | t }}</button>
+                <button type="button" class="filter-btn tone-date-year" [class.active]="dateRange() === 'thisYear'" (click)="setDateRange('thisYear')">{{ 'feed.date.thisYear' | t }}</button>
+                <button type="button" class="filter-btn tone-date-last" [class.active]="dateRange() === 'lastYear'" (click)="setDateRange('lastYear')">{{ 'feed.date.lastYear' | t }}</button>
+                <button type="button" class="filter-btn tone-date-custom" [class.active]="dateRange() === 'custom'" (click)="toggleCustomDatePicker()">{{ 'feed.date.custom' | t }}</button>
               </div>
             </div>
             @if (showCustomDatePicker()) {
@@ -165,7 +163,8 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                   <a [routerLink]="['/my-events/payment', d.id]" class="event-card event-card--draft">
                     <div class="card-image event-card-thumb">
                       @if (d.mainImageUrl) {
-                        <img class="event-card-thumb__img" [src]="d.mainImageUrl" [alt]="d.title" loading="lazy" decoding="async" />
+                        <img appProtectMedia class="event-card-thumb__img" [src]="d.mainImageUrl" [alt]="d.title" loading="lazy" decoding="async" />
+                        <span class="media-shield" aria-hidden="true" (contextmenu)="$event.preventDefault()" (dragstart)="$event.preventDefault()"></span>
                       }
                       <span class="event-type-badge" [ngClass]="getEventTypeClass(d.eventType)">
                         {{ lang.eventTypeLabel(d.eventType) }}
@@ -189,7 +188,8 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                   <div class="event-card event-card--draft event-card--static">
                     <div class="card-image event-card-thumb">
                       @if (d.mainImageUrl) {
-                        <img class="event-card-thumb__img" [src]="d.mainImageUrl" [alt]="d.title" loading="lazy" decoding="async" />
+                        <img appProtectMedia class="event-card-thumb__img" [src]="d.mainImageUrl" [alt]="d.title" loading="lazy" decoding="async" />
+                        <span class="media-shield" aria-hidden="true" (contextmenu)="$event.preventDefault()" (dragstart)="$event.preventDefault()"></span>
                       }
                       <span class="event-type-badge" [ngClass]="getEventTypeClass(d.eventType)">
                         {{ lang.eventTypeLabel(d.eventType) }}
@@ -212,7 +212,8 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 <a [routerLink]="['/event', ev.id]" [queryParams]="eventLinkQueryParams()" class="event-card">
                   <div class="card-image event-card-thumb">
                     @if (ev.mainImageUrl) {
-                      <img class="event-card-thumb__img" [src]="ev.mainImageUrl" [alt]="ev.title" loading="lazy" decoding="async" />
+                      <img appProtectMedia class="event-card-thumb__img" [src]="ev.mainImageUrl" [alt]="ev.title" loading="lazy" decoding="async" />
+                      <span class="media-shield" aria-hidden="true" (contextmenu)="$event.preventDefault()" (dragstart)="$event.preventDefault()"></span>
                     }
                     <span class="event-type-badge" [ngClass]="getEventTypeClass(ev.eventType)">
                       {{ lang.eventTypeLabel(ev.eventType) }}
@@ -375,8 +376,45 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
     .group { border: 1px solid #e8edf5; border-radius: 11px; padding: 0.52rem 0.55rem; background: linear-gradient(180deg, #fbfcfe 0%, #f7f9fc 100%); }
     .group-label { display: block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #5f6c80; margin-bottom: 0.35rem; }
     .filter-row { display: flex; gap: 0.35rem; flex-wrap: wrap; }
-    .filter-btn { border: 1px solid #d3dbea; border-radius: 999px; background: #fff; color: #334155; font-size: 0.8rem; font-weight: 600; padding: 0.26rem 0.62rem; cursor: pointer; }
-    .filter-btn.active { background: #1f6751; color: #fff; border-color: #1f6751; box-shadow: 0 6px 12px rgba(31, 103, 81, 0.25); }
+    .filter-btn {
+      --tone: #334155;
+      border: 1px solid #d3dbea;
+      border-radius: 999px;
+      background: #fff;
+      color: #334155;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.26rem 0.62rem;
+      cursor: pointer;
+      transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .filter-btn.tone-all { --tone: #334155; }
+    .filter-btn.tone-birthday { --tone: #1d4ed8; }
+    .filter-btn.tone-puberty { --tone: #4338ca; }
+    .filter-btn.tone-wedding { --tone: #be185d; }
+    .filter-btn.tone-anniversary { --tone: #92400e; }
+    .filter-btn.tone-obituary { --tone: #374151; }
+    .filter-btn.tone-remembrance { --tone: #5b21b6; }
+    .filter-btn.tone-other { --tone: #0f766e; }
+    .filter-btn.tone-date-all { --tone: #155e75; }
+    .filter-btn.tone-date-year { --tone: #075985; }
+    .filter-btn.tone-date-last { --tone: #6d28d9; }
+    .filter-btn.tone-date-custom { --tone: #9f1239; }
+    .filter-btn:hover:not(.active) {
+      border-color: var(--tone);
+      color: var(--tone);
+      background: color-mix(in srgb, var(--tone) 8%, #fff);
+    }
+    .filter-btn:focus-visible {
+      outline: 2px solid var(--tone);
+      outline-offset: 2px;
+    }
+    .filter-btn.active {
+      background: var(--tone);
+      color: #fff;
+      border-color: var(--tone);
+      box-shadow: 0 4px 12px color-mix(in srgb, var(--tone) 32%, transparent);
+    }
     .date-inputs { margin-top: 0.45rem; display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.42rem; align-items: end; }
     .custom-picker { padding: 0.35rem; border: 1px solid #e2e8f2; border-radius: 10px; background: #fbfdff; }
     .date-field { display: grid; gap: 0.2rem; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
@@ -534,7 +572,6 @@ export class MyEventsComponent implements OnInit, OnDestroy {
 
   constructor(
     private api: ApiService,
-    private stats: EventStatsService,
     readonly lang: LanguageService,
     private ngZone: NgZone,
     private route: ActivatedRoute,
@@ -544,23 +581,12 @@ export class MyEventsComponent implements OnInit, OnDestroy {
     if (tab === 'pending') {
       this.statusTab.set('pending');
     }
-
-    effect(
-      () => {
-        this.stats.selectedCountry();
-        untracked(() => {
-          this.page.set(1);
-          this.events.set([]);
-          this.loadTabCounts();
-          this.loadEvents();
-        });
-      },
-      { allowSignalWrites: true }
-    );
   }
 
   ngOnInit(): void {
     this.loadDrafts();
+    this.loadTabCounts();
+    this.loadEvents();
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const next: 'published' | 'pending' = params.get('tab') === 'pending' ? 'pending' : 'published';
       if (this.statusTab() === next) return;
@@ -686,12 +712,11 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   }
 
   private loadTabCounts() {
-    const country = this.stats.selectedCountry()?.trim() || undefined;
-    this.api.getMyEvents(1, 1, undefined, undefined, undefined, undefined, country, true).subscribe({
+    this.api.getMyEvents(1, 1, undefined, undefined, undefined, undefined, undefined, true).subscribe({
       next: (res) => this.publishedCount.set(res.total),
       error: () => this.publishedCount.set(0)
     });
-    this.api.getMyEvents(1, 1, undefined, undefined, undefined, undefined, country, false).subscribe({
+    this.api.getMyEvents(1, 1, undefined, undefined, undefined, undefined, undefined, false).subscribe({
       next: (res) => this.pendingEventsCount.set(res.total),
       error: () => this.pendingEventsCount.set(0)
     });
@@ -775,7 +800,6 @@ export class MyEventsComponent implements OnInit, OnDestroy {
   loadEvents() {
     this.error.set(false);
     this.loading.set(true);
-    const country = this.stats.selectedCountry()?.trim() || undefined;
     const published = this.statusTab() === 'published';
     this.api
       .getMyEvents(
@@ -785,7 +809,7 @@ export class MyEventsComponent implements OnInit, OnDestroy {
         this.searchTerm().trim() || undefined,
         this.fromDate() || undefined,
         this.toDate() || undefined,
-        country,
+        undefined,
         published
       )
       .subscribe({

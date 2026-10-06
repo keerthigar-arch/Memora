@@ -18,7 +18,7 @@ const RETURN_STORAGE_KEY = 'memora_pricing_return';
     <div class="order-page">
       <header class="order-hero">
         <div class="container">
-          <p class="order-kicker">Memora · Pricing order</p>
+          <p class="order-kicker">தmileye · Pricing order</p>
           <h1>{{ mode() === 'card' ? 'Pay by card' : 'Direct payment order' }}</h1>
           <p class="order-lede">
             {{

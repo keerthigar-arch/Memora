@@ -5,5 +5,7 @@ export const environment = {
   customerPortalUrl: 'http://localhost:4200',
   /** Separate organizer Angular app */
   adminPortalUrl: 'http://localhost:4201',
-  logoutRedirectUrl: '/'
+  logoutRedirectUrl: '/',
+  /** Sign out after this long with no clicks, typing, or pointer movement. */
+  idleTimeoutMs: 15 * 60 * 1000
 };

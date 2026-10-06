@@ -17,11 +17,12 @@ import { EventStatsService } from '../../services/event-stats.service';
 import { LanguageService } from '../../services/language.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 import { DatePickerComponent } from '../../components/date-picker/date-picker.component';
+import { ProtectMediaDirective } from '../../directives/protect-media.directive';
 
 @Component({
   selector: 'app-feed',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe, DatePickerComponent],
+  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe, DatePickerComponent, ProtectMediaDirective],
   template: `
     <section class="filters-wrap">
       <div class="container filters">
@@ -46,26 +47,57 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
 
           <div class="filter-groups">
             <div class="group">
+              <span class="group-label">{{ 'feed.country' | t }}</span>
+              @if (!stats.countryStatsLoaded()) {
+                <p class="country-loading">{{ 'country.loading' | t }}</p>
+              } @else {
+                <div class="filter-row filter-row-scroll" role="group" [attr.aria-label]="'country.filterAria' | t">
+                  <button
+                    type="button"
+                    class="filter-btn tone-all"
+                    [class.active]="!stats.selectedCountry()"
+                    (click)="setCountry(null)"
+                  >
+                    {{ 'country.all' | t }}
+                  </button>
+                  @for (item of stats.countrySummary(); track item.country; let i = $index) {
+                    <button
+                      type="button"
+                      class="filter-btn"
+                      [ngClass]="'tone-c' + (i % 8)"
+                      [class.active]="stats.selectedCountry() === item.country"
+                      (click)="setCountry(item.country)"
+                      [attr.aria-label]="'country.countAria' | t:{ country: item.country, n: item.count }"
+                    >
+                      {{ item.country }}
+                      <span class="filter-count">{{ item.count }}</span>
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="group">
               <span class="group-label">{{ 'feed.eventType' | t }}</span>
               <div class="filter-row filter-row-scroll" role="group" [attr.aria-label]="'feed.eventType' | t">
-                <button type="button" class="filter-btn" [class.active]="!filter()" (click)="setFilter('')">{{ 'feed.type.all' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="filter() === 'Birthday'" (click)="setFilter('Birthday')">{{ 'feed.type.birthdays' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="filter() === 'Puberty Ceremony'" (click)="setFilter('Puberty Ceremony')">{{ 'feed.type.puberty' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="filter() === 'Wedding'" (click)="setFilter('Wedding')">{{ 'feed.type.weddings' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="filter() === 'Anniversary'" (click)="setFilter('Anniversary')">{{ 'feed.type.anniversaries' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="filter() === 'Obituary'" (click)="setFilter('Obituary')">{{ 'feed.type.obituaries' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="filter() === 'Remembrance'" (click)="setFilter('Remembrance')">{{ 'feed.type.remembrance' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="filter() === 'Other'" (click)="setFilter('Other')">{{ 'feed.type.others' | t }}</button>
+                <button type="button" class="filter-btn tone-all" [class.active]="!filter()" (click)="setFilter('')">{{ 'feed.type.all' | t }}</button>
+                <button type="button" class="filter-btn tone-birthday" [class.active]="filter() === 'Birthday'" (click)="setFilter('Birthday')">{{ 'feed.type.birthdays' | t }}</button>
+                <button type="button" class="filter-btn tone-puberty" [class.active]="filter() === 'Puberty Ceremony'" (click)="setFilter('Puberty Ceremony')">{{ 'feed.type.puberty' | t }}</button>
+                <button type="button" class="filter-btn tone-wedding" [class.active]="filter() === 'Wedding'" (click)="setFilter('Wedding')">{{ 'feed.type.weddings' | t }}</button>
+                <button type="button" class="filter-btn tone-anniversary" [class.active]="filter() === 'Anniversary'" (click)="setFilter('Anniversary')">{{ 'feed.type.anniversaries' | t }}</button>
+                <button type="button" class="filter-btn tone-obituary" [class.active]="filter() === 'Obituary'" (click)="setFilter('Obituary')">{{ 'feed.type.obituaries' | t }}</button>
+                <button type="button" class="filter-btn tone-remembrance" [class.active]="filter() === 'Remembrance'" (click)="setFilter('Remembrance')">{{ 'feed.type.remembrance' | t }}</button>
+                <button type="button" class="filter-btn tone-other" [class.active]="filter() === 'Other'" (click)="setFilter('Other')">{{ 'feed.type.others' | t }}</button>
               </div>
             </div>
 
             <div class="group">
               <span class="group-label">{{ 'feed.dateRange' | t }}</span>
               <div class="filter-row filter-row-scroll" role="group" [attr.aria-label]="'feed.dateRange' | t">
-                <button type="button" class="filter-btn" [class.active]="dateRange() === 'all'" (click)="setDateRange('all')">{{ 'feed.date.allTime' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="dateRange() === 'thisYear'" (click)="setDateRange('thisYear')">{{ 'feed.date.thisYear' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="dateRange() === 'lastYear'" (click)="setDateRange('lastYear')">{{ 'feed.date.lastYear' | t }}</button>
-                <button type="button" class="filter-btn" [class.active]="dateRange() === 'custom'" (click)="toggleCustomDatePicker()">{{ 'feed.date.custom' | t }}</button>
+                <button type="button" class="filter-btn tone-date-all" [class.active]="dateRange() === 'all'" (click)="setDateRange('all')">{{ 'feed.date.allTime' | t }}</button>
+                <button type="button" class="filter-btn tone-date-year" [class.active]="dateRange() === 'thisYear'" (click)="setDateRange('thisYear')">{{ 'feed.date.thisYear' | t }}</button>
+                <button type="button" class="filter-btn tone-date-last" [class.active]="dateRange() === 'lastYear'" (click)="setDateRange('lastYear')">{{ 'feed.date.lastYear' | t }}</button>
+                <button type="button" class="filter-btn tone-date-custom" [class.active]="dateRange() === 'custom'" (click)="toggleCustomDatePicker()">{{ 'feed.date.custom' | t }}</button>
               </div>
               @if (showCustomDatePicker()) {
                 <div class="date-inputs custom-picker">
@@ -110,8 +142,13 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
           } @else if (events().length === 0) {
             <div class="empty-state">
               <span class="empty-mark" aria-hidden="true">✦</span>
-              <h3>{{ 'feed.emptyTitle' | t }}</h3>
-              <p class="empty-lede">{{ 'feed.emptyHint' | t }}</p>
+              @if (stats.selectedCountry()) {
+                <h3>{{ 'feed.emptyCountryTitle' | t:{ country: stats.selectedCountry()! } }}</h3>
+                <p class="empty-lede">{{ 'feed.emptyCountryHint' | t }}</p>
+              } @else {
+                <h3>{{ 'feed.emptyTitle' | t }}</h3>
+                <p class="empty-lede">{{ 'feed.emptyHint' | t }}</p>
+              }
               <div class="empty-actions">
                 <button type="button" class="btn btn-primary" (click)="exploreEvents()">{{ 'feed.exploreEvents' | t }}</button>
                 <a routerLink="/my-events/create" class="btn btn-outline">{{ 'feed.createMemory' | t }}</a>
@@ -123,7 +160,8 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 <a [routerLink]="['/event', ev.id]" class="event-card">
                   <div class="card-image event-card-thumb">
                     @if (ev.mainImageUrl) {
-                      <img class="event-card-thumb__img" [src]="ev.mainImageUrl" [alt]="ev.title" loading="lazy" decoding="async" />
+                      <img appProtectMedia class="event-card-thumb__img" [src]="ev.mainImageUrl" [alt]="ev.title" loading="lazy" decoding="async" />
+                      <span class="media-shield" aria-hidden="true" (contextmenu)="$event.preventDefault()" (dragstart)="$event.preventDefault()"></span>
                     }
                     <span class="event-type-badge" [ngClass]="getEventTypeClass(ev.eventType)">
                       {{ i18n.eventTypeLabel(ev.eventType) }}
@@ -134,6 +172,9 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                     <p>{{ ev.description }}</p>
                     <div class="meta-row">
                       <span class="meta-pill">{{ ev.eventDate | date:'mediumDate':'':i18n.dateLocale() }}</span>
+                      @if (ev.country) {
+                        <span class="meta-pill">{{ ev.country }}</span>
+                      }
                       <span class="meta-pill">💝 {{ 'feed.wishesCount' | t:{ n: ev.wishCount } }}</span>
                     </div>
                     @if (
@@ -269,6 +310,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       flex-wrap: wrap;
     }
     .filter-btn {
+      --tone: #334155;
       border: 1px solid #d5e0db;
       border-radius: 999px;
       background: #fff;
@@ -277,21 +319,67 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       font-weight: 600;
       padding: 0.28rem 0.68rem;
       cursor: pointer;
-      transition: all 0.18s ease;
+      transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
       letter-spacing: 0.01em;
       white-space: nowrap;
       flex: 0 0 auto;
     }
+    .filter-btn.tone-all { --tone: #334155; }
+    .filter-btn.tone-birthday { --tone: #1d4ed8; }
+    .filter-btn.tone-puberty { --tone: #4338ca; }
+    .filter-btn.tone-wedding { --tone: #be185d; }
+    .filter-btn.tone-anniversary { --tone: #92400e; }
+    .filter-btn.tone-obituary { --tone: #374151; }
+    .filter-btn.tone-remembrance { --tone: #5b21b6; }
+    .filter-btn.tone-other { --tone: #0f766e; }
+    .filter-btn.tone-date-all { --tone: #155e75; }
+    .filter-btn.tone-date-year { --tone: #075985; }
+    .filter-btn.tone-date-last { --tone: #6d28d9; }
+    .filter-btn.tone-date-custom { --tone: #9f1239; }
+    .filter-btn.tone-c0 { --tone: #1d4ed8; }
+    .filter-btn.tone-c1 { --tone: #0f766e; }
+    .filter-btn.tone-c2 { --tone: #6d28d9; }
+    .filter-btn.tone-c3 { --tone: #be185d; }
+    .filter-btn.tone-c4 { --tone: #92400e; }
+    .filter-btn.tone-c5 { --tone: #075985; }
+    .filter-btn.tone-c6 { --tone: #4338ca; }
+    .filter-btn.tone-c7 { --tone: #9f1239; }
     .filter-btn:hover:not(.active) {
-      border-color: #1a5f4a;
-      color: #1a5f4a;
-      background: #f7fcfa;
+      border-color: var(--tone);
+      color: var(--tone);
+      background: color-mix(in srgb, var(--tone) 8%, #fff);
+    }
+    .filter-btn:focus-visible {
+      outline: 2px solid var(--tone);
+      outline-offset: 2px;
     }
     .filter-btn.active {
-      background: #1a5f4a;
+      background: var(--tone);
       color: #fff;
-      border-color: #1a5f4a;
-      box-shadow: 0 4px 10px rgba(26, 95, 74, 0.22);
+      border-color: var(--tone);
+      box-shadow: 0 4px 10px color-mix(in srgb, var(--tone) 32%, transparent);
+    }
+    .filter-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.2rem;
+      margin-left: 0.28rem;
+      padding: 0.02rem 0.32rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--tone) 14%, transparent);
+      color: var(--tone);
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+    .filter-btn.active .filter-count {
+      background: rgba(255, 255, 255, 0.22);
+      color: #fff;
+    }
+    .country-loading {
+      margin: 0;
+      font-size: 0.8rem;
+      color: #6f857d;
     }
     .date-inputs {
       margin-top: 0.45rem;
@@ -576,7 +664,7 @@ export class FeedComponent implements OnDestroy {
 
   constructor(
     private api: ApiService,
-    private stats: EventStatsService,
+    readonly stats: EventStatsService,
     public i18n: LanguageService,
     private ngZone: NgZone
   ) {
@@ -605,6 +693,10 @@ export class FeedComponent implements OnDestroy {
     this.loadEvents();
   }
 
+  setCountry(country: string | null) {
+    this.stats.setSelectedCountry(country);
+  }
+
   onSearch() {
     this.page.set(1);
     this.events.set([]);
@@ -616,7 +708,16 @@ export class FeedComponent implements OnDestroy {
     this.searchTerm = '';
     this.filter.set('');
     this.showCustomDatePicker.set(false);
-    this.setDateRange('all');
+    this.dateRange.set('all');
+    this.fromDate = '';
+    this.toDate = '';
+    this.page.set(1);
+    this.events.set([]);
+    const hadCountry = !!this.stats.selectedCountry();
+    this.stats.setSelectedCountry(null);
+    if (!hadCountry) {
+      this.loadEvents();
+    }
   }
 
   setDateRange(range: 'all' | 'thisYear' | 'lastYear' | 'custom') {
@@ -694,14 +795,18 @@ export class FeedComponent implements OnDestroy {
         const items = this.page() === 1 ? res.items : [...this.events(), ...res.items];
         this.events.set(items);
         this.total.set(res.total);
-        this.stats.loadFromApi();
+        if (this.page() === 1) {
+          this.stats.loadFromApi();
+        }
         this.loading.set(false);
       },
       error: () => {
         this.events.set([]);
         this.total.set(0);
         this.error.set(true);
-        this.stats.loadFromApi();
+        if (this.page() === 1) {
+          this.stats.loadFromApi();
+        }
         this.loading.set(false);
       }
     });

@@ -5,11 +5,12 @@ import { FormsModule } from '@angular/forms';
 import { ApiService, EventDetailDto } from '../../services/api.service';
 import { LanguageService } from '../../services/language.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
+import { ProtectMediaDirective } from '../../directives/protect-media.directive';
 
 @Component({
   selector: 'app-event-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe],
+  imports: [CommonModule, RouterLink, FormsModule, TranslatePipe, ProtectMediaDirective],
   template: `
     <div class="detail-page">
       @if (loading()) {
@@ -38,11 +39,13 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                       [attr.aria-label]="('detail.viewCover' | t) + ' — ' + event()!.title"
                     >
                       <img
+                        appProtectMedia
                         class="hero-photo-img"
                         [src]="event()!.mainImageUrl"
                         [alt]="event()!.title"
                         decoding="async"
                       />
+                      <span class="media-shield" aria-hidden="true" (contextmenu)="$event.preventDefault()" (dragstart)="$event.preventDefault()"></span>
                       <span class="hero-photo-zoom" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" stroke-linecap="round" />
@@ -137,7 +140,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 <div class="prose">{{ event()!.description }}</div>
               </article>
 
-              @if (galleryUrls().length || videoUrls().length) {
+              @if (galleryUrls().length || videoUrls().length || streamLinks().length) {
                 <article class="content-card media-card" aria-labelledby="media-heading">
                   <header class="card-head">
                     <div class="card-head-icon card-head-icon--media" aria-hidden="true">◈</div>
@@ -167,7 +170,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                             (click)="openLightbox(url, i)"
                             [attr.aria-label]="('detail.gallery' | t) + ' ' + (i + 1)"
                           >
-                            <img class="event-media-frame__img" [src]="url" alt="" loading="lazy" decoding="async" />
+                            <img appProtectMedia class="event-media-frame__img" [src]="url" alt="" loading="lazy" decoding="async" />
+                            <span class="media-shield" aria-hidden="true" (contextmenu)="$event.preventDefault()" (dragstart)="$event.preventDefault()"></span>
                             <span class="mosaic-hover" aria-hidden="true">
                               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" />
@@ -194,14 +198,18 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                       <div class="video-list">
                         @for (url of videoUrls(); track url; let i = $index) {
                           <figure class="video-frame">
-                            <div class="event-media-frame event-media-frame--video">
+                            <div class="event-media-frame event-media-frame--video" (contextmenu)="$event.preventDefault()">
                               <video
+                                appProtectMedia
                                 class="event-media-frame__video"
                                 controls
+                                controlsList="nodownload"
+                                disablePictureInPicture
                                 playsinline
                                 preload="metadata"
                                 (play)="ensureVideoAudible($event)"
                                 (loadedmetadata)="ensureVideoAudible($event)"
+                                (contextmenu)="$event.preventDefault()"
                               >
                                 <source [src]="url" [type]="guessVideoMime(url)" />
                               </video>
@@ -210,6 +218,21 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                           </figure>
                         }
                       </div>
+                    </div>
+                  }
+
+                  @if (streamLinks().length) {
+                    <div class="media-block">
+                      <div class="media-label-row">
+                        <h3>{{ 'detail.liveStreams' | t }}</h3>
+                      </div>
+                      <ul class="stream-link-list">
+                        @for (url of streamLinks(); track url) {
+                          <li>
+                            <a [href]="url" target="_blank" rel="noopener noreferrer">{{ streamLinkLabel(url) }}</a>
+                          </li>
+                        }
+                      </ul>
                     </div>
                   }
                 </article>
@@ -221,7 +244,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   <div>
                     <h2 id="wishes-heading">
                       {{ lang.wishesSectionTitle(event()!.eventType) }}
-                      <span class="wish-count">{{ event()!.wishes.length }}</span>
+                      <span class="wish-count">{{ wishTotal() }}</span>
                     </h2>
                     <p class="card-sub">{{ lang.t(wishesIntroKey(event()!.eventType)) }}</p>
                   </div>
@@ -234,6 +257,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                       <input
                         [(ngModel)]="senderName"
                         name="sender"
+                        maxlength="150"
                         [placeholder]="lang.wishSenderPlaceholder(event()!.eventType)"
                         required
                       />
@@ -244,6 +268,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                         [(ngModel)]="wishMessage"
                         name="message"
                         rows="4"
+                        maxlength="2000"
                         [placeholder]="lang.wishMessagePlaceholder(event()!.eventType)"
                         required
                       ></textarea>
@@ -281,6 +306,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     </button>
                   </div>
                 </form>
+                @if (wishError) {
+                  <p class="wish-error" role="alert">{{ wishError }}</p>
+                }
 
                 @if (event()!.wishes.length) {
                   <ul class="wish-list">
@@ -299,7 +327,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                               class="wish-photo event-media-frame event-media-frame--thumb"
                               (click)="openLightbox(w.mediaUrl!)"
                             >
-                              <img class="event-media-frame__img" [src]="w.mediaUrl" alt="" loading="lazy" decoding="async" />
+                              <img appProtectMedia class="event-media-frame__img" [src]="w.mediaUrl" alt="" loading="lazy" decoding="async" />
+                              <span class="media-shield" aria-hidden="true" (contextmenu)="$event.preventDefault()" (dragstart)="$event.preventDefault()"></span>
                             </button>
                           }
                         </div>
@@ -399,7 +428,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                       </div>
                     }
                     <div class="stat-box stat-box--accent">
-                      <span class="stat-num">{{ event()!.wishes.length }}</span>
+                      <span class="stat-num">{{ wishTotal() }}</span>
                       <span class="stat-label">{{ lang.wishesSectionTitle(event()!.eventType) }}</span>
                     </div>
                   </div>
@@ -423,7 +452,10 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         @if (lightboxHasPrev()) {
           <button type="button" class="lightbox-nav lightbox-prev" (click)="lightboxPrev($event)" aria-label="Previous photo">‹</button>
         }
-        <img [src]="lightboxUrl()!" alt="Enlarged photo" class="lightbox-img" (click)="$event.stopPropagation()" />
+        <div class="lightbox-frame" (click)="$event.stopPropagation()" (contextmenu)="$event.preventDefault()">
+          <img appProtectMedia [src]="lightboxUrl()!" alt="Enlarged photo" class="lightbox-img" />
+          <span class="media-shield" aria-hidden="true"></span>
+        </div>
         @if (lightboxHasNext()) {
           <button type="button" class="lightbox-nav lightbox-next" (click)="lightboxNext($event)" aria-label="Next photo">›</button>
         }
@@ -538,6 +570,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       border-radius: 8px;
     }
     .hero-photo-zoom {
+      z-index: 5;
+      pointer-events: none;
       position: absolute;
       right: 1rem;
       bottom: 1rem;
@@ -696,6 +730,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .story-card { animation-delay: 0.05s; }
     .media-card { animation-delay: 0.1s; }
     .wishes-card { animation-delay: 0.15s; }
+    .wish-error { margin: 0.75rem 0 0; color: #9f2d2d; font-size: 0.9rem; }
 
     .card-head {
       display: flex;
@@ -814,6 +849,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
     }
     .mosaic-hover {
+      z-index: 5;
+      pointer-events: none;
       position: absolute;
       inset: 0;
       display: flex;
@@ -828,6 +865,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       opacity: 1;
     }
 
+    .stream-link-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
+    .stream-link-list a { color: #1d4ed8; font-weight: 700; text-decoration: none; }
+    .stream-link-list a:hover { text-decoration: underline; }
     .video-list {
       display: grid;
       gap: 1rem;
@@ -1155,7 +1195,14 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       from { opacity: 0; }
       to { opacity: 1; }
     }
+    .lightbox-frame {
+      position: relative;
+      display: inline-block;
+      max-width: min(94vw, 1200px);
+      line-height: 0;
+    }
     .lightbox-img {
+      display: block;
       max-width: min(94vw, 1200px);
       max-height: 90vh;
       object-fit: contain;
@@ -1313,12 +1360,14 @@ export class EventDetailComponent implements OnInit {
   saving = signal(false);
   senderName = '';
   wishMessage = '';
+  wishError = '';
   wishMediaFile: File | null = null;
   wishMediaPreview = signal<string | null>(null);
   id = 0;
 
   galleryUrls = signal<string[]>([]);
   videoUrls = signal<string[]>([]);
+  streamLinks = signal<string[]>([]);
   lightboxUrl = signal<string | null>(null);
   lightboxIndex = signal(-1);
   private fromMyEvents = false;
@@ -1353,6 +1402,12 @@ export class EventDetailComponent implements OnInit {
           this.videoUrls.set(Array.isArray(vids) ? vids.filter(Boolean) : []);
         } catch {
           this.videoUrls.set([]);
+        }
+        try {
+          const streams = ev.streamLinks ? JSON.parse(ev.streamLinks) : [];
+          this.streamLinks.set(Array.isArray(streams) ? streams.filter((url: string) => typeof url === 'string' && url) : []);
+        } catch {
+          this.streamLinks.set([]);
         }
         this.loading.set(false);
       },
@@ -1428,26 +1483,54 @@ export class EventDetailComponent implements OnInit {
     this.wishMediaPreview.set(null);
   }
 
+  wishTotal(): number {
+    const ev = this.event();
+    if (!ev) return 0;
+    return ev.wishCount ?? ev.wishes.length;
+  }
+
   submitWish() {
-    if (!this.senderName.trim() || !this.wishMessage.trim()) return;
+    const name = this.senderName.trim();
+    const message = this.wishMessage.trim();
+    if (!name || !message) return;
+    if (message.length > 2000) {
+      this.wishError = 'Message must be 2000 characters or fewer.';
+      return;
+    }
+    this.wishError = '';
     this.saving.set(true);
     const doAdd = (mediaUrl?: string) => {
-      this.api.addWish(this.id, this.senderName.trim(), this.wishMessage.trim(), mediaUrl).subscribe({
+      this.api.addWish(this.id, name, message, mediaUrl).subscribe({
         next: (w) => {
-          this.event.update((ev) => (ev ? { ...ev, wishes: [w, ...ev.wishes] } : ev));
+          this.event.update((ev) =>
+            ev
+              ? {
+                  ...ev,
+                  wishes: [w, ...ev.wishes],
+                  wishCount: (ev.wishCount ?? ev.wishes.length) + 1
+                }
+              : ev
+          );
           this.senderName = '';
           this.wishMessage = '';
           this.wishMediaFile = null;
           this.wishMediaPreview.set(null);
           this.saving.set(false);
         },
-        error: () => this.saving.set(false)
+        error: (err) => {
+          this.saving.set(false);
+          const body = err?.error;
+          this.wishError = typeof body === 'string' ? body : body?.message || 'Could not send that message.';
+        }
       });
     };
     if (this.wishMediaFile) {
       this.api.uploadWishMedia(this.id, this.wishMediaFile).subscribe({
         next: (res) => doAdd(res.url),
-        error: () => this.saving.set(false)
+        error: () => {
+          this.saving.set(false);
+          this.wishError = 'Could not attach that photo.';
+        }
       });
     } else {
       doAdd();
@@ -1531,6 +1614,18 @@ export class EventDetailComponent implements OnInit {
     if (video.volume === 0) {
       video.volume = 1;
     }
+  }
+
+  streamLinkLabel(url: string): string {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+      if (host === 'youtube.com' || host === 'youtu.be' || host.endsWith('.youtube.com')) {
+        return this.lang.t('detail.watchYoutube');
+      }
+    } catch {
+      /* keep the generic label */
+    }
+    return this.lang.t('detail.openStream');
   }
 
   guessVideoMime(url: string): string {

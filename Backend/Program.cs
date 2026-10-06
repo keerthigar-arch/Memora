@@ -144,6 +144,18 @@ Directory.CreateDirectory(customerProfileRoot);
 app.UseResponseCompression();
 app.UseCors("AllowAngular");
 
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? "";
+    if (IsProtectedCustomerMedia(path) && !HasAppReferer(context.Request.Headers.Referer.ToString(), corsOrigins))
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return;
+    }
+
+    await next();
+});
+
 var mediaContentTypes = new FileExtensionContentTypeProvider();
 mediaContentTypes.Mappings[".mp4"] = "video/mp4";
 mediaContentTypes.Mappings[".webm"] = "video/webm";
@@ -158,6 +170,17 @@ Action<StaticFileResponseContext> prepareMediaResponse = ctx =>
         // Ensure browsers can stream seeking/audio correctly for cross-origin players.
         ctx.Context.Response.Headers.CacheControl = "public,max-age=86400";
         ctx.Context.Response.Headers.AcceptRanges = "bytes";
+    }
+
+    var path = ctx.Context.Request.Path.Value ?? "";
+    var forceDownload = path.Contains("/document/", StringComparison.OrdinalIgnoreCase)
+        && ext is not ".pdf" and not ".jpg" and not ".jpeg" and not ".png" and not ".webp" and not ".gif";
+    if (forceDownload)
+        ctx.Context.Response.Headers.ContentDisposition = "attachment";
+    else if (IsProtectedCustomerMedia(path))
+    {
+        ctx.Context.Response.Headers.ContentDisposition = "inline";
+        ctx.Context.Response.Headers.XContentTypeOptions = "nosniff";
     }
 };
 
@@ -174,6 +197,8 @@ app.UseStaticFiles(new StaticFileOptions
     FileProvider = new PhysicalFileProvider(eventMediaRoot),
     RequestPath = FileStorageService.EventMediaRequestPath,
     ContentTypeProvider = mediaContentTypes,
+    ServeUnknownFileTypes = true,
+    DefaultContentType = "application/octet-stream",
     OnPrepareResponse = prepareMediaResponse
 });
 app.UseStaticFiles(new StaticFileOptions
@@ -420,6 +445,10 @@ using (var scope = app.Services.CreateScope())
         "ALTER TABLE `Events` ADD COLUMN `VideoUrls` longtext NULL");
     await AddColumnIfMissingAsync("PendingEvents", "VideoPathsJson",
         "ALTER TABLE `PendingEvents` ADD COLUMN `VideoPathsJson` longtext NULL");
+    await AddColumnIfMissingAsync("Events", "StreamLinks",
+        "ALTER TABLE `Events` ADD COLUMN `StreamLinks` longtext NULL");
+    await AddColumnIfMissingAsync("PendingEvents", "StreamLinksJson",
+        "ALTER TABLE `PendingEvents` ADD COLUMN `StreamLinksJson` longtext NULL");
     await AddColumnIfMissingAsync("PendingEvents", "ConfirmationDocumentPath",
         "ALTER TABLE `PendingEvents` ADD COLUMN `ConfirmationDocumentPath` varchar(500) NULL");
     await AddColumnIfMissingAsync("Events", "ConfirmationDocumentUrl",
@@ -429,6 +458,40 @@ using (var scope = app.Services.CreateScope())
         "CREATE UNIQUE INDEX `IX_PendingEvents_ReferenceCode` ON `PendingEvents` (`ReferenceCode`)");
     await CreateIndexIfMissingAsync("Events", "IX_Events_ReferenceCode",
         "CREATE UNIQUE INDEX `IX_Events_ReferenceCode` ON `Events` (`ReferenceCode`)");
+
+    await CreateIndexIfMissingAsync("Events", "IX_Events_EventDate",
+        "CREATE INDEX `IX_Events_EventDate` ON `Events` (`EventDate`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_UserId_Published_Created",
+        "CREATE INDEX `IX_Events_UserId_Published_Created` ON `Events` (`UserId`, `IsPublished`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_FeedPaid",
+        "CREATE INDEX `IX_Events_FeedPaid` ON `Events` (`IsPublished`, `PaymentReceived`, `Visibility`, `DisplayValidityEndDate`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_FeedPaid_Country",
+        "CREATE INDEX `IX_Events_FeedPaid_Country` ON `Events` (`IsPublished`, `PaymentReceived`, `Visibility`, `Country`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_PaidMethod_Created",
+        "CREATE INDEX `IX_Events_PaidMethod_Created` ON `Events` (`IsPublished`, `PaymentReceived`, `PaymentMethod`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("Events", "IX_Events_PaymentReceived_CreatedAt",
+        "CREATE INDEX `IX_Events_PaymentReceived_CreatedAt` ON `Events` (`PaymentReceived`, `CreatedAt`)");
+
+    await CreateIndexIfMissingAsync("PendingEvents", "IX_PendingEvents_UserId_CreatedAt",
+        "CREATE INDEX `IX_PendingEvents_UserId_CreatedAt` ON `PendingEvents` (`UserId`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("PendingEvents", "IX_PendingEvents_Awaiting_Method_Submitted",
+        "CREATE INDEX `IX_PendingEvents_Awaiting_Method_Submitted` ON `PendingEvents` (`AwaitingOfflineApproval`, `PaymentMethod`, `OfflineSubmittedAt`)");
+
+    await CreateIndexIfMissingAsync("Users", "IX_Users_Role",
+        "CREATE INDEX `IX_Users_Role` ON `Users` (`Role`)");
+    await CreateIndexIfMissingAsync("Users", "IX_Users_CreatedAt",
+        "CREATE INDEX `IX_Users_CreatedAt` ON `Users` (`CreatedAt`)");
+
+    await CreateIndexIfMissingAsync("PasswordResetTokens", "IX_PasswordResetTokens_UserId_UsedAt",
+        "CREATE INDEX `IX_PasswordResetTokens_UserId_UsedAt` ON `PasswordResetTokens` (`UserId`, `UsedAt`)");
+
+    await CreateIndexIfMissingAsync("PricingOrders", "IX_PricingOrders_Channel_CreatedAt",
+        "CREATE INDEX `IX_PricingOrders_Channel_CreatedAt` ON `PricingOrders` (`PaymentChannel`, `CreatedAt`)");
+    await CreateIndexIfMissingAsync("PricingOrders", "IX_PricingOrders_Channel_Received_Created",
+        "CREATE INDEX `IX_PricingOrders_Channel_Received_Created` ON `PricingOrders` (`PaymentChannel`, `DirectManualPaymentReceived`, `CreatedAt`)");
+
+    await CreateIndexIfMissingAsync("AdminNotifications", "IX_AdminNotifications_Kind_Draft_Read",
+        "CREATE INDEX `IX_AdminNotifications_Kind_Draft_Read` ON `AdminNotifications` (`Kind`, `PendingEventId`, `IsRead`, `CreatedAt`)");
 
     try
     {
@@ -517,3 +580,26 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+static bool IsProtectedCustomerMedia(string path)
+{
+    if (path.StartsWith("/media/customer-profile", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith("/media/admin-profile", StringComparison.OrdinalIgnoreCase))
+        return false;
+
+    if (!path.StartsWith("/media/", StringComparison.OrdinalIgnoreCase))
+        return false;
+
+    var ext = Path.GetExtension(path).ToLowerInvariant();
+    return ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp"
+        or ".mp4" or ".webm" or ".mov" or ".m4v";
+}
+
+static bool HasAppReferer(string referer, string[] origins)
+{
+    if (string.IsNullOrWhiteSpace(referer) || !Uri.TryCreate(referer, UriKind.Absolute, out var uri))
+        return false;
+
+    var origin = $"{uri.Scheme}://{uri.Authority}";
+    return origins.Any(allowed => string.Equals(allowed, origin, StringComparison.OrdinalIgnoreCase));
+}

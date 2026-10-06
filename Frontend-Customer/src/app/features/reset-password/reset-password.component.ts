@@ -14,7 +14,7 @@ type ViewState = 'loading' | 'invalid' | 'form' | 'submitting';
     <section class="auth-hero">
       <div class="container">
         <h1>Reset password</h1>
-        <p>Set a new password for your Memora account.</p>
+        <p>Set a new password for your தmileye account.</p>
       </div>
     </section>
 

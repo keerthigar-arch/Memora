@@ -50,7 +50,15 @@ export class AuthService {
     return r === 'Admin' || r?.toLowerCase() === 'admin';
   });
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event) => {
+        if (event.key === TOKEN_KEY && event.newValue == null && this.token()) {
+          this.logout();
+        }
+      });
+    }
+  }
 
   /** Use raw login response (not only signals) so navigation never misses `mustChangePassword`. */
   parseLoginResponse(res: AuthResponse): { isAdmin: boolean; mustReset: boolean } {
@@ -118,19 +126,43 @@ export class AuthService {
     );
   }
 
-  /** Clears session. Optional query params (e.g. after first-login password reset → login with message). */
-  logout(queryParams?: Record<string, string | boolean | null>) {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    sessionStorage.removeItem(PENDING_FIRST_LOGIN_KEY);
+  /**
+   * Clears session. Pass query params (e.g. after first-login password reset),
+   * or `'idle'` when the session timed out with no activity.
+   */
+  logout(queryParams?: Record<string, string | boolean | null> | 'idle') {
+    const idle = queryParams === 'idle';
+    const params = !idle && queryParams && Object.keys(queryParams).length > 0 ? queryParams : undefined;
+    this.wipeClientSession();
+    if (idle) {
+      void this.router.navigate([environment.logoutRedirectUrl], {
+        queryParams: { session: 'expired' },
+        replaceUrl: true
+      });
+      return;
+    }
+    if (params) {
+      void this.router.navigate([environment.logoutRedirectUrl], { queryParams: params, replaceUrl: true });
+      return;
+    }
+    void this.router.navigateByUrl(environment.logoutRedirectUrl, { replaceUrl: true });
+  }
+
+  private wipeClientSession() {
     this.token.set(null);
     this.user.set(null);
-    const hasQuery = queryParams && Object.keys(queryParams).length > 0;
-    if (hasQuery) {
-      this.router.navigate([environment.logoutRedirectUrl], { queryParams });
-    } else {
-      this.router.navigateByUrl(environment.logoutRedirectUrl);
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    } catch {
+      /* private mode or blocked storage */
     }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* private mode or blocked storage */
+    }
+    void clearBrowserCache();
   }
 
   getToken(): string | null {
@@ -138,11 +170,13 @@ export class AuthService {
   }
 
   private clearStaleSession() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    sessionStorage.removeItem(PENDING_FIRST_LOGIN_KEY);
-    this.token.set(null);
-    this.user.set(null);
+    const wasSignedIn = !!this.token();
+    this.wipeClientSession();
+    if (!wasSignedIn) return;
+    const path = this.router.url.split('?')[0].split('#')[0];
+    if (path !== environment.logoutRedirectUrl) {
+      void this.router.navigateByUrl(environment.logoutRedirectUrl, { replaceUrl: true });
+    }
   }
 
   private handleStaleProfileError(err: { status?: number }) {
@@ -164,11 +198,12 @@ export class AuthService {
     );
   }
 
-  updateProfile(displayName?: string, bio?: string, profileImage?: File): Observable<UserProfile> {
+  updateProfile(displayName?: string, bio?: string, profileImage?: File, removeProfileImage = false): Observable<UserProfile> {
     const form = new FormData();
     if (displayName != null) form.append('displayName', displayName);
     if (bio != null) form.append('bio', bio);
     if (profileImage) form.append('profileImage', profileImage);
+    if (removeProfileImage) form.append('removeProfileImage', 'true');
     return this.http.put<UserProfile>(`${API}/users/me`, form).pipe(
       tap((u) => {
         const normalized = this.normalizeUserFromApi(u);
@@ -232,4 +267,14 @@ export class AuthService {
   resetPasswordWithToken(token: string, newPassword: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${API}/auth/reset-password`, { token, newPassword });
   }
+}
+
+/** Drops Cache Storage entries so a signed-out browser cannot reuse authenticated responses. */
+function clearBrowserCache(): Promise<void> {
+  if (typeof caches === 'undefined') return Promise.resolve();
+  return caches
+    .keys()
+    .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+    .then(() => undefined)
+    .catch(() => undefined);
 }

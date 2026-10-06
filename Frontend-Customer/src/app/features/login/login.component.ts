@@ -14,7 +14,7 @@ const REMEMBER_EMAIL_KEY = 'memora_customer_login_email';
     <section class="auth-hero">
       <div class="container">
         <h1>Login</h1>
-        <p>Welcome back to Memora.</p>
+        <p>Welcome back to தmileye.</p>
       </div>
     </section>
 

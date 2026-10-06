@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService, UserProfile } from '../../services/auth.service';
+import { AppDialogService } from '../../services/app-dialog.service';
 
 @Component({
   selector: 'app-profile',
@@ -24,20 +25,51 @@ import { AuthService, UserProfile } from '../../services/auth.service';
             </div>
             <div class="hero-shell">
               <div class="hero-head">
-                <p class="hero-kicker">Memora Admin</p>
+                <p class="hero-kicker">தmileye Admin</p>
                 <h1 id="admin-profile-heading">My account</h1>
                 <p class="hero-sub">Manage your profile and password in one place.</p>
               </div>
 
               <div class="hero-identity-card">
                 <div class="avatar-wrap">
-                  <div class="avatar" [class.has-photo]="!!avatarImageUrl()">
-                    @if (avatarImageUrl()) {
-                      <img [src]="avatarImageUrl()" alt="" />
-                    } @else {
-                      <span class="avatar-initials">{{ initials() }}</span>
-                    }
-                  </div>
+                  <label class="avatar-hit">
+                    <span class="avatar" [class.has-photo]="!!avatarImageUrl()">
+                      @if (avatarImageUrl()) {
+                        <img [src]="avatarImageUrl()" alt="" />
+                      } @else {
+                        <span class="avatar-initials">{{ initials() }}</span>
+                      }
+                    </span>
+                    <span class="avatar-cam" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 8h3l2-2h6l2 2h3v11H4z" /><circle cx="12" cy="13" r="3.2" />
+                      </svg>
+                    </span>
+                    <input
+                      type="file"
+                      class="photo-input"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                      [disabled]="photoBusy()"
+                      aria-label="Upload profile photo"
+                      (change)="onPhotoSelected($event)"
+                    />
+                  </label>
+                  @if (avatarImageUrl()) {
+                    <button
+                      type="button"
+                      class="avatar-remove"
+                      [disabled]="photoBusy()"
+                      (click)="askRemovePhoto($event)"
+                      aria-label="Remove profile photo"
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </button>
+                  }
+                  @if (photoError()) {
+                    <p class="avatar-error">{{ photoError() }}</p>
+                  }
                 </div>
 
                 <div class="identity-main">
@@ -86,13 +118,6 @@ import { AuthService, UserProfile } from '../../services/auth.service';
                 </div>
                 <form (ngSubmit)="saveProfile()" class="form-block">
                   <p class="form-section-label">Update profile</p>
-                  <input
-                    id="adm-photo"
-                    type="file"
-                    class="photo-input"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    (change)="onPhotoSelected($event)"
-                  />
                   <div class="form-group">
                     <label for="adm-name">Display name</label>
                     <input id="adm-name" [(ngModel)]="displayName" name="displayName" required />
@@ -106,19 +131,6 @@ import { AuthService, UserProfile } from '../../services/auth.service';
                       rows="3"
                       placeholder="Tell others about yourself"
                     ></textarea>
-                  </div>
-                  <div class="form-group">
-                    <label for="adm-photo">Profile photo</label>
-                    <div class="photo-field">
-                      <label class="btn btn-outline photo-choose" for="adm-photo">Choose image</label>
-                      @if (pendingPhotoName()) {
-                        <span class="file-hint">{{ pendingPhotoName() }} — save profile to upload</span>
-                      } @else if (profile()!.profileImageUrl) {
-                        <span class="file-hint">Current photo is saved on the server.</span>
-                      } @else {
-                        <span class="file-hint">PNG, JPG, GIF, or WebP · max 5 MB</span>
-                      }
-                    </div>
                   </div>
                   @if (profileError()) {
                     <div class="error-msg">{{ profileError() }}</div>
@@ -262,17 +274,30 @@ import { AuthService, UserProfile } from '../../services/auth.service';
       backdrop-filter: blur(12px);
     }
     .avatar-wrap {
+      position: relative;
       grid-row: 1 / span 2;
       width: fit-content;
     }
-    .avatar {
+    .avatar-hit {
+      position: relative;
+      display: block;
       width: 6.75rem;
       height: 6.75rem;
+      cursor: pointer;
+    }
+    .avatar-hit:has(input:disabled) { cursor: wait; }
+    .avatar {
+      width: 100%;
+      height: 100%;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      padding: 0;
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
       background: linear-gradient(145deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.06) 100%);
       border: 2px solid rgba(255, 255, 255, 0.35);
       box-shadow:
@@ -296,17 +321,72 @@ import { AuthService, UserProfile } from '../../services/auth.service';
       letter-spacing: 0.06em;
       color: #fff;
     }
+    .avatar:disabled { cursor: wait; }
+    .avatar-cam {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      z-index: 2;
+      width: 1.75rem;
+      height: 1.75rem;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #fff;
+      color: #1a5f4a;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+    }
+    .avatar-remove {
+      position: absolute;
+      top: 0;
+      right: 0;
+      z-index: 3;
+      width: 1.75rem;
+      height: 1.75rem;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: #9f2d2d;
+      color: #fff;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+    }
+    .avatar-wrap:hover .avatar-remove,
+    .avatar-wrap:focus-within .avatar-remove {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    @media (hover: none) {
+      .avatar-remove { opacity: 1; pointer-events: auto; }
+    }
+    .avatar-error {
+      position: absolute;
+      left: 0;
+      top: calc(100% + 0.35rem);
+      margin: 0;
+      width: 14rem;
+      font-size: 0.75rem;
+      line-height: 1.35;
+      color: #ffe1e1;
+    }
     .photo-input {
       position: absolute;
-      width: 1px;
-      height: 1px;
+      inset: 0;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      margin: 0;
       padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
+      opacity: 0;
+      cursor: pointer;
+      font-size: 0;
     }
+    .photo-input:disabled { cursor: wait; }
     .photo-field {
       display: flex;
       flex-wrap: wrap;
@@ -609,9 +689,9 @@ export class ProfileComponent implements OnInit, OnDestroy {
   bio = '';
   currentPassword = '';
   newPassword = '';
-  photoFile: File | null = null;
-  photoPreviewUrl: string | null = null;
-  pendingPhotoName = signal<string | null>(null);
+  private photoPreviewUrl: string | null = null;
+  photoBusy = signal(false);
+  photoError = signal('');
 
   savingProfile = signal(false);
   savingPassword = signal(false);
@@ -620,7 +700,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
   passwordError = signal('');
   passwordSuccess = signal(false);
 
-  constructor(private auth: AuthService) {}
+  constructor(
+    private auth: AuthService,
+    private dialogs: AppDialogService
+  ) {}
 
   avatarImageUrl(): string | null {
     if (this.photoPreviewUrl) return this.photoPreviewUrl;
@@ -666,50 +749,80 @@ export class ProfileComponent implements OnInit, OnDestroy {
   onPhotoSelected(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (this.photoPreviewUrl) {
-      URL.revokeObjectURL(this.photoPreviewUrl);
-      this.photoPreviewUrl = null;
-    }
-    if (!file) {
-      this.photoFile = null;
-      this.pendingPhotoName.set(null);
-      return;
-    }
+    input.value = '';
+    if (!file || this.photoBusy()) return;
+    this.clearPhotoPreview();
     if (file.size > 5 * 1024 * 1024) {
-      this.profileError.set('Image must be 5 MB or smaller.');
-      input.value = '';
-      this.photoFile = null;
-      this.pendingPhotoName.set(null);
+      this.photoError.set('Image must be 5 MB or smaller.');
       return;
     }
     const allowed = /^image\/(jpeg|png|gif|webp)$/i;
     if (!allowed.test(file.type)) {
-      this.profileError.set('Use PNG, JPG, GIF, or WebP.');
-      input.value = '';
-      this.photoFile = null;
-      this.pendingPhotoName.set(null);
+      this.photoError.set('Use PNG, JPG, GIF, or WebP.');
       return;
     }
-    this.photoFile = file;
     this.photoPreviewUrl = URL.createObjectURL(file);
-    this.pendingPhotoName.set(file.name);
-    this.profileError.set('');
-    this.profileOk.set(false);
+    this.photoError.set('');
+    this.photoBusy.set(true);
+    this.auth.updateProfile(undefined, undefined, file).subscribe({
+      next: (u) => {
+        this.profile.set(u);
+        this.clearPhotoPreview();
+        this.photoBusy.set(false);
+      },
+      error: (err) => {
+        this.clearPhotoPreview();
+        this.photoError.set(this.readApiError(err, 'Could not upload the photo.'));
+        this.photoBusy.set(false);
+      }
+    });
+  }
+
+  askRemovePhoto(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    if (!this.avatarImageUrl() || this.photoBusy()) return;
+    void this.dialogs.confirm({
+      title: 'Remove profile photo?',
+      message: 'This photo will be removed from your account.',
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      tone: 'danger'
+    }).then((accepted) => {
+      if (accepted) this.confirmRemovePhoto();
+    });
+  }
+
+  private confirmRemovePhoto(): void {
+    this.photoError.set('');
+    this.photoBusy.set(true);
+    this.auth.updateProfile(undefined, undefined, undefined, true).subscribe({
+      next: (u) => {
+        this.profile.set(u);
+        this.clearPhotoPreview();
+        this.photoBusy.set(false);
+      },
+      error: (err) => {
+        this.photoError.set(this.readApiError(err, 'Could not remove the photo.'));
+        this.photoBusy.set(false);
+      }
+    });
+  }
+
+  private clearPhotoPreview(): void {
+    if (this.photoPreviewUrl) {
+      URL.revokeObjectURL(this.photoPreviewUrl);
+      this.photoPreviewUrl = null;
+    }
   }
 
   saveProfile() {
     this.savingProfile.set(true);
     this.profileError.set('');
     this.profileOk.set(false);
-    this.auth.updateProfile(this.displayName, this.bio, this.photoFile ?? undefined).subscribe({
+    this.auth.updateProfile(this.displayName, this.bio).subscribe({
       next: (u) => {
         this.profile.set(u);
-        if (this.photoPreviewUrl) {
-          URL.revokeObjectURL(this.photoPreviewUrl);
-          this.photoPreviewUrl = null;
-        }
-        this.photoFile = null;
-        this.pendingPhotoName.set(null);
         this.profileOk.set(true);
         this.savingProfile.set(false);
       },

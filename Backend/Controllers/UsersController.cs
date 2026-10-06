@@ -5,7 +5,6 @@ using LifeEventsHub.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 
 namespace LifeEventsHub.Api.Controllers;
 
@@ -16,31 +15,15 @@ public class UsersController : ControllerBase
     private readonly AppDbContext _db;
     private readonly JwtService _jwt;
     private readonly FileStorageService _fileStorage;
-    private readonly AdminCustomerListService _adminCustomerList;
 
     public UsersController(
         AppDbContext db,
         JwtService jwt,
-        FileStorageService fileStorage,
-        AdminCustomerListService adminCustomerList)
+        FileStorageService fileStorage)
     {
         _db = db;
         _jwt = jwt;
         _fileStorage = fileStorage;
-        _adminCustomerList = adminCustomerList;
-    }
-
-    /// <summary>Same data as <c>GET /api/admin/users/customers</c> (legacy path for admin tools).</summary>
-    [Authorize(Roles = "Admin")]
-    [HttpGet("customers")]
-    public async Task<ActionResult<PagedResult<CustomerAdminListDto>>> ListCustomers(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await _adminCustomerList.ListPagedAsync(page, pageSize, search, cancellationToken);
-        return Ok(result);
     }
 
     [Authorize]
@@ -50,17 +33,35 @@ public class UsersController : ControllerBase
         var userId = _jwt.GetUserIdFromClaims(User);
         if (userId == null) return Unauthorized();
 
-        var user = await _db.Users.FindAsync(userId.Value);
+        var user = await _db.Users.AsNoTracking()
+            .Where(u => u.Id == userId.Value)
+            .Select(u => new UserProfileDto(
+                u.Id,
+                u.Email,
+                u.DisplayName,
+                u.MobileNumber,
+                u.Bio,
+                u.ProfileImageUrl,
+                u.ProfileVisibility,
+                u.ShowEmail,
+                u.CreatedAt,
+                u.Role,
+                u.MustChangePassword))
+            .FirstOrDefaultAsync();
         if (user == null)
             return Unauthorized(new { message = "Your session is no longer valid. Please sign in again." });
 
-        return Ok(ToProfile(user));
+        return Ok(user);
     }
 
     [Authorize]
     [HttpPut("me")]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<UserProfileDto>> UpdateProfile([FromForm] string? displayName, [FromForm] string? bio, [FromForm] IFormFile? profileImage)
+    public async Task<ActionResult<UserProfileDto>> UpdateProfile(
+        [FromForm] string? displayName,
+        [FromForm] string? bio,
+        [FromForm] IFormFile? profileImage,
+        [FromForm] string? removeProfileImage)
     {
         var userId = _jwt.GetUserIdFromClaims(User);
         if (userId == null) return Unauthorized();
@@ -105,6 +106,10 @@ public class UsersController : ControllerBase
 
             var baseUrl = _fileStorage.GetBaseUrl(Request);
             user.ProfileImageUrl = baseUrl + url;
+        }
+        else if (string.Equals(removeProfileImage, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            user.ProfileImageUrl = null;
         }
 
         try

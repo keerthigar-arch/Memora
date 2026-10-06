@@ -1,9 +1,10 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, HostListener, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService, CustomerDraftDetailDto } from '../../services/api.service';
 import { EventStatsService } from '../../services/event-stats.service';
 import { NotificationService } from '../../services/notification.service';
+import { AppDialogService } from '../../services/app-dialog.service';
 
 @Component({
   selector: 'app-pending-event-detail',
@@ -62,6 +63,9 @@ import { NotificationService } from '../../services/notification.service';
               @if (draft()!.deathDate) {
                 <div><dt>Date of passing</dt><dd>{{ draft()!.deathDate | date: 'fullDate' }}</dd></div>
               }
+              @if (draft()!.weddingDate) {
+                <div><dt>Wedding date</dt><dd>{{ draft()!.weddingDate | date: 'fullDate' }}</dd></div>
+              }
               @if (draft()!.location) {
                 <div><dt>Location</dt><dd>{{ draft()!.location }}</dd></div>
               }
@@ -73,12 +77,81 @@ import { NotificationService } from '../../services/notification.service';
               }
               <div><dt>Submitted by</dt><dd>{{ draft()!.ownerDisplayName || draft()!.createdBy }}</dd></div>
               <div><dt>Visibility</dt><dd>{{ draft()!.visibility }}</dd></div>
+              @if (draft()!.invitedEmails) {
+                <div class="meta-span"><dt>Invited emails</dt><dd>{{ draft()!.invitedEmails }}</dd></div>
+              }
               <div><dt>Display plan</dt><dd>{{ periodLabel(draft()!.displayDays) }}</dd></div>
               <div><dt>Amount</dt><dd>{{ formatUsd(draft()!.amountPaid) }}</dd></div>
+              @if (draft()!.referenceCode) {
+                <div><dt>Reference</dt><dd>{{ draft()!.referenceCode }}</dd></div>
+              }
               @if (draft()!.ownerEmail) {
                 <div><dt>Customer email</dt><dd>{{ draft()!.ownerEmail }}</dd></div>
               }
             </dl>
+
+            @if (galleryUrls().length || videoUrls().length || streamLinks().length) {
+              <div class="media-block">
+                @if (galleryUrls().length) {
+                  <div class="media-section">
+                    <h3 class="doc-title">Gallery</h3>
+                    <p class="doc-copy">
+                      @if (galleryUrls().length === 1) {
+                        1 additional photo submitted with this event.
+                      } @else {
+                        {{ galleryUrls().length }} additional photos submitted with this event.
+                      }
+                    </p>
+                    <div class="gallery-grid" [attr.data-count]="galleryUrls().length">
+                      @for (url of galleryUrls(); track url; let i = $index) {
+                        <button
+                          type="button"
+                          class="gallery-cell"
+                          (click)="openLightbox(url, i)"
+                          [attr.aria-label]="'Gallery photo ' + (i + 1)"
+                        >
+                          <img [src]="url" [alt]="'Gallery photo ' + (i + 1)" loading="lazy" decoding="async" />
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+                @if (videoUrls().length) {
+                  <div class="media-section">
+                    <h3 class="doc-title">Videos</h3>
+                    <p class="doc-copy">
+                      @if (videoUrls().length === 1) {
+                        1 video submitted with this event.
+                      } @else {
+                        {{ videoUrls().length }} videos submitted with this event.
+                      }
+                    </p>
+                    <div class="video-list">
+                      @for (url of videoUrls(); track url; let i = $index) {
+                        <figure class="video-frame">
+                          <video controls playsinline preload="metadata">
+                            <source [src]="url" [type]="guessVideoMime(url)" />
+                          </video>
+                          <figcaption>Video {{ i + 1 }}</figcaption>
+                        </figure>
+                      }
+                    </div>
+                  </div>
+                }
+                @if (streamLinks().length) {
+                  <div class="media-section">
+                    <h3 class="doc-title">YouTube and live streams</h3>
+                    <ul class="stream-link-list">
+                      @for (url of streamLinks(); track url) {
+                        <li>
+                          <a [href]="url" target="_blank" rel="noopener noreferrer">{{ streamLinkLabel(url) }}</a>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+            }
 
             @if (draft()!.confirmationDocumentUrl) {
               <div class="doc-block">
@@ -122,45 +195,54 @@ import { NotificationService } from '../../services/notification.service';
               Confirm offline payment and publish in one step, or mark Received on Payments first.
             }
           </p>
-          @if (draft()!.awaitingOfflineApproval) {
-            <a
-              [routerLink]="['/pending-event', draft()!.id, 'edit']"
-              class="btn btn-outline btn-block"
-            >
-              Edit event
-            </a>
-            <button
-              type="button"
-              class="btn btn-primary btn-block"
-              (click)="publish()"
-              [disabled]="busy()"
-            >
-              @if (busyAction() === 'publish') {
-                <span class="btn-spinner" aria-hidden="true"></span>
-                Publishing…
-              } @else if (draft()!.paymentReceived) {
-                Publish to feed
-              } @else {
-                Confirm payment &amp; publish
-              }
-            </button>
-            <button
-              type="button"
-              class="btn btn-danger btn-block"
-              (click)="deleteDraft()"
-              [disabled]="busy()"
-            >
-              @if (busyAction() === 'delete') {
-                <span class="btn-spinner" aria-hidden="true"></span>
-                Deleting…
-              } @else {
-                Delete draft
-              }
-            </button>
-          } @else {
-            <p class="aside-note">This draft is no longer awaiting approval.</p>
-          }
+          <a
+            [routerLink]="['/pending-event', draft()!.id, 'edit']"
+            class="btn btn-outline btn-block"
+          >
+            Edit event
+          </a>
+          <button
+            type="button"
+            class="btn btn-primary btn-block"
+            (click)="publish()"
+            [disabled]="busy()"
+          >
+            @if (busyAction() === 'publish') {
+              <span class="btn-spinner" aria-hidden="true"></span>
+              Publishing…
+            } @else if (draft()!.paymentReceived) {
+              Publish to feed
+            } @else {
+              Confirm payment &amp; publish
+            }
+          </button>
+          <button
+            type="button"
+            class="btn btn-danger btn-block"
+            (click)="deleteDraft()"
+            [disabled]="busy()"
+          >
+            @if (busyAction() === 'delete') {
+              <span class="btn-spinner" aria-hidden="true"></span>
+              Deleting…
+            } @else {
+              Delete draft
+            }
+          </button>
         </aside>
+      </div>
+    }
+
+    @if (lightboxUrl()) {
+      <div class="lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer" (click)="closeLightbox()">
+        <button type="button" class="lightbox-close" (click)="closeLightbox()" aria-label="Close">×</button>
+        @if (lightboxHasPrev()) {
+          <button type="button" class="lightbox-nav lightbox-prev" (click)="lightboxPrev($event)" aria-label="Previous photo">‹</button>
+        }
+        <img [src]="lightboxUrl()!" alt="Enlarged photo" class="lightbox-img" (click)="$event.stopPropagation()" />
+        @if (lightboxHasNext()) {
+          <button type="button" class="lightbox-nav lightbox-next" (click)="lightboxNext($event)" aria-label="Next photo">›</button>
+        }
       </div>
     }
   `,
@@ -272,6 +354,117 @@ import { NotificationService } from '../../services/notification.service';
         color: #0f2922;
         font-weight: 500;
       }
+      .meta-span { grid-column: 1 / -1; }
+      .meta-span dd { word-break: break-word; }
+      .media-block {
+        margin-top: 1.35rem;
+        padding-top: 1.15rem;
+        border-top: 1px solid #e3ece8;
+      }
+      .media-section + .media-section {
+        margin-top: 1.25rem;
+      }
+      .gallery-grid {
+        display: grid;
+        gap: 0.65rem;
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .gallery-grid[data-count='1'] {
+        grid-template-columns: 1fr;
+      }
+      .gallery-cell {
+        position: relative;
+        display: block;
+        padding: 0;
+        border: 1px solid #e3ece8;
+        border-radius: 10px;
+        overflow: hidden;
+        cursor: zoom-in;
+        background: #f8faf9;
+        aspect-ratio: 16 / 10;
+      }
+      .gallery-cell img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center;
+      }
+      .gallery-cell:hover {
+        border-color: #b9cdc5;
+      }
+      .stream-link-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+      .stream-link-list a { color: #1d4ed8; font-weight: 700; word-break: break-all; }
+      .video-list {
+        display: grid;
+        gap: 0.85rem;
+      }
+      .video-frame {
+        margin: 0;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #e3ece8;
+        background: #0f1a17;
+      }
+      .video-frame video {
+        display: block;
+        width: 100%;
+        max-height: 360px;
+        background: #0f1a17;
+      }
+      .video-frame figcaption {
+        padding: 0.55rem 0.85rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.75);
+      }
+      .lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(8, 20, 18, 0.88);
+        padding: 2rem;
+      }
+      .lightbox-img {
+        max-width: min(92vw, 1100px);
+        max-height: 88vh;
+        object-fit: contain;
+        border-radius: 8px;
+      }
+      .lightbox-close {
+        position: absolute;
+        top: 1rem;
+        right: 1.1rem;
+        width: 2.4rem;
+        height: 2.4rem;
+        border: none;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        color: #fff;
+        font-size: 1.6rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .lightbox-close:hover { background: rgba(255, 255, 255, 0.28); }
+      .lightbox-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 2.6rem;
+        height: 2.6rem;
+        border: none;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        color: #fff;
+        font-size: 1.6rem;
+        cursor: pointer;
+      }
+      .lightbox-nav:hover { background: rgba(255, 255, 255, 0.28); }
+      .lightbox-prev { left: 1.1rem; }
+      .lightbox-next { right: 1.1rem; }
       .doc-block {
         margin-top: 1.35rem;
         padding-top: 1.15rem;
@@ -367,6 +560,9 @@ import { NotificationService } from '../../services/notification.service';
 
       @media (max-width: 480px) {
         .meta-grid { grid-template-columns: 1fr; }
+        .gallery-grid { grid-template-columns: 1fr; }
+        .lightbox { padding: 0.75rem; }
+        .lightbox-nav { display: none; }
         .doc-block-missing {
           margin: 1rem -0.75rem -1rem;
           padding: 0.85rem 0.75rem;
@@ -377,6 +573,11 @@ import { NotificationService } from '../../services/notification.service';
 })
 export class PendingEventDetailComponent implements OnInit {
   draft = signal<CustomerDraftDetailDto | null>(null);
+  galleryUrls = signal<string[]>([]);
+  videoUrls = signal<string[]>([]);
+  streamLinks = signal<string[]>([]);
+  lightboxUrl = signal<string | null>(null);
+  lightboxIndex = signal(-1);
   loading = signal(true);
   error = signal<string | null>(null);
   busy = signal(false);
@@ -388,7 +589,8 @@ export class PendingEventDetailComponent implements OnInit {
     private router: Router,
     private api: ApiService,
     private stats: EventStatsService,
-    private notifications: NotificationService
+    private notifications: NotificationService,
+    private dialogs: AppDialogService
   ) {}
 
   ngOnInit() {
@@ -409,14 +611,31 @@ export class PendingEventDetailComponent implements OnInit {
     this.api.getOfflineDraftDetail(this.draftId).subscribe({
       next: (d) => {
         this.draft.set(d);
+        this.galleryUrls.set(this.parseMediaUrls(d.galleryUrlsJson));
+        this.videoUrls.set(this.parseMediaUrls(d.videoUrlsJson));
+        this.streamLinks.set(this.parseMediaUrls(d.streamLinksJson).filter((url) => /^https?:\/\//i.test(url)));
         this.loading.set(false);
       },
       error: () => {
         this.draft.set(null);
+        this.galleryUrls.set([]);
+        this.videoUrls.set([]);
+        this.streamLinks.set([]);
         this.error.set('This event was not found. It may have already been published.');
         this.loading.set(false);
       }
     });
+  }
+
+  private parseMediaUrls(raw?: string | null): string[] {
+    if (!raw?.trim()) return [];
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((x): x is string => typeof x === 'string' && !!x.trim());
+    } catch {
+      return [];
+    }
   }
 
   periodLabel(days: number): string {
@@ -447,16 +666,85 @@ export class PendingEventDetailComponent implements OnInit {
     return ['.jpg', '.jpeg', '.png', '.webp', '.gif'].some((ext) => path.endsWith(ext));
   }
 
+  streamLinkLabel(url: string): string {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+      if (host === 'youtube.com' || host === 'youtu.be' || host.endsWith('.youtube.com')) {
+        return 'Watch on YouTube';
+      }
+    } catch {
+      /* keep the generic label */
+    }
+    return 'Open live stream';
+  }
+
+  guessVideoMime(url: string): string {
+    const path = url.split('?')[0].toLowerCase();
+    if (path.endsWith('.webm')) return 'video/webm';
+    if (path.endsWith('.mov')) return 'video/quicktime';
+    return 'video/mp4';
+  }
+
+  openLightbox(url: string, index: number): void {
+    this.lightboxIndex.set(index);
+    this.lightboxUrl.set(url);
+  }
+
+  closeLightbox(): void {
+    this.lightboxUrl.set(null);
+    this.lightboxIndex.set(-1);
+  }
+
+  lightboxHasPrev(): boolean {
+    return this.lightboxIndex() > 0;
+  }
+
+  lightboxHasNext(): boolean {
+    const i = this.lightboxIndex();
+    return i >= 0 && i < this.galleryUrls().length - 1;
+  }
+
+  lightboxPrev(event: Event): void {
+    event.stopPropagation();
+    const next = this.lightboxIndex() - 1;
+    if (next < 0) return;
+    this.lightboxIndex.set(next);
+    this.lightboxUrl.set(this.galleryUrls()[next] ?? null);
+  }
+
+  lightboxNext(event: Event): void {
+    event.stopPropagation();
+    const sources = this.galleryUrls();
+    const next = this.lightboxIndex() + 1;
+    if (next >= sources.length) return;
+    this.lightboxIndex.set(next);
+    this.lightboxUrl.set(sources[next] ?? null);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.lightboxUrl()) this.closeLightbox();
+  }
+
   publish() {
     const d = this.draft();
     if (!d) return;
 
     const needsConfirmPayment = !d.paymentReceived;
-    const message = needsConfirmPayment
-      ? `Confirm payment received and publish "${d.title}" to the feed?`
-      : `Publish "${d.title}" to the feed?`;
-    if (!confirm(message)) return;
+    void this.dialogs.confirm({
+      title: needsConfirmPayment ? 'Confirm payment and publish?' : 'Publish this event?',
+      message: needsConfirmPayment
+        ? `Mark payment as received for “${d.title}”, then publish it to the public feed.`
+        : `“${d.title}” will appear on the public feed. Guests will be able to open it right away.`,
+      confirmLabel: needsConfirmPayment ? 'Confirm and publish' : 'Publish to feed',
+      cancelLabel: 'Cancel'
+    }).then((ok) => {
+      if (!ok) return;
+      this.runPublish(d.id, needsConfirmPayment);
+    });
+  }
 
+  private runPublish(draftId: number, needsConfirmPayment: boolean): void {
     this.busy.set(true);
     this.busyAction.set('publish');
 
@@ -470,34 +758,49 @@ export class PendingEventDetailComponent implements OnInit {
     const finishErr = (err: { error?: { message?: string } }) => {
       this.busy.set(false);
       this.busyAction.set(null);
-      alert(
-        err?.error?.message ||
+      void this.dialogs.alert({
+        title: 'Could not publish',
+        message:
+          err?.error?.message ||
           (needsConfirmPayment
-            ? 'Could not confirm payment and publish.'
-            : 'Could not publish event.')
-      );
+            ? 'Payment could not be confirmed, so this event was not published. Please try again.'
+            : 'This event could not be published. Please try again.'),
+        confirmLabel: 'Close'
+      });
     };
 
     if (needsConfirmPayment) {
-      this.api.markOfflinePaymentReceived(d.id).subscribe({
+      this.api.markOfflinePaymentReceived(draftId).subscribe({
         next: () => {
-          this.api.approveOfflineDraft(d.id).subscribe({ next: finishOk, error: finishErr });
+          this.api.approveOfflineDraft(draftId).subscribe({ next: finishOk, error: finishErr });
         },
         error: finishErr
       });
       return;
     }
 
-    this.api.approveOfflineDraft(d.id).subscribe({ next: finishOk, error: finishErr });
+    this.api.approveOfflineDraft(draftId).subscribe({ next: finishOk, error: finishErr });
   }
 
   deleteDraft() {
     const d = this.draft();
     if (!d) return;
-    if (!confirm(`Delete draft "${d.title}"? This cannot be undone.`)) return;
+    void this.dialogs.confirm({
+      title: 'Delete this draft?',
+      message: `“${d.title}” will be permanently removed. This cannot be undone.`,
+      confirmLabel: 'Delete draft',
+      cancelLabel: 'Keep draft',
+      tone: 'danger'
+    }).then((ok) => {
+      if (!ok) return;
+      this.runDeleteDraft(d.id);
+    });
+  }
+
+  private runDeleteDraft(draftId: number): void {
     this.busy.set(true);
     this.busyAction.set('delete');
-    this.api.deleteDraft(d.id).subscribe({
+    this.api.deleteDraft(draftId).subscribe({
       next: () => {
         this.busy.set(false);
         this.busyAction.set(null);
@@ -508,7 +811,11 @@ export class PendingEventDetailComponent implements OnInit {
       error: (err) => {
         this.busy.set(false);
         this.busyAction.set(null);
-        alert(err?.error?.message || 'Could not delete draft.');
+        void this.dialogs.alert({
+          title: 'Could not delete draft',
+          message: err?.error?.message || 'This draft could not be deleted. Please try again.',
+          confirmLabel: 'Close'
+        });
       }
     });
   }

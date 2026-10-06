@@ -28,16 +28,9 @@ import { NotificationService } from '../../services/notification.service';
 
       <header class="header">
         <div class="container header-inner">
-          <a routerLink="/events" class="logo" aria-label="Memora Admin home">
-            <span class="brand-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M12 11.2c-2-4.5-5.9-6.1-9.2-5 0 3.8 2.5 7.3 6.8 7.8 1 .1 1.8-.1 2.4-.5Z" />
-                <path d="M12 11.2c2-4.5 5.9-6.1 9.2-5 0 3.8-2.5 7.3-6.8 7.8-1 .1-1.8-.1-2.4-.5Z" />
-                <path d="M12 11.9c-1.8 3.7-4.9 5-7.4 4.3 0 2.9 2 5.5 5.2 5.8 1 .1 1.8-.2 2.2-.7Z" />
-                <path d="M12 11.9c1.8 3.7 4.9 5 7.4 4.3 0 2.9-2 5.5-5.2 5.8-1 .1-1.8-.2-2.2-.7Z" />
-              </svg>
-            </span>
-            <span class="wordmark">Memora</span>
+          <a routerLink="/events" class="logo" aria-label="தmileye Admin home">
+            <img class="brand-mark" src="assets/brand/smileye-logo.png" alt="" />
+            <span class="wordmark">தmileye</span>
             <span class="admin-pill">Admin</span>
           </a>
 
@@ -138,7 +131,7 @@ import { NotificationService } from '../../services/notification.service';
                           type="button"
                           class="profile-dropdown-item profile-dropdown-item--danger"
                           role="menuitem"
-                          (click)="logout()"
+                          (click)="logout($event)"
                         >
                           <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path
@@ -319,17 +312,12 @@ import { NotificationService } from '../../services/notification.service';
         outline: 2px solid var(--primary);
         outline-offset: 2px;
       }
-      .brand-icon {
-        width: 28px;
-        height: 28px;
-        display: inline-flex;
-        color: #1f6a53;
+      .brand-mark {
+        width: 56px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 8px;
         flex-shrink: 0;
-      }
-      .brand-icon svg {
-        width: 100%;
-        height: 100%;
-        fill: currentColor;
       }
       .wordmark {
         font-family: var(--font-display);
@@ -743,9 +731,9 @@ import { NotificationService } from '../../services/notification.service';
         .wordmark {
           font-size: 1.3125rem;
         }
-        .brand-icon {
-          width: 24px;
-          height: 24px;
+        .brand-mark {
+          width: 46px;
+          height: 46px;
         }
         .admin-pill {
           display: none;
@@ -869,7 +857,9 @@ export class AdminLayoutComponent implements OnInit {
     this.mobileNavOpen.set(false);
   }
 
-  logout() {
+  logout(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
     this.closeProfileMenu();
     this.closeMobileNav();
     this.auth.logout();

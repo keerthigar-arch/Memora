@@ -164,7 +164,7 @@ const REMEMBER_EMAIL_KEY = 'memora_customer_login_email';
               name="r-mobile"
               [(ngModel)]="regMobile"
               autocomplete="tel"
-              placeholder="e.g. +94771234567"
+              placeholder="e.g. +44 20 7946 0123"
               required
             />
           </label>

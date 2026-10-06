@@ -126,6 +126,18 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
           </div>
         }
 
+        @if (eventType === 'Wedding') {
+          <div class="form-group">
+            <label>Wedding Date</label>
+            <app-date-picker
+              [(ngModel)]="weddingDate"
+              name="weddingDate"
+              placeholder="Choose wedding date"
+              ariaLabel="Wedding date"
+            ></app-date-picker>
+          </div>
+        }
+
         </section>
 
         <section class="form-section" aria-labelledby="sec-story">
@@ -352,7 +364,7 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
             type="tel"
             [(ngModel)]="mobileNumber"
             name="mobileNumber"
-            placeholder="e.g. +94771234567"
+            placeholder="e.g. +44 20 7946 0123"
             #mobileInput="ngModel"
             required
             maxlength="32"
@@ -571,19 +583,47 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 </span>
                 <div class="media-copy">
                   <div class="media-title">Videos</div>
-                  <p class="media-sub">Up to 1 file · MP4 / WEBM / MOV · max 100MB</p>
+                  <p class="media-sub">Up to 3 files · MP4 / WEBM / MOV · max 100MB each</p>
                 </div>
                 @if (videoPreviews().length > 0) {
-                  <span class="media-chip">{{ videoPreviews().length }} / 1</span>
+                  <span class="media-chip">{{ videoPreviews().length }} / 3</span>
                 }
               </div>
               <label class="media-drop media-drop-compact">
-                <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" (change)="onVideosChange($event)" />
+                <input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple (change)="onVideosChange($event)" />
                 <div class="media-drop-empty media-drop-empty-sm">
                   <span class="media-drop-lead">Add event videos</span>
                   <span class="media-drop-meta">Shown on the event detail page</span>
                 </div>
               </label>
+              <div class="stream-add">
+                <label class="stream-label" for="adminStreamLink">Add YouTube or live stream link</label>
+                <p class="stream-hint">Paste a YouTube link or a live streaming link. Visitors open it from the event page.</p>
+                <div class="stream-row">
+                  <input
+                    id="adminStreamLink"
+                    type="url"
+                    name="streamLinkDraft"
+                    [(ngModel)]="streamLinkInput"
+                    placeholder="https://www.youtube.com/watch?v=… or a live stream URL"
+                    (keydown.enter)="$event.preventDefault(); addStreamLink()"
+                  />
+                  <button type="button" class="stream-add-btn" (click)="addStreamLink()">Add link</button>
+                </div>
+                @if (streamLinkError) {
+                  <p class="stream-error">{{ streamLinkError }}</p>
+                }
+                @if (streamLinks().length) {
+                  <ul class="stream-list">
+                    @for (link of streamLinks(); track link; let i = $index) {
+                      <li>
+                        <a [href]="link" target="_blank" rel="noopener noreferrer">{{ link }}</a>
+                        <button type="button" (click)="removeStreamLink(i)">Remove</button>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
               @if (videoPreviews().length > 0) {
                 <div class="video-preview-grid">
                   @for (preview of videoPreviews(); track preview.url; let i = $index) {
@@ -610,6 +650,43 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
                 </div>
               }
             </div>
+
+            @if (needsConfirmationDocument()) {
+              <div class="media-card" [class.media-card-ready]="!!confirmationDocument()">
+                <div class="media-card-head">
+                  <span class="media-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <path d="M14 2v6h6"/>
+                      <path d="M8 13h8M8 17h6"/>
+                    </svg>
+                  </span>
+                  <div class="media-copy">
+                    <div class="media-title">Confirmation document <span class="media-req">*</span></div>
+                    <p class="media-sub">{{ confirmationDocHint() }}</p>
+                  </div>
+                  @if (confirmationDocument()) {
+                    <span class="media-chip">Ready</span>
+                  }
+                </div>
+                <label class="media-drop media-drop-compact">
+                  <input
+                    type="file"
+                    (change)="onConfirmationDocument($event)"
+                  />
+                  <div class="media-drop-empty media-drop-empty-sm">
+                    <span class="media-drop-lead">{{ confirmationDocument()?.name || 'Upload confirmation document' }}</span>
+                    <span class="media-drop-meta">Any file type · max 10MB</span>
+                  </div>
+                </label>
+                @if (confirmationDocument()) {
+                  <div class="doc-selected">
+                    <span>{{ confirmationDocument()!.name }}</span>
+                    <button type="button" class="media-remove" (click)="removeConfirmationDocument()" aria-label="Remove document">×</button>
+                  </div>
+                }
+              </div>
+            }
           </div>
         </section>
 
@@ -1112,6 +1189,17 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       z-index: 2;
     }
     .media-remove:hover { background: #b91c1c; }
+    .doc-selected {
+      margin-top: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 10px;
+      background: #f0f9f5;
+    }
+    .doc-selected .media-remove { position: static; }
     .media-remove-on-video {
       top: 0.55rem;
       right: 0.55rem;
@@ -1131,6 +1219,59 @@ import { DatePickerComponent } from '../../components/date-picker/date-picker.co
       aspect-ratio: 16 / 10;
       object-fit: cover;
       background: #000;
+    }
+    .stream-add { margin-top: 0.85rem; display: grid; gap: 0.4rem; }
+    .stream-label { font-size: 0.82rem; font-weight: 700; color: #0f2922; }
+    .stream-hint { margin: 0; font-size: 0.75rem; color: #5a6f68; line-height: 1.4; }
+    .stream-row { display: flex; gap: 0.45rem; align-items: center; }
+    .stream-row input {
+      flex: 1;
+      min-width: 0;
+      min-height: 40px;
+      border: 1px solid #d5e0db;
+      border-radius: 10px;
+      padding: 0 0.75rem;
+      font: inherit;
+      font-size: 0.86rem;
+    }
+    .stream-add-btn {
+      border: 1px solid #1a5f4a;
+      background: #fff;
+      color: #1a5f4a;
+      border-radius: 999px;
+      padding: 0.45rem 0.8rem;
+      font: inherit;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .stream-error { margin: 0; color: #b42318; font-size: 0.78rem; }
+    .stream-list { list-style: none; margin: 0.2rem 0 0; padding: 0; display: grid; gap: 0.35rem; }
+    .stream-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.4rem 0.55rem;
+      border: 1px solid #e2ebe6;
+      border-radius: 10px;
+      background: #f8fcfa;
+    }
+    .stream-list a {
+      color: #1d4ed8;
+      font-size: 0.8rem;
+      word-break: break-all;
+    }
+    .stream-list button {
+      border: none;
+      background: transparent;
+      color: #b42318;
+      font: inherit;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
     }
     .video-preview-name {
       margin: 0;
@@ -1425,6 +1566,10 @@ export class CreateEventComponent implements OnInit, OnDestroy {
   mainImagePreview = signal<string | null>(null);
   galleryPreviews  = signal<{ url: string; name: string }[]>([]);
   videoPreviews    = signal<{ url: string; name: string }[]>([]);
+  streamLinks      = signal<string[]>([]);
+  streamLinkInput  = '';
+  streamLinkError  = '';
+  confirmationDocument = signal<File | null>(null);
   saving           = signal(false);
   error            = signal('');
 
@@ -1448,6 +1593,7 @@ export class CreateEventComponent implements OnInit, OnDestroy {
   mainImage:     File | null = null;
   galleryImages: File[]      = [];
   videos:        File[]      = [];
+  private confirmationDocFile: File | null = null;
 
   // ?????? Lifecycle ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
   ngOnInit(): void {
@@ -1576,10 +1722,10 @@ export class CreateEventComponent implements OnInit, OnDestroy {
       validFiles.push(file);
     }
 
-    const room = Math.max(0, 1 - this.videos.length);
+    const room = Math.max(0, 3 - this.videos.length);
     const accepted = validFiles.slice(0, room);
     if (validFiles.length > room) {
-      this.error.set('Maximum 1 video allowed. Extra files were skipped.');
+      this.error.set('Maximum 3 videos allowed. Extra files were skipped.');
       this.cdr.markForCheck();
     } else if (hasInvalid) {
       this.error.set('Some videos were skipped (only MP4/WEBM/MOV up to 100MB).');
@@ -1630,6 +1776,29 @@ export class CreateEventComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  addStreamLink(): void {
+    const next = normalizeStreamLink(this.streamLinkInput);
+    if (!next.ok) {
+      this.streamLinkError = next.message;
+      return;
+    }
+    if (this.streamLinks().length >= 3) {
+      this.streamLinkError = 'You can add up to 3 links.';
+      return;
+    }
+    if (this.streamLinks().some((url) => url.toLowerCase() === next.url.toLowerCase())) {
+      this.streamLinkError = 'That link is already added.';
+      return;
+    }
+    this.streamLinks.update((list) => [...list, next.url]);
+    this.streamLinkInput = '';
+    this.streamLinkError = '';
+  }
+
+  removeStreamLink(index: number): void {
+    this.streamLinks.update((list) => list.filter((_, i) => i !== index));
+  }
+
   ngOnDestroy(): void {
     for (const preview of this.galleryPreviews()) {
       URL.revokeObjectURL(preview.url);
@@ -1647,7 +1816,46 @@ export class CreateEventComponent implements OnInit, OnDestroy {
   // ?????? Event type change ??? clear irrelevant dates ????????????????????????????????????????????????????????????????????????????????????
   onEventTypeChange(type: string): void {
     if (type !== 'Obituary' && type !== 'Remembrance') { this.birthDate = ''; this.deathDate = ''; }
-    this.weddingDate = '';
+    if (type !== 'Wedding') this.weddingDate = '';
+    if (!this.needsConfirmationDocument()) this.removeConfirmationDocument();
+  }
+
+  needsConfirmationDocument(): boolean {
+    const t = (this.eventType || '').trim();
+    return t === 'Wedding' || t === 'Obituary' || t === 'Funeral';
+  }
+
+  confirmationDocHint(): string {
+    if (this.eventType === 'Wedding') {
+      return 'Upload a marriage certificate or wedding invitation that confirms the ceremony.';
+    }
+    return 'Upload a funeral notice, death certificate, or other document that confirms the funeral.';
+  }
+
+  onConfirmationDocument(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      input.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      this.error.set('Confirmation document must be 10 MB or smaller.');
+      input.value = '';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.error.set('');
+    this.confirmationDocFile = file;
+    this.confirmationDocument.set(file);
+    input.value = '';
+    this.cdr.markForCheck();
+  }
+
+  removeConfirmationDocument(): void {
+    this.confirmationDocFile = null;
+    this.confirmationDocument.set(null);
+    this.cdr.markForCheck();
   }
 
   // ?????? Duration label ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
@@ -1691,6 +1899,7 @@ export class CreateEventComponent implements OnInit, OnDestroy {
     if (!this.auth.isLoggedIn() && this.createdBy && this.createdBy.length > 100) return false;
     // Main image is required by the backend
     if (!this.mainImage) return false;
+    if (this.needsConfirmationDocument() && !this.confirmationDocFile) return false;
     // Display days must be a valid option
     const validDays = this.displayOptions().map(o => o.days);
     return validDays.length > 0 && validDays.includes(this.displayDays);
@@ -1724,6 +1933,9 @@ export class CreateEventComponent implements OnInit, OnDestroy {
       if (this.birthDate) formData.append('birthDate', this.birthDate);
       if (this.deathDate) formData.append('deathDate', this.deathDate);
     }
+    if (this.eventType === 'Wedding' && this.weddingDate) {
+      formData.append('weddingDate', this.weddingDate);
+    }
     if (this.visibility === 'InviteOnly' && this.invitedEmails.trim()) {
       formData.append('invitedEmails', this.invitedEmails.trim());
     }
@@ -1737,6 +1949,10 @@ export class CreateEventComponent implements OnInit, OnDestroy {
     if (this.mainImage) formData.append('mainImage', this.mainImage);
     this.galleryImages.forEach(f => formData.append('galleryImages', f));
     this.videos.forEach(f => formData.append('videos', f));
+    formData.append('streamLinks', JSON.stringify(this.streamLinks()));
+    if (this.confirmationDocFile) {
+      formData.append('confirmationDocument', this.confirmationDocFile);
+    }
 
     this.api.createEvent(formData).subscribe({
       next: () => {
@@ -1760,5 +1976,20 @@ export class CreateEventComponent implements OnInit, OnDestroy {
         console.error('Event submission error:', err);
       }
     });
+  }
+}
+
+function normalizeStreamLink(raw: string): { ok: true; url: string } | { ok: false; message: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { ok: false, message: 'Enter a YouTube or streaming link.' };
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(withScheme);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { ok: false, message: 'Enter a valid YouTube or streaming link.' };
+    }
+    return { ok: true, url: parsed.toString() };
+  } catch {
+    return { ok: false, message: 'Enter a valid YouTube or streaming link.' };
   }
 }

@@ -12,7 +12,7 @@ import { AuthService } from '../../services/auth.service';
     <section class="auth-hero">
       <div class="container">
         <h1>Create Account</h1>
-        <p>Join Memora to preserve and share memories.</p>
+        <p>Join தmileye to preserve and share memories.</p>
       </div>
     </section>
 
@@ -28,7 +28,7 @@ import { AuthService } from '../../services/auth.service';
         </div>
         <div class="form-group">
           <label>Mobile Number *</label>
-          <input type="tel" [(ngModel)]="mobileNumber" name="mobileNumber" placeholder="e.g. +94771234567" required />
+          <input type="tel" [(ngModel)]="mobileNumber" name="mobileNumber" placeholder="e.g. +44 20 7946 0123" required />
         </div>
         <div class="form-group">
           <label>Password *</label>

@@ -45,7 +45,15 @@ export class AuthService {
   currentUser = computed(() => this.user());
   isAdmin = computed(() => this.user()?.role === 'Admin');
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event) => {
+        if (event.key === TOKEN_KEY && event.newValue == null && this.token()) {
+          this.logout();
+        }
+      });
+    }
+  }
 
   private loadUserFromStorage(): UserProfile | null {
     const json = localStorage.getItem(USER_KEY);
@@ -71,19 +79,44 @@ export class AuthService {
     );
   }
 
-  logout() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+  /** Ends the session, clears stored credentials and browser cache, then leaves protected pages. */
+  logout(reason?: 'idle') {
+    this.wipeClientSession();
+    if (reason === 'idle') {
+      void this.router.navigate([environment.logoutRedirectUrl], {
+        queryParams: { session: 'expired' },
+        replaceUrl: true
+      });
+      return;
+    }
+    void this.router.navigateByUrl(environment.logoutRedirectUrl, { replaceUrl: true });
+  }
+
+  private wipeClientSession() {
     this.token.set(null);
     this.user.set(null);
-    this.router.navigateByUrl(environment.logoutRedirectUrl);
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    } catch {
+      /* private mode or blocked storage */
+    }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* private mode or blocked storage */
+    }
+    void clearBrowserCache();
   }
 
   private clearStaleSession() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    this.token.set(null);
-    this.user.set(null);
+    const wasSignedIn = !!this.token();
+    this.wipeClientSession();
+    if (!wasSignedIn) return;
+    const path = this.router.url.split('?')[0].split('#')[0];
+    if (path !== environment.logoutRedirectUrl) {
+      void this.router.navigateByUrl(environment.logoutRedirectUrl, { replaceUrl: true });
+    }
   }
 
   private handleStaleProfileError(err: { status?: number }) {
@@ -107,11 +140,12 @@ export class AuthService {
     );
   }
 
-  updateProfile(displayName?: string, bio?: string, profileImage?: File): Observable<UserProfile> {
+  updateProfile(displayName?: string, bio?: string, profileImage?: File, removeProfileImage = false): Observable<UserProfile> {
     const form = new FormData();
     if (displayName != null) form.append('displayName', displayName);
     if (bio != null) form.append('bio', bio);
     if (profileImage) form.append('profileImage', profileImage);
+    if (removeProfileImage) form.append('removeProfileImage', 'true');
     return this.http.put<UserProfile>(`${API}/users/me`, form).pipe(
       tap((u) => {
         this.user.set(u);
@@ -159,4 +193,14 @@ export class AuthService {
   resetPasswordWithToken(token: string, newPassword: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${API}/auth/reset-password`, { token, newPassword });
   }
+}
+
+/** Drops Cache Storage entries so a signed-out browser cannot reuse authenticated responses. */
+function clearBrowserCache(): Promise<void> {
+  if (typeof caches === 'undefined') return Promise.resolve();
+  return caches
+    .keys()
+    .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+    .then(() => undefined)
+    .catch(() => undefined);
 }

@@ -115,6 +115,7 @@ export interface CustomerDraftDetailDto {
   mainImageUrl?: string | null;
   galleryUrlsJson?: string | null;
   videoUrlsJson?: string | null;
+  streamLinksJson?: string | null;
   createdBy: string;
   visibility: string;
   displayDays: number;
@@ -154,6 +155,7 @@ export interface EventDetailDto {
   mainImageUrl?: string;
   galleryUrls?: string;
   videoUrls?: string;
+  streamLinks?: string | null;
   createdBy: string;
   createdAt: string;
   wishes: WishDto[];
@@ -162,6 +164,8 @@ export interface EventDetailDto {
   isOwner?: boolean;
   invitedEmails?: string[];
   mobileNumber?: string | null;
+  displayDays?: number | null;
+  confirmationDocumentUrl?: string | null;
 }
 
 export interface PagedResult<T> {
@@ -269,6 +273,10 @@ export class ApiService {
 
   getManageEventStats(): Observable<EventManageStatsDto> {
     return this.http.get<EventManageStatsDto>(`${API}/events/manage/stats`);
+  }
+
+  getManagePendingDrafts(): Observable<CustomerDraftListDto[]> {
+    return this.http.get<CustomerDraftListDto[]>(`${API}/events/manage/pending-drafts`);
   }
 
   /** Load event for edit (works when hidden from public feed). */

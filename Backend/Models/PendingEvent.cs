@@ -21,6 +21,9 @@ public class PendingEvent
     public string? GalleryPathsJson { get; set; }
     public string? VideoPathsJson { get; set; }
 
+    /// <summary>JSON array of YouTube or live-stream URLs (http/https).</summary>
+    public string? StreamLinksJson { get; set; }
+
     /// <summary>Confirmation document for Wedding / Obituary (Funeral) — under Event/{id}/document/.</summary>
     [MaxLength(500)]
     public string? ConfirmationDocumentPath { get; set; }

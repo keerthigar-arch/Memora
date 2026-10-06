@@ -18,16 +18,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 
       <div class="container footer-main">
         <div class="footer-brand">
-          <a routerLink="/" class="footer-logo" aria-label="Memora home">
-            <span class="brand-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M12 11.2c-2-4.5-5.9-6.1-9.2-5 0 3.8 2.5 7.3 6.8 7.8 1 .1 1.8-.1 2.4-.5Z" />
-                <path d="M12 11.2c2-4.5 5.9-6.1 9.2-5 0 3.8-2.5 7.3-6.8 7.8-1 .1-1.8-.1-2.4-.5Z" />
-                <path d="M12 11.9c-1.8 3.7-4.9 5-7.4 4.3 0 2.9 2 5.5 5.2 5.8 1 .1 1.8-.2 2.2-.7Z" />
-                <path d="M12 11.9c1.8 3.7 4.9 5 7.4 4.3 0 2.9-2 5.5-5.2 5.8-1 .1-1.8-.2-2.2-.7Z" />
-              </svg>
-            </span>
-            <span class="footer-wordmark">Memora</span>
+          <a routerLink="/" class="footer-logo" aria-label="தmileye home">
+            <img class="brand-mark" src="assets/brand/smileye-logo.png" alt="" />
+            <span class="footer-wordmark">தmileye</span>
           </a>
           <p class="footer-tagline">{{ 'footer.tagline' | t }}</p>
           <p class="footer-lede">{{ 'footer.lede' | t }}</p>
@@ -201,17 +194,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       font-family: var(--font-display);
     }
 
-    .brand-icon {
-      width: 1.25rem;
-      height: 1.25rem;
-      display: inline-flex;
-      color: #b8e6d4;
-    }
-
-    .brand-icon svg {
-      width: 100%;
-      height: 100%;
-      fill: currentColor;
+    .brand-mark {
+      width: 3.15rem;
+      height: 3.15rem;
+      object-fit: cover;
+      border-radius: 8px;
+      flex-shrink: 0;
     }
 
     .footer-wordmark {

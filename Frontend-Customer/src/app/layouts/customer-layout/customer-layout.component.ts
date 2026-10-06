@@ -1,10 +1,11 @@
-import { Component, ElementRef, HostListener, OnInit, computed, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, computed, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { FooterComponent } from '../../components/footer/footer.component';
 import { AuthModalComponent } from '../../components/auth-modal/auth-modal.component';
-import { EventStatsService } from '../../services/event-stats.service';
+import { PricingObituaryComponent } from '../../features/pricing-obituary/pricing-obituary.component';
+import { ContactComponent } from '../../features/contact/contact.component';
 import { AuthService } from '../../services/auth.service';
 import { AuthUiService } from '../../services/auth-ui.service';
 import { LanguageService } from '../../services/language.service';
@@ -21,7 +22,9 @@ import { environment } from '../../../environments/environment';
     RouterLinkActive,
     FooterComponent,
     AuthModalComponent,
-    TranslatePipe
+    TranslatePipe,
+    PricingObituaryComponent,
+    ContactComponent
   ],
   template: `
     <div class="top-bar" role="complementary" aria-label="Support line">
@@ -34,18 +37,11 @@ import { environment } from '../../../environments/environment';
 
     <header class="header">
       <div class="container header-inner">
-        <a routerLink="/" class="logo" aria-label="Memora">
+        <a routerLink="/" class="logo" aria-label="தmileye">
           <span class="logo-glow" aria-hidden="true"></span>
-          <span class="brand-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M12 11.2c-2-4.5-5.9-6.1-9.2-5 0 3.8 2.5 7.3 6.8 7.8 1 .1 1.8-.1 2.4-.5Z"/>
-              <path d="M12 11.2c2-4.5 5.9-6.1 9.2-5 0 3.8-2.5 7.3-6.8 7.8-1 .1-1.8-.1-2.4-.5Z"/>
-              <path d="M12 11.9c-1.8 3.7-4.9 5-7.4 4.3 0 2.9 2 5.5 5.2 5.8 1 .1 1.8-.2 2.2-.7Z"/>
-              <path d="M12 11.9c1.8 3.7 4.9 5 7.4 4.3 0 2.9-2 5.5-5.2 5.8-1 .1-1.8-.2-2.2-.7Z"/>
-            </svg>
-          </span>
+          <img class="brand-mark" src="assets/brand/smileye-logo.png" alt="" />
           <span class="wordmark">
-            <span class="wordmark-text">Memora</span>
+            <span class="wordmark-text">தmileye</span>
             <span class="wordmark-shine" aria-hidden="true"></span>
           </span>
         </a>
@@ -59,14 +55,21 @@ import { environment } from '../../../environments/environment';
               {{ 'lang.ta' | t }}
             </button>
           </div>
-          <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">{{
+          <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" (click)="enterFeed()">{{
             'nav.feed' | t
           }}</a>
-          <a class="nav-link nav-link-emphasis" routerLink="/my-events" routerLinkActive="active">{{
-            'nav.myEvents' | t
-          }}</a>
-          <a class="nav-link" routerLink="/pricing" routerLinkActive="active">{{ 'nav.pricing' | t }}</a>
-          <a class="nav-link" routerLink="/contact" routerLinkActive="active">{{ 'nav.contact' | t }}</a>
+          @if (auth.isLoggedIn()) {
+            <a class="nav-link nav-link-emphasis" routerLink="/my-events" routerLinkActive="active">{{
+              'nav.myEvents' | t
+            }}</a>
+          }
+          @if (showWelcome()) {
+            <a class="nav-link" href="#welcome-pricing" (click)="scrollToSection($event, 'welcome-pricing')">{{ 'nav.pricing' | t }}</a>
+            <a class="nav-link" href="#welcome-contact" (click)="scrollToSection($event, 'welcome-contact')">{{ 'nav.contact' | t }}</a>
+          } @else {
+            <a class="nav-link" routerLink="/pricing" routerLinkActive="active">{{ 'nav.pricing' | t }}</a>
+            <a class="nav-link" routerLink="/contact" routerLinkActive="active">{{ 'nav.contact' | t }}</a>
+          }
           @if (auth.isLoggedIn()) {
             <div class="profile-menu" #profileMenuRoot>
               <button
@@ -121,7 +124,7 @@ import { environment } from '../../../environments/environment';
                         type="button"
                         class="profile-dropdown-item profile-dropdown-item--danger"
                         role="menuitem"
-                        (click)="logout()"
+                        (click)="logout($event)"
                       >
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path
@@ -150,64 +153,105 @@ import { environment } from '../../../environments/environment';
       </div>
     </header>
 
-    @if (!isProfileRoute()) {
-    <section class="showcase">
-      <div class="showcase-ornament showcase-ornament--left" aria-hidden="true"></div>
-      <div class="showcase-ornament showcase-ornament--right" aria-hidden="true"></div>
-      <div class="container showcase-content">
-        <div class="showcase-copy">
-          <p class="showcase-kicker">{{ 'showcase.kicker' | t }}</p>
-          <h2>{{ 'showcase.title' | t }}</h2>
-          <p>{{ 'showcase.subtitle' | t }}</p>
-        </div>
-        <div class="gallery-window" aria-hidden="true">
-          <div class="gallery-track">
-            @for (src of showcaseTrack; track $index) {
-              <span class="gallery-card">
-                <img [src]="src" alt="" width="400" height="300" decoding="async" loading="lazy" />
-              </span>
-            }
-          </div>
-        </div>
+    @if (sessionExpired()) {
+      <div class="session-banner" role="status">
+        <p>{{ 'session.expired' | t }}</p>
+        <button type="button" class="session-banner-dismiss" (click)="dismissSessionNotice()">
+          {{ 'session.dismiss' | t }}
+        </button>
       </div>
-    </section>
     }
 
-    @if (!isProfileRoute()) {
-    <section class="country-summary-bar">
-      <div class="container">
-        @if (!stats.countryStatsLoaded()) {
-          <span class="summary-placeholder">{{ 'country.loading' | t }}</span>
-        } @else if (stats.countrySummary().length > 0) {
-          <div class="summary-chips" role="group" [attr.aria-label]="'country.filterAria' | t">
-            <button
-              type="button"
-              class="summary-chip"
-              [class.active]="!stats.selectedCountry()"
-              (click)="stats.setSelectedCountry(null)"
-            >
-              <strong>{{ 'country.all' | t }}</strong>
+    @if (showWelcome()) {
+      <div class="welcome-scroll">
+      <section class="arrival" aria-labelledby="arrival-title">
+        <div class="arrival-collage" aria-hidden="true">
+          <svg class="arrival-leaf arrival-leaf--left" viewBox="0 0 140 220" fill="none">
+            <path d="M78 208C74 150 48 112 28 62" stroke="#8eaa96" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M70 168c-28-6-46-28-52-52 18 6 34 8 52 4" stroke="#8eaa96" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M66 138c22-10 40-8 58-24-16 14-32 18-52 16" stroke="#7d9a86" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M40 96c-16-18-18-36-10-54 8 16 14 28 22 40" stroke="#8eaa96" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M34 78c-20 2-32 16-36 32 14-6 26-10 38-8" stroke="#9bb5a2" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+          <svg class="arrival-leaf arrival-leaf--right" viewBox="0 0 160 200" fill="none">
+            <path d="M36 12c18 48 28 86 22 150" stroke="#8eaa96" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M52 58c26-2 44 12 56 32-20-6-36-4-52 2" stroke="#7d9a86" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M50 96c24 8 36 24 40 46-18-10-32-14-46-10" stroke="#8eaa96" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M46 132c18 16 22 34 16 54-10-16-16-30-20-46" stroke="#9bb5a2" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          <figure class="polaroid polaroid--a">
+            <img src="assets/showcase/wedding-2.jpg" alt="" />
+          </figure>
+          <figure class="polaroid polaroid--b">
+            <img src="assets/showcase/hindu-wedding.jpg" alt="" />
+          </figure>
+          <figure class="polaroid polaroid--c">
+            <img src="assets/showcase/birthday-2.jpg" alt="" />
+          </figure>
+        </div>
+        <div class="arrival-copy">
+          <p class="arrival-kicker">{{ 'showcase.whoWeAre' | t }}</p>
+          <h1 id="arrival-title">{{ 'arrival.title' | t }}</h1>
+          <p class="arrival-body">{{ 'showcase.whoWeAre.body' | t }}</p>
+          <div class="discover-slot">
+            <button type="button" class="arrival-cta" (click)="enterFeed()">
+              {{ 'arrival.discover' | t }}
+              <span aria-hidden="true">→</span>
             </button>
-            @for (item of stats.countrySummary(); track item.country) {
-              <button
-                type="button"
-                class="summary-chip"
-                [class.active]="stats.selectedCountry() === item.country"
-                (click)="stats.setSelectedCountry(item.country)"
-              >
-                <strong>{{ item.country }}</strong>
-                <span>{{ item.count }} {{ 'country.eventsSuffix' | t }}</span>
-              </button>
-            }
           </div>
-        }
+        </div>
+        <p class="arrival-mantra">
+          <span>{{ 'arrival.celebrate' | t }}</span>
+          <span class="arrival-dot" aria-hidden="true">·</span>
+          <span>{{ 'arrival.preserve' | t }}</span>
+          <span class="arrival-dot" aria-hidden="true">·</span>
+          <span>{{ 'arrival.remember' | t }}</span>
+        </p>
+      </section>
+      <section id="welcome-pricing" class="welcome-panel" aria-label="Pricing">
+        <app-pricing-obituary [embedded]="true" />
+      </section>
+      <section id="welcome-contact" class="welcome-panel" aria-label="Contact">
+        <app-contact />
+      </section>
       </div>
+    }
+    @if (!showWelcome()) {
+    @if (!isProfileRoute()) {
+    <section class="showcase" [class.showcase--guest]="!auth.isLoggedIn()">
+      @if (auth.isLoggedIn()) {
+      <div class="showcase-ornament showcase-ornament--left" aria-hidden="true"></div>
+      <div class="showcase-ornament showcase-ornament--right" aria-hidden="true"></div>
+        <div class="container showcase-content">
+          <div class="showcase-copy">
+            <p class="showcase-kicker">{{ 'showcase.kicker' | t }}</p>
+            <h2>{{ 'showcase.title' | t }}</h2>
+            <p>{{ 'showcase.subtitle' | t }}</p>
+          </div>
+          <div class="gallery-window" aria-hidden="true">
+            <div class="gallery-track">
+              @for (src of showcaseTrack; track $index) {
+                <span class="gallery-card">
+                  <img [src]="src" alt="" width="400" height="300" decoding="async" loading="lazy" />
+                </span>
+              }
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="container who-we-are">
+          <p class="who-label">{{ 'showcase.whoWeAre' | t }}</p>
+          <p class="who-title">{{ 'arrival.title' | t }}</p>
+          <p class="who-line">{{ 'showcase.whoWeAre.body' | t }}</p>
+        </div>
+      }
     </section>
     }
 
     <main class="main">
       <router-outlet></router-outlet>
     </main>
+    }
     @if (authUi.panel() !== null) {
       <app-auth-modal />
     }
@@ -247,6 +291,38 @@ import { environment } from '../../../environments/environment';
       white-space: nowrap;
     }
     .top-bar-phone:hover { text-decoration: underline; }
+    .session-banner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 0.55rem 1rem;
+      background: #f8f4ea;
+      color: #5c4a1f;
+      border-bottom: 1px solid #eadfc4;
+      text-align: center;
+    }
+    .session-banner p {
+      margin: 0;
+      font-size: 0.86rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .session-banner-dismiss {
+      border: 1px solid #c4b48a;
+      background: #fff;
+      color: #5c4a1f;
+      border-radius: 999px;
+      padding: 0.2rem 0.7rem;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .session-banner-dismiss:hover {
+      background: #fffaf0;
+    }
     .header {
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(8px);
@@ -353,39 +429,262 @@ import { environment } from '../../../environments/environment';
       18% { opacity: 0.9; }
       35%, 100% { transform: skewX(-18deg) translateX(220%); opacity: 0; }
     }
-    .brand-icon {
-      width: 1.35rem;
-      height: 1.35rem;
-      display: inline-flex;
-      color: #2e7f67;
-      margin-right: 0.42rem;
-      transform: translateY(-1px);
-      animation: brandLeafFloat 5s ease-in-out infinite;
+    .brand-mark {
+      width: 3.5rem;
+      height: 3.5rem;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-right: 0.55rem;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(13, 61, 50, 0.18);
     }
-    @keyframes brandLeafFloat {
-      0%, 100% { transform: translateY(-1px) rotate(0deg) scale(1); }
-      25% { transform: translateY(-3px) rotate(-4deg) scale(1.04); }
-      75% { transform: translateY(0) rotate(3deg) scale(1.02); }
+    .arrival {
+      position: relative;
+      min-height: calc(100dvh - 7.25rem);
+      display: grid;
+      grid-template-columns: minmax(260px, 1.05fr) minmax(280px, 0.92fr);
+      align-items: center;
+      gap: 1.5rem 3rem;
+      padding: 2.2rem 4vw 4.75rem;
+      background:
+        radial-gradient(ellipse 42% 36% at 12% 78%, rgba(176, 196, 168, 0.35), transparent 70%),
+        radial-gradient(ellipse 36% 28% at 92% 18%, rgba(212, 196, 168, 0.28), transparent 70%),
+        #f6f3ec;
     }
-    .brand-icon svg {
+    .arrival-collage {
+      position: relative;
+      height: min(540px, 66vh);
+      min-height: 420px;
+    }
+    .arrival-leaf {
+      position: absolute;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .arrival-leaf--left {
+      width: 150px;
+      left: -8px;
+      bottom: 18px;
+    }
+    .arrival-leaf--right {
+      width: 150px;
+      right: 0;
+      top: 8px;
+    }
+    .polaroid {
+      position: absolute;
+      margin: 0;
+      background: #fff;
+      padding: 0.55rem 0.55rem 1.45rem;
+      border-radius: 3px;
+      box-shadow: 0 18px 40px rgba(62, 48, 28, 0.14);
+      overflow: hidden;
+      animation: polaroidIn 0.9s ease both;
+    }
+    .polaroid img {
+      display: block;
       width: 100%;
-      height: 100%;
-      fill: currentColor;
-      filter: drop-shadow(0 2px 4px rgba(26, 95, 74, 0.28));
-      animation: brandLeafGlow 3.5s ease-in-out infinite;
+      height: calc(100% - 0.2rem);
+      object-fit: cover;
     }
-    @keyframes brandLeafGlow {
-      0%, 100% { filter: drop-shadow(0 2px 4px rgba(26, 95, 74, 0.28)); }
-      50% { filter: drop-shadow(0 2px 8px rgba(63, 144, 119, 0.55)) drop-shadow(0 0 10px rgba(63, 144, 119, 0.25)); }
+    .polaroid::after {
+      content: '';
+      position: absolute;
+      left: 0.55rem;
+      right: 0.55rem;
+      top: 0.55rem;
+      bottom: 1.45rem;
+      background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.55) 50%, transparent 62%);
+      transform: translateX(-130%);
+      animation: polaroidShine 6.5s ease-in-out infinite;
+      pointer-events: none;
     }
+    .polaroid--a {
+      width: 48%;
+      height: 58%;
+      left: 4%;
+      top: 6%;
+      z-index: 1;
+      animation: polaroidIn 0.9s ease both, polaroidFloatA 6.4s ease-in-out 0.9s infinite;
+    }
+    .polaroid--a img { object-position: center 40%; }
+    .polaroid--a::after { animation-delay: 0.6s; }
+    .polaroid--b {
+      width: 46%;
+      height: 50%;
+      right: 2%;
+      top: 0;
+      z-index: 2;
+      animation: polaroidIn 0.9s ease 0.15s both, polaroidFloatB 7.2s ease-in-out 1.05s infinite;
+    }
+    .polaroid--b img { object-position: center 45%; }
+    .polaroid--b::after { animation-delay: 2.4s; }
+    .polaroid--c {
+      width: 40%;
+      height: 50%;
+      left: 30%;
+      bottom: 0;
+      z-index: 3;
+      animation: polaroidIn 0.9s ease 0.28s both, polaroidFloatC 6.8s ease-in-out 1.2s infinite;
+    }
+    .polaroid--c img { object-position: center 30%; }
+    .polaroid--c::after { animation-delay: 4.2s; }
+    @keyframes polaroidIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes polaroidFloatA {
+      0%, 100% { transform: rotate(-8deg) translateY(0); }
+      50% { transform: rotate(-5.5deg) translateY(-12px); }
+    }
+    @keyframes polaroidFloatB {
+      0%, 100% { transform: rotate(7deg) translateY(0); }
+      50% { transform: rotate(4.5deg) translateY(-10px); }
+    }
+    @keyframes polaroidFloatC {
+      0%, 100% { transform: rotate(-2deg) translateY(0); }
+      50% { transform: rotate(1.5deg) translateY(-11px); }
+    }
+    @keyframes polaroidShine {
+      0%, 62% { transform: translateX(-130%); }
+      82%, 100% { transform: translateX(130%); }
+    }
+    .arrival-copy { position: relative; z-index: 1; max-width: 38rem; }
+    .arrival-kicker {
+      margin: 0 0 0.7rem;
+      color: #1a5f4a;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .arrival-copy h1 {
+      margin: 0 0 1rem;
+      color: #14382c;
+      font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+      font-weight: 600;
+      font-size: clamp(2.35rem, 4vw, 3.55rem);
+      line-height: 1.08;
+      letter-spacing: -0.015em;
+    }
+    .arrival-body {
+      margin: 0 0 1.55rem;
+      max-width: 34rem;
+      color: #3a4c45;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      font-weight: 500;
+      font-size: clamp(1.12rem, 1.5vw, 1.32rem);
+      line-height: 1.65;
+    }
+    .arrival-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      border: 0;
+      border-radius: 999px;
+      background: #1b5c48;
+      color: #fff;
+      font-family: var(--font-body);
+      font-size: 0.98rem;
+      font-weight: 650;
+      letter-spacing: 0.01em;
+      padding: 0.85rem 1.35rem 0.85rem 1.45rem;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(27, 92, 72, 0.22);
+    }
+    .arrival-cta:hover { background: #144a3a; }
+    .welcome-scroll {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.05fr) minmax(280px, 0.92fr);
+      grid-template-rows: minmax(calc(100dvh - 8.2rem), auto) auto auto;
+      column-gap: 3rem;
+      padding: 1.4rem 4vw 0;
+      background:
+        radial-gradient(ellipse 42% 36% at 12% 18%, rgba(176, 196, 168, 0.35), transparent 70%),
+        radial-gradient(ellipse 36% 28% at 92% 8%, rgba(212, 196, 168, 0.28), transparent 70%),
+        linear-gradient(#f6f3ec 0, #f6f3ec calc(100dvh - 6.6rem), var(--bg) calc(100dvh - 6.6rem));
+    }
+    .welcome-scroll .arrival { display: contents; }
+    .welcome-scroll .arrival-collage {
+      grid-column: 1;
+      grid-row: 1;
+      align-self: center;
+      height: min(540px, 62vh);
+      min-height: 420px;
+    }
+    .welcome-scroll .arrival-copy {
+      grid-column: 2;
+      grid-row: 1;
+      align-self: center;
+    }
+    .discover-slot { min-height: 3.2rem; }
+    .welcome-scroll .arrival-cta.is-following {
+      position: fixed;
+      top: 6.4rem;
+      right: 1.75rem;
+      left: auto;
+      z-index: 80;
+    }
+    .welcome-scroll .arrival-mantra {
+      position: relative;
+      left: auto;
+      right: auto;
+      bottom: auto;
+      grid-column: 1 / -1;
+      grid-row: 1;
+      align-self: end;
+      padding-bottom: 0.35rem;
+      z-index: 2;
+    }
+    .welcome-panel {
+      grid-column: 1 / -1;
+      position: relative;
+      z-index: 1;
+      margin-left: -4vw;
+      margin-right: -4vw;
+      scroll-margin-top: 6.5rem;
+      background: var(--bg);
+    }
+    #welcome-pricing { grid-row: 2; }
+    #welcome-contact { grid-row: 3; }
+    .arrival-mantra {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 1.15rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.7rem;
+      margin: 0;
+      color: #6d7f76;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .arrival-dot { color: #1a5f4a; }
+    :host-context(html[data-memora-lang='ta']) .arrival-kicker,
+    :host-context(html[data-memora-lang='ta']) .arrival-copy h1,
+    :host-context(html[data-memora-lang='ta']) .arrival-body,
+    :host-context(html[data-memora-lang='ta']) .arrival-mantra {
+      font-family: 'Noto Sans Tamil', var(--font-body);
+      font-style: normal;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    :host-context(html[data-memora-lang='ta']) .arrival-copy h1 {
+      font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+      line-height: 1.25;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .logo { transition: none; }
       .logo:hover { transform: none; }
       .logo-glow,
       .wordmark-text,
-      .wordmark-shine,
-      .brand-icon,
-      .brand-icon svg {
+      .wordmark-shine {
         animation: none !important;
       }
       .logo-glow { opacity: 0.5; transform: none; }
@@ -394,6 +693,13 @@ import { environment } from '../../../environments/environment';
         background-size: 100% auto;
       }
       .wordmark-shine { display: none; }
+      .polaroid,
+      .polaroid::after {
+        animation: none !important;
+      }
+      .polaroid--a { transform: rotate(-8deg); }
+      .polaroid--b { transform: rotate(7deg); }
+      .polaroid--c { transform: rotate(-2deg); }
     }
     .showcase {
       position: relative;
@@ -479,6 +785,64 @@ import { environment } from '../../../environments/environment';
       font-size: 0.8rem;
       line-height: 1.4;
       max-width: 34rem;
+    }
+    .showcase--guest {
+      background: transparent;
+      padding: 1.35rem 0 1.15rem;
+    }
+    .who-we-are {
+      max-width: 46rem;
+      margin: 0 auto;
+      padding: 0.15rem 1.5rem 0.1rem;
+      text-align: center;
+    }
+    .showcase--guest .who-label {
+      margin: 0 0 0.35rem;
+      color: #1a5f4a;
+      font-family: var(--font-body);
+      font-style: normal;
+      font-weight: 700;
+      font-size: clamp(0.68rem, 1vw, 0.78rem);
+      letter-spacing: 0.22em;
+      line-height: 1.3;
+      text-transform: uppercase;
+    }
+    .showcase--guest .who-title {
+      margin: 0 auto 0.4rem;
+      max-width: 36rem;
+      color: #14382c;
+      font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+      font-style: normal;
+      font-weight: 600;
+      font-size: clamp(1.28rem, 2.2vw, 1.75rem);
+      letter-spacing: -0.015em;
+      line-height: 1.15;
+    }
+    .showcase--guest .who-line {
+      margin: 0 auto;
+      max-width: 40rem;
+      color: #3a4c45;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      font-weight: 500;
+      font-size: clamp(0.98rem, 1.35vw, 1.12rem);
+      line-height: 1.6;
+    }
+    :host-context(html[data-memora-lang='ta']) .showcase--guest .who-label,
+    :host-context(html[data-memora-lang='ta']) .showcase--guest .who-title,
+    :host-context(html[data-memora-lang='ta']) .showcase--guest .who-line {
+      font-family: 'Noto Sans Tamil', var(--font-body);
+      font-style: normal;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    :host-context(html[data-memora-lang='ta']) .showcase--guest .who-title {
+      font-size: clamp(1.15rem, 2vw, 1.45rem);
+      line-height: 1.3;
+    }
+    :host-context(html[data-memora-lang='ta']) .showcase--guest .who-line {
+      font-size: clamp(0.92rem, 1.3vw, 1.02rem);
+      line-height: 1.7;
     }
     .gallery-window {
       overflow: hidden;
@@ -787,48 +1151,6 @@ import { environment } from '../../../environments/environment';
         background: #eef3f0;
       }
     }
-    .country-summary-bar {
-      background: #f8fcfa;
-      color: #355c52;
-      padding: 0.5rem 1.5rem;
-      border-bottom: 1px solid #e3ece8;
-    }
-    .country-summary-bar .container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-    .summary-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-    .summary-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding: 0.25rem 0.65rem;
-      background: #ffffff;
-      border: 1px solid #d7e7e1;
-      border-radius: 999px;
-      font-size: 0.82rem;
-      font: inherit;
-      cursor: pointer;
-      color: inherit;
-      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
-    }
-    .summary-chip:hover {
-      border-color: #b8d4ca;
-      background: #fbfffc;
-    }
-    .summary-chip.active {
-      border-color: #1a5f4a;
-      background: #ecf6f2;
-      box-shadow: 0 2px 8px rgba(26, 95, 74, 0.1);
-    }
-    .summary-chip strong { color: #274d43; }
     .main { min-height: calc(100vh - 160px); padding: 0.55rem 0 1.6rem; }
     @media (max-width: 1024px) {
       .header-inner {
@@ -864,17 +1186,62 @@ import { environment } from '../../../environments/environment';
         text-align: center;
         align-items: center;
       }
+      .who-we-are {
+        padding: 0.1rem 1rem;
+      }
+      .showcase--guest .who-title {
+        font-size: 1.2rem;
+      }
+      .showcase--guest .who-line {
+        font-size: 0.95rem;
+      }
       .gallery-card {
         width: 148px;
       }
-      .country-summary-bar {
-        padding: 0.45rem 0;
-      }
-      .summary-chips {
-        justify-content: center;
-      }
     }
     @media (max-width: 768px) {
+      .welcome-scroll {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto auto;
+        padding: 1.1rem 1.25rem 0;
+        background:
+          radial-gradient(ellipse 42% 36% at 12% 8%, rgba(176, 196, 168, 0.35), transparent 70%),
+          #f6f3ec;
+      }
+      .welcome-scroll .arrival-collage,
+      .welcome-scroll .arrival-copy,
+      .welcome-scroll .arrival-mantra,
+      .welcome-panel { grid-column: 1; }
+      .welcome-scroll .arrival-collage { grid-row: 1; height: 340px; min-height: 300px; }
+      .welcome-scroll .arrival-copy {
+        grid-row: 2;
+        align-self: start;
+        padding-top: 0.25rem;
+      }
+      .welcome-scroll .arrival-cta.is-following {
+        top: auto;
+        right: 1rem;
+        bottom: 1.1rem;
+      }
+      .welcome-scroll .arrival-mantra { grid-row: 3; position: relative; padding: 1rem 0 1.25rem; }
+      .welcome-panel { margin-left: -1.25rem; margin-right: -1.25rem; }
+      #welcome-pricing { grid-row: 4; }
+      #welcome-contact { grid-row: 5; }
+      .arrival {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        padding: 1.25rem 1.25rem 1.5rem;
+        gap: 1.25rem;
+      }
+      .arrival-collage {
+        height: 340px;
+        min-height: 300px;
+        order: -1;
+      }
+      .arrival-mantra {
+        position: static;
+        margin-top: 0.4rem;
+      }
       .top-bar {
         padding: 0.14rem 1rem;
         font-size: 0.65rem;
@@ -911,10 +1278,10 @@ import { environment } from '../../../environments/environment';
       .wordmark {
         font-size: 1.25rem;
       }
-      .brand-icon {
-        width: 1.15rem;
-        height: 1.15rem;
-        margin-right: 0.35rem;
+      .brand-mark {
+        width: 2.85rem;
+        height: 2.85rem;
+        margin-right: 0.4rem;
       }
       .nav {
         gap: 0.3rem;
@@ -936,10 +1303,6 @@ import { environment } from '../../../environments/environment';
       }
       .gallery-card {
         width: 140px;
-      }
-      .summary-chip {
-        font-size: 0.75rem;
-        padding: 0.22rem 0.55rem;
       }
     }
   `]
@@ -967,15 +1330,21 @@ export class CustomerLayoutComponent implements OnInit {
   ];
 
   profileMenuOpen = signal(false);
+  sessionExpired = signal(false);
   profileImageUrl = computed(() => this.auth.currentUser()?.profileImageUrl ?? null);
   userDisplayName = computed(() => this.auth.currentUser()?.displayName?.trim() || '');
   userEmail = computed(() => this.auth.currentUser()?.email || '');
 
-  /** Country chips and showcase are hidden on profile; profile has its own hero. */
+  /** Showcase is hidden on profile; profile has its own hero. */
   readonly isProfileRoute = signal(false);
+  readonly isHome = signal(true);
+  /** Stays on until a guest chooses the feed during this visit. */
+  private readonly enteredFeed = signal(false);
+  private wasLoggedIn = false;
+  /** Guest landing on a fresh visit, until they open the feed. */
+  readonly showWelcome = computed(() => !this.auth.isLoggedIn() && this.isHome() && !this.enteredFeed());
 
   constructor(
-    public stats: EventStatsService,
     public auth: AuthService,
     public authUi: AuthUiService,
     public i18n: LanguageService,
@@ -985,12 +1354,51 @@ export class CustomerLayoutComponent implements OnInit {
     const syncRoute = () => {
       const path = this.router.url.split('?')[0].split('#')[0];
       this.isProfileRoute.set(path === '/profile' || path.startsWith('/profile/'));
+      this.isHome.set(path === '/' || path === '');
+      this.syncSessionNotice();
     };
     syncRoute();
     this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe(() => {
       syncRoute();
       this.closeProfileMenu();
     });
+    effect(() => {
+      const loggedIn = this.auth.isLoggedIn();
+      if (loggedIn) this.enteredFeed.set(true);
+      else if (this.wasLoggedIn) this.enteredFeed.set(false);
+      this.wasLoggedIn = loggedIn;
+    }, { allowSignalWrites: true });
+  }
+
+  @HostListener('window:scroll')
+  @HostListener('window:resize')
+  placeDiscover(): void {
+    const btn = this.host.nativeElement.querySelector('.welcome-scroll .arrival-cta') as HTMLElement | null;
+    if (!btn) return;
+    const slot = btn.parentElement;
+    const contact = this.host.nativeElement.querySelector('#welcome-contact');
+    if (!slot || !contact || !this.showWelcome()) {
+      btn.classList.remove('is-following');
+      return;
+    }
+    const pinLine = 102;
+    const slotTop = slot.getBoundingClientRect().top;
+    const contactBottom = contact.getBoundingClientRect().bottom;
+    btn.classList.toggle('is-following', slotTop < pinLine && contactBottom > pinLine + 72);
+  }
+
+  scrollToSection(event: Event, id: string): void {
+    event.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  enterFeed(): void {
+    this.enteredFeed.set(true);
+    const path = this.router.url.split('?')[0].split('#')[0];
+    if (path !== '/' && path !== '') {
+      void this.router.navigateByUrl('/');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   userInitials(): string {
@@ -1020,9 +1428,26 @@ export class CustomerLayoutComponent implements OnInit {
     this.profileMenuOpen.set(false);
   }
 
-  logout() {
+  logout(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
     this.closeProfileMenu();
     this.auth.logout();
+  }
+
+  dismissSessionNotice() {
+    this.sessionExpired.set(false);
+  }
+
+  private syncSessionNotice() {
+    const url = this.router.parseUrl(this.router.url);
+    if (url.queryParams['session'] !== 'expired') return;
+    this.sessionExpired.set(true);
+    void this.router.navigate([], {
+      queryParams: { session: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
   }
 
   @HostListener('document:click', ['$event'])

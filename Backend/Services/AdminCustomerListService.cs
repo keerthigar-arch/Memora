@@ -31,6 +31,18 @@ public class AdminCustomerListService(AppDbContext db)
             .OrderByDescending(u => u.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Select(u => new
+            {
+                u.Id,
+                u.Email,
+                u.DisplayName,
+                u.MobileNumber,
+                u.Bio,
+                u.ProfileImageUrl,
+                u.ProfileVisibility,
+                u.ShowEmail,
+                u.CreatedAt
+            })
             .ToListAsync(cancellationToken);
 
         var ids = users.Select(u => u.Id).ToList();
@@ -63,8 +75,22 @@ public class AdminCustomerListService(AppDbContext db)
 
     public async Task<CustomerAdminListDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var u = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (u == null || u.Role == "Admin")
+        var u = await db.Users.AsNoTracking()
+            .Where(x => x.Id == id && x.Role != "Admin")
+            .Select(x => new
+            {
+                x.Id,
+                x.Email,
+                x.DisplayName,
+                x.MobileNumber,
+                x.Bio,
+                x.ProfileImageUrl,
+                x.ProfileVisibility,
+                x.ShowEmail,
+                x.CreatedAt
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (u == null)
             return null;
 
         var eventCount = await db.Events.AsNoTracking().CountAsync(e => e.UserId == u.Id, cancellationToken);

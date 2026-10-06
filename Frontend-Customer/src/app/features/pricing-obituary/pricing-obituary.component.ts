@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, Input, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService, PricingPageDto } from '../../services/api.service';
 import { formatUsd, MEMORA_DISPLAY_PLANS } from '../../constants/display-plans';
@@ -18,14 +18,18 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <div class="hero-inner">
               <p class="hero-kicker">
                 <span class="hero-kicker-rule" aria-hidden="true"></span>
-                Memora
+                தmileye
                 <span class="hero-kicker-rule" aria-hidden="true"></span>
               </p>
               <h1>Pricing</h1>
               <p class="hero-lede">
                 Simple display plans for publishing life-event notices—same rates for every event type and region.
               </p>
-              <a routerLink="/contact" class="hero-cta">Questions? Contact us</a>
+              @if (embedded) {
+                <a href="#welcome-contact" class="hero-cta" (click)="goToWelcomeContact($event)">Questions? Contact us</a>
+              } @else {
+                <a routerLink="/contact" class="hero-cta">Questions? Contact us</a>
+              }
             </div>
           </div>
         </div>
@@ -672,6 +676,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   `]
 })
 export class PricingObituaryComponent implements OnInit {
+  @Input() embedded = false;
   loading = signal(true);
   error = signal('');
   pricing = signal<PricingPageDto | null>(null);
@@ -684,6 +689,11 @@ export class PricingObituaryComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadPricing();
+  }
+
+  goToWelcomeContact(event: Event): void {
+    event.preventDefault();
+    document.getElementById('welcome-contact')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   telHref(phone: string): string {

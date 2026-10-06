@@ -15,8 +15,9 @@ import { AuthService } from '../../services/auth.service';
 
       <div class="admin-login-content">
         <header class="brand-block">
+          <img class="brand-mark" src="assets/brand/smileye-logo.png" alt="தmileye" />
           <p class="brand-kicker">Admin</p>
-          <h1 class="brand-title">Memora</h1>
+          <h1 class="brand-title">தmileye</h1>
         </header>
 
         <div class="auth-form">
@@ -118,6 +119,15 @@ import { AuthService } from '../../services/auth.service';
       margin-bottom: 0.5rem;
       color: #fff;
       text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
+    }
+    .brand-mark {
+      width: 5.75rem;
+      height: 5.75rem;
+      object-fit: cover;
+      border-radius: 12px;
+      display: block;
+      margin: 0 auto 0.75rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
     }
     .brand-kicker {
       font-size: 0.75rem;

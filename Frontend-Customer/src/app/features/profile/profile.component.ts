@@ -22,20 +22,51 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <div class="container profile-hero-inner">
             <div class="hero-shell">
               <div class="hero-head">
-                <p class="hero-kicker">Memora</p>
+                <p class="hero-kicker">தmileye</p>
                 <h1 id="customer-profile-heading">{{ 'profile.title' | t }}</h1>
                 <p class="hero-sub">{{ 'profile.subtitle' | t }}</p>
               </div>
 
               <div class="hero-identity-card">
                 <div class="avatar-wrap">
-                  <div class="avatar" [class.has-photo]="!!avatarImageUrl()">
-                    @if (avatarImageUrl()) {
-                      <img [src]="avatarImageUrl()" alt="" />
-                    } @else {
-                      <span class="avatar-initials">{{ initials() }}</span>
-                    }
-                  </div>
+                  <label class="avatar-hit">
+                    <span class="avatar" [class.has-photo]="!!avatarImageUrl()">
+                      @if (avatarImageUrl()) {
+                        <img [src]="avatarImageUrl()" alt="" />
+                      } @else {
+                        <span class="avatar-initials">{{ initials() }}</span>
+                      }
+                    </span>
+                    <span class="avatar-cam" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 8h3l2-2h6l2 2h3v11H4z" /><circle cx="12" cy="13" r="3.2" />
+                      </svg>
+                    </span>
+                    <input
+                      type="file"
+                      class="photo-input"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                      [disabled]="photoBusy()"
+                      [attr.aria-label]="'profile.uploadPhoto' | t"
+                      (change)="onPhotoSelected($event)"
+                    />
+                  </label>
+                  @if (avatarImageUrl()) {
+                    <button
+                      type="button"
+                      class="avatar-remove"
+                      [disabled]="photoBusy()"
+                      (click)="askRemovePhoto($event)"
+                      [attr.aria-label]="'profile.deletePhoto' | t"
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 7h16M9 7V5h6v2M8 7l1 13h6l1-13" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </button>
+                  }
+                  @if (photoError()) {
+                    <p class="avatar-error">{{ photoError() }}</p>
+                  }
                 </div>
 
                 <div class="identity-main">
@@ -84,13 +115,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 </div>
                 <form (ngSubmit)="saveProfile()" class="form-block">
                   <p class="form-section-label">{{ 'profile.updateProfile' | t }}</p>
-                  <input
-                    id="cust-photo"
-                    type="file"
-                    class="photo-input"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    (change)="onPhotoSelected($event)"
-                  />
                   <div class="form-group">
                     <label for="cust-name">{{ 'profile.displayName' | t }}</label>
                     <input id="cust-name" [(ngModel)]="displayName" name="displayName" required />
@@ -98,19 +122,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   <div class="form-group">
                     <label for="cust-bio">{{ 'profile.bio' | t }}</label>
                     <textarea id="cust-bio" [(ngModel)]="bio" name="bio" rows="3"></textarea>
-                  </div>
-                  <div class="form-group">
-                    <label for="cust-photo">{{ 'profile.photo' | t }}</label>
-                    <div class="photo-field">
-                      <label class="btn btn-outline photo-choose" for="cust-photo">{{ 'profile.choosePhoto' | t }}</label>
-                      @if (pendingPhotoName()) {
-                        <span class="file-hint">{{ pendingPhotoName() }} — {{ 'profile.saveToUpload' | t }}</span>
-                      } @else if (profile()!.profileImageUrl) {
-                        <span class="file-hint">{{ 'profile.photoSaved' | t }}</span>
-                      } @else {
-                        <span class="file-hint">{{ 'profile.photoHint' | t }}</span>
-                      }
-                    </div>
                   </div>
                   @if (profileError()) {
                     <div class="error-msg">{{ profileError() }}</div>
@@ -224,6 +235,19 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           </div>
         </div>
       </div>
+      @if (removePrompt()) {
+        <div class="photo-dialog" role="dialog" aria-modal="true" aria-labelledby="remove-photo-title">
+          <button type="button" class="photo-dialog-backdrop" (click)="cancelRemovePhoto()" [attr.aria-label]="'profile.removeCancel' | t"></button>
+          <div class="photo-dialog-panel">
+            <h2 id="remove-photo-title">{{ 'profile.removeTitle' | t }}</h2>
+            <p>{{ 'profile.removeMessage' | t }}</p>
+            <div class="photo-dialog-actions">
+              <button type="button" class="btn btn-outline" (click)="cancelRemovePhoto()">{{ 'profile.removeCancel' | t }}</button>
+              <button type="button" class="btn btn-danger" [disabled]="photoBusy()" (click)="confirmRemovePhoto()">{{ 'profile.removeConfirm' | t }}</button>
+            </div>
+          </div>
+        </div>
+      }
     }
   `,
   styles: [`
@@ -312,23 +336,132 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       backdrop-filter: blur(12px);
     }
     .avatar-wrap {
+      position: relative;
       grid-row: 1 / span 2;
       width: fit-content;
     }
-    .avatar {
+    .avatar-hit {
+      position: relative;
+      display: block;
       width: 6.75rem;
       height: 6.75rem;
+      cursor: pointer;
+    }
+    .avatar-hit:has(input:disabled) { cursor: wait; }
+    .avatar {
+      width: 100%;
+      height: 100%;
+      padding: 0;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
       background: linear-gradient(145deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.06) 100%);
       border: 2px solid rgba(255, 255, 255, 0.35);
       box-shadow:
         0 0 0 3px rgba(212, 165, 116, 0.35),
         0 10px 24px rgba(0, 0, 0, 0.2);
     }
+    .avatar:disabled { cursor: wait; }
+    .avatar-cam {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      z-index: 2;
+      width: 1.75rem;
+      height: 1.75rem;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #fff;
+      color: #1a5f4a;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+    }
+    .avatar-remove {
+      position: absolute;
+      top: 0;
+      right: 0;
+      z-index: 3;
+      width: 1.75rem;
+      height: 1.75rem;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: #9f2d2d;
+      color: #fff;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+    }
+    .avatar-wrap:hover .avatar-remove,
+    .avatar-wrap:focus-within .avatar-remove {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    @media (hover: none) {
+      .avatar-remove { opacity: 1; pointer-events: auto; }
+    }
+    .avatar-error {
+      position: absolute;
+      left: 0;
+      top: calc(100% + 0.35rem);
+      margin: 0;
+      width: 14rem;
+      font-size: 0.75rem;
+      line-height: 1.35;
+      color: #ffe1e1;
+    }
+    .photo-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 1400;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+    }
+    .photo-dialog-backdrop {
+      position: absolute;
+      inset: 0;
+      border: 0;
+      background: rgba(12, 24, 20, 0.55);
+      cursor: pointer;
+    }
+    .photo-dialog-panel {
+      position: relative;
+      width: min(26rem, 100%);
+      padding: 1.35rem 1.4rem 1.2rem;
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+    }
+    .photo-dialog-panel h2 {
+      margin: 0 0 0.4rem;
+      font-size: 1.25rem;
+      color: #14382c;
+    }
+    .photo-dialog-panel p {
+      margin: 0 0 1.1rem;
+      color: #3a4c45;
+    }
+    .photo-dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.6rem;
+    }
+    .btn-danger {
+      background: #9f2d2d;
+      color: #fff;
+      border: 0;
+    }
+    .btn-danger:hover { background: #7f2222; }
     .avatar.has-photo {
       padding: 0;
       overflow: hidden;
@@ -348,15 +481,17 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
     .photo-input {
       position: absolute;
-      width: 1px;
-      height: 1px;
+      inset: 0;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      margin: 0;
       padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
+      opacity: 0;
+      cursor: pointer;
+      font-size: 0;
     }
+    .photo-input:disabled { cursor: wait; }
     .photo-field {
       display: flex;
       flex-wrap: wrap;
@@ -737,9 +872,10 @@ export class CustomerProfileComponent implements OnInit, OnDestroy {
   showEmail = false;
   currentPassword = '';
   newPassword = '';
-  photoFile: File | null = null;
-  photoPreviewUrl: string | null = null;
-  pendingPhotoName = signal<string | null>(null);
+  private photoPreviewUrl: string | null = null;
+  photoBusy = signal(false);
+  photoError = signal('');
+  removePrompt = signal(false);
 
   savingProfile = signal(false);
   savingPrivacy = signal(false);
@@ -808,50 +944,80 @@ export class CustomerProfileComponent implements OnInit, OnDestroy {
   onPhotoSelected(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (this.photoPreviewUrl) {
-      URL.revokeObjectURL(this.photoPreviewUrl);
-      this.photoPreviewUrl = null;
-    }
-    if (!file) {
-      this.photoFile = null;
-      this.pendingPhotoName.set(null);
-      return;
-    }
+    input.value = '';
+    if (!file || this.photoBusy()) return;
+    this.clearPhotoPreview();
     if (file.size > 5 * 1024 * 1024) {
-      this.profileError.set('Image must be 5 MB or smaller.');
-      input.value = '';
-      this.photoFile = null;
-      this.pendingPhotoName.set(null);
+      this.photoError.set('Image must be 5 MB or smaller.');
       return;
     }
     const allowed = /^image\/(jpeg|png|gif|webp)$/i;
     if (!allowed.test(file.type)) {
-      this.profileError.set('Use PNG, JPG, GIF, or WebP.');
-      input.value = '';
-      this.photoFile = null;
-      this.pendingPhotoName.set(null);
+      this.photoError.set('Use PNG, JPG, GIF, or WebP.');
       return;
     }
-    this.photoFile = file;
     this.photoPreviewUrl = URL.createObjectURL(file);
-    this.pendingPhotoName.set(file.name);
-    this.profileError.set('');
-    this.profileOk.set(false);
+    this.photoError.set('');
+    this.photoBusy.set(true);
+    this.auth.updateProfile(undefined, undefined, file).subscribe({
+      next: (u) => {
+        this.profile.set(u);
+        this.clearPhotoPreview();
+        this.photoBusy.set(false);
+      },
+      error: (err) => {
+        this.clearPhotoPreview();
+        this.photoError.set(this.readApiError(err, 'Could not upload the photo.'));
+        this.photoBusy.set(false);
+      }
+    });
+  }
+
+  askRemovePhoto(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    if (!this.avatarImageUrl() || this.photoBusy()) return;
+    this.removePrompt.set(true);
+  }
+
+  cancelRemovePhoto(): void {
+    if (this.photoBusy()) return;
+    this.removePrompt.set(false);
+  }
+
+  confirmRemovePhoto(): void {
+    if (this.photoBusy()) return;
+    this.photoError.set('');
+    this.photoBusy.set(true);
+    this.auth.updateProfile(undefined, undefined, undefined, true).subscribe({
+      next: (u) => {
+        this.profile.set(u);
+        this.clearPhotoPreview();
+        this.photoBusy.set(false);
+        this.removePrompt.set(false);
+      },
+      error: (err) => {
+        this.photoError.set(this.readApiError(err, 'Could not remove the photo.'));
+        this.photoBusy.set(false);
+        this.removePrompt.set(false);
+      }
+    });
+  }
+
+  private clearPhotoPreview(): void {
+    if (this.photoPreviewUrl) {
+      URL.revokeObjectURL(this.photoPreviewUrl);
+      this.photoPreviewUrl = null;
+    }
   }
 
   saveProfile() {
     this.savingProfile.set(true);
     this.profileError.set('');
     this.profileOk.set(false);
-    this.auth.updateProfile(this.displayName, this.bio, this.photoFile ?? undefined).subscribe({
+    this.auth.updateProfile(this.displayName, this.bio).subscribe({
       next: (u) => {
         this.profile.set(u);
-        if (this.photoPreviewUrl) {
-          URL.revokeObjectURL(this.photoPreviewUrl);
-          this.photoPreviewUrl = null;
-        }
-        this.photoFile = null;
-        this.pendingPhotoName.set(null);
         this.profileOk.set(true);
         this.savingProfile.set(false);
       },

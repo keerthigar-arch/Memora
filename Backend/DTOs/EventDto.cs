@@ -8,14 +8,11 @@ public record EventListDto(
     DateTime EventDate,
     DateTime? BirthDate,
     DateTime? DeathDate,
-    DateTime? WeddingDate,
-    string? Location,
     string? Country,
     string? MainImageUrl,
     string CreatedBy,
     DateTime CreatedAt,
-    int WishCount,
-    string Visibility
+    int WishCount
 );
 
 /// <summary>Organizer list: includes hidden/unpublished events.</summary>
@@ -78,18 +75,11 @@ public record EventDetailDto(
     bool PaymentReceived,
     bool IsOwner = false,
     List<string>? InvitedEmails = null,
-    string? MobileNumber = null
-);
-
-public record EventInviteDto(int Id, string InvitedEmail, DateTime CreatedAt);
-
-public record CreateEventDto(
-    string Title,
-    string Description,
-    string EventType,
-    DateTime EventDate,
-    string? Location,
-    string CreatedBy
+    string? MobileNumber = null,
+    int? DisplayDays = null,
+    string? ConfirmationDocumentUrl = null,
+    string? StreamLinks = null,
+    int? WishCount = null
 );
 
 public record CustomerDraftListDto(
@@ -154,7 +144,8 @@ public record CustomerDraftDetailDto(
     string? InvitedEmails = null,
     string? ConfirmationDocumentUrl = null,
     string? ReferenceCode = null,
-    string? MobileNumber = null
+    string? MobileNumber = null,
+    string? StreamLinksJson = null
 );
 
 public record RecentWishSidebarDto(
