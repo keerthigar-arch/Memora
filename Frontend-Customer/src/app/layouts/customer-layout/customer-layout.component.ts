@@ -195,8 +195,10 @@ import { environment } from '../../../environments/environment';
           <p class="arrival-body">{{ 'showcase.whoWeAre.body' | t }}</p>
           <div class="discover-slot">
             <button type="button" class="arrival-cta" (click)="enterFeed()">
-              {{ 'arrival.discover' | t }}
-              <span aria-hidden="true">→</span>
+              <span class="arrival-cta-glitter" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              </span>
+              <span class="arrival-cta-label">{{ 'arrival.discover' | t }}</span>
             </button>
           </div>
         </div>
@@ -578,9 +580,12 @@ import { environment } from '../../../environments/environment';
       line-height: 1.65;
     }
     .arrival-cta {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
       display: inline-flex;
       align-items: center;
-      gap: 0.55rem;
+      justify-content: center;
       border: 0;
       border-radius: 999px;
       background: #1b5c48;
@@ -589,11 +594,67 @@ import { environment } from '../../../environments/environment';
       font-size: 0.98rem;
       font-weight: 650;
       letter-spacing: 0.01em;
-      padding: 0.85rem 1.35rem 0.85rem 1.45rem;
+      padding: 0.85rem 1.5rem;
       cursor: pointer;
       box-shadow: 0 10px 24px rgba(27, 92, 72, 0.22);
     }
+    .arrival-cta-label {
+      position: relative;
+      z-index: 1;
+    }
+    .arrival-cta-glitter {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .arrival-cta-glitter::before {
+      content: '';
+      position: absolute;
+      top: -20%;
+      bottom: -20%;
+      left: -40%;
+      width: 28%;
+      background: linear-gradient(
+        100deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.05) 40%,
+        rgba(255, 244, 214, 0.28) 50%,
+        rgba(255, 255, 255, 0.05) 60%,
+        transparent 100%
+      );
+      transform: skewX(-18deg);
+      animation: ctaGlitterSweep 4.4s ease-in-out infinite;
+    }
+    .arrival-cta-glitter span {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: rgba(255, 250, 236, 0.9);
+      box-shadow: 0 0 3px rgba(255, 232, 186, 0.45);
+      opacity: 0;
+      animation: ctaSpark 3.2s ease-in-out infinite;
+    }
+    .arrival-cta-glitter span:nth-child(1) { left: 14%; top: 32%; animation-delay: 0s; }
+    .arrival-cta-glitter span:nth-child(2) { left: 28%; top: 68%; animation-delay: 0.35s; }
+    .arrival-cta-glitter span:nth-child(3) { left: 46%; top: 22%; animation-delay: 0.7s; }
+    .arrival-cta-glitter span:nth-child(4) { left: 58%; top: 74%; animation-delay: 0.15s; }
+    .arrival-cta-glitter span:nth-child(5) { left: 72%; top: 30%; animation-delay: 0.9s; }
+    .arrival-cta-glitter span:nth-child(6) { left: 84%; top: 64%; animation-delay: 0.5s; }
+    .arrival-cta-glitter span:nth-child(7) { left: 38%; top: 46%; animation-delay: 1.15s; }
     .arrival-cta:hover { background: #144a3a; }
+    @keyframes ctaGlitterSweep {
+      0% { transform: skewX(-18deg) translateX(0); opacity: 0; }
+      12% { opacity: 1; }
+      48% { transform: skewX(-18deg) translateX(420%); opacity: 0; }
+      100% { transform: skewX(-18deg) translateX(420%); opacity: 0; }
+    }
+    @keyframes ctaSpark {
+      0%, 100% { opacity: 0; transform: scale(0.6); }
+      50% { opacity: 0.5; transform: scale(1); }
+    }
     .welcome-scroll {
       display: grid;
       grid-template-columns: minmax(260px, 1.05fr) minmax(280px, 0.92fr);
@@ -694,9 +755,12 @@ import { environment } from '../../../environments/environment';
       }
       .wordmark-shine { display: none; }
       .polaroid,
-      .polaroid::after {
+      .polaroid::after,
+      .arrival-cta-glitter::before,
+      .arrival-cta-glitter span {
         animation: none !important;
       }
+      .arrival-cta-glitter span { opacity: 0.28; }
       .polaroid--a { transform: rotate(-8deg); }
       .polaroid--b { transform: rotate(7deg); }
       .polaroid--c { transform: rotate(-2deg); }
