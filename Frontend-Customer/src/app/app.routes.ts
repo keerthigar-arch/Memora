@@ -21,6 +21,22 @@ export const routes: Routes = [
         loadComponent: () => import('./features/contact/contact.component').then((m) => m.ContactComponent)
       },
       {
+        path: 'privacy',
+        loadComponent: () =>
+          import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
+        data: { page: 'privacy' }
+      },
+      {
+        path: 'terms',
+        loadComponent: () => import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
+        data: { page: 'terms' }
+      },
+      {
+        path: 'cookies',
+        loadComponent: () => import('./features/legal/legal-page.component').then((m) => m.LegalPageComponent),
+        data: { page: 'cookies' }
+      },
+      {
         path: 'pricing',
         loadComponent: () =>
           import('./features/pricing-obituary/pricing-obituary.component').then((m) => m.PricingObituaryComponent)

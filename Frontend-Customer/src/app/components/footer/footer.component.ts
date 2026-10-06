@@ -25,7 +25,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <p class="footer-tagline">{{ 'footer.tagline' | t }}</p>
           <p class="footer-lede">{{ 'footer.lede' | t }}</p>
           <div class="social-links" aria-label="Social media">
-            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" class="social-btn">
+            <a href="https://www.facebook.com/share/1GGFVk44Jv/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook" class="social-btn">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
             </a>
             <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram" class="social-btn">
@@ -83,7 +83,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 </span>
                 <div class="contact-body">
                   <span class="contact-label">{{ 'footer.emailLabel' | t }}</span>
-                  <a href="mailto:support@lifeeventshub.com" class="contact-value">support&#64;lifeeventshub.com</a>
+                  <a href="mailto:support@lifeeventshub.com" class="contact-value contact-value--email">support&#64;lifeeventshub.com</a>
                 </div>
               </li>
               <li class="contact-item">
@@ -113,9 +113,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <div class="container footer-bottom-inner">
           <p class="footer-copy">{{ 'footer.copyright' | t:{ year } }}</p>
           <nav class="footer-legal" [attr.aria-label]="'footer.legalAria' | t">
-            <a href="#" class="footer-legal-link">{{ 'footer.privacy' | t }}</a>
-            <a href="#" class="footer-legal-link">{{ 'footer.terms' | t }}</a>
-            <a href="#" class="footer-legal-link">{{ 'footer.cookies' | t }}</a>
+            <a routerLink="/privacy" class="footer-legal-link">{{ 'footer.privacy' | t }}</a>
+            <a routerLink="/terms" class="footer-legal-link">{{ 'footer.terms' | t }}</a>
+            <a routerLink="/cookies" class="footer-legal-link">{{ 'footer.cookies' | t }}</a>
           </nav>
         </div>
       </div>
@@ -257,8 +257,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 
     .footer-nav {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1.5rem 2rem;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(16.5rem, 1.35fr);
+      gap: 1.5rem 1.25rem;
     }
 
     .footer-section {
@@ -369,7 +369,10 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       color: rgba(216, 235, 227, 0.9);
       text-decoration: none;
       line-height: 1.4;
-      word-break: break-word;
+    }
+
+    .contact-value--email {
+      white-space: nowrap;
     }
 
     a.contact-value:hover {

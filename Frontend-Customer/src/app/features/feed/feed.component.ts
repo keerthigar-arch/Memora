@@ -150,8 +150,7 @@ import { ProtectMediaDirective } from '../../directives/protect-media.directive'
                 <p class="empty-lede">{{ 'feed.emptyHint' | t }}</p>
               }
               <div class="empty-actions">
-                <button type="button" class="btn btn-primary" (click)="exploreEvents()">{{ 'feed.exploreEvents' | t }}</button>
-                <a routerLink="/my-events/create" class="btn btn-outline">{{ 'feed.createMemory' | t }}</a>
+                <a routerLink="/my-events/create" class="btn btn-primary">{{ 'feed.createMemory' | t }}</a>
               </div>
             </div>
           } @else {
@@ -701,23 +700,6 @@ export class FeedComponent implements OnDestroy {
     this.page.set(1);
     this.events.set([]);
     this.loadEvents();
-  }
-
-  /** Reset filters so guests can browse the full public feed again. */
-  exploreEvents() {
-    this.searchTerm = '';
-    this.filter.set('');
-    this.showCustomDatePicker.set(false);
-    this.dateRange.set('all');
-    this.fromDate = '';
-    this.toDate = '';
-    this.page.set(1);
-    this.events.set([]);
-    const hadCountry = !!this.stats.selectedCountry();
-    this.stats.setSelectedCountry(null);
-    if (!hadCountry) {
-      this.loadEvents();
-    }
   }
 
   setDateRange(range: 'all' | 'thisYear' | 'lastYear' | 'custom') {
